@@ -1,7 +1,8 @@
 
 import psycopg2
 
-# connection establishment
+# Connect to root database in postgres
+# This lets you create another database within postgres
 conn = psycopg2.connect(
    database="postgres",
     user='postgres',
@@ -9,16 +10,26 @@ conn = psycopg2.connect(
     host='localhost',
     port= '5432'
 )
- 
+# Autocommit makes all SQL commands commit immediately after execution
+# Without it you would call cursor.commit() after execution to commit the command to the database 
 conn.autocommit = True
  
-# Creating a cursor object
+# Create a cursor
+# Cursors are used to pass SQL statements to a database and manipulate it
+# Select statements store the result of the statement within the cursor
+# The results can be accessed through cursor.fetchall() for all results or cursor.fetchone() for the first result
 cursor = conn.cursor()
+
+# Check the current list of databases withing the root database
+# If huntsvillehospital already exists the code finishes
+# If huntsvillehospital does not exist it creates the database and all tables that are within it
 cursor.execute("""SELECT EXISTS 
                (SELECT datname FROM pg_catalog.pg_database
                WHERE datname='huntsvillehospital')""")
+# Exists returns true or false if the SQL statement passed returns a result
 if(not cursor.fetchone()[0]):
   cursor.execute("""CREATE DATABASE huntsvillehospital""")
+  # After creating the new database create a new connection to access it
   con2 = psycopg2.connect(
     database="huntsvillehospital",
     user='postgres',
@@ -26,9 +37,10 @@ if(not cursor.fetchone()[0]):
     host='localhost',
     port= '5432'
   )
+
   con2.autocommit = True
   cursor2 = con2.cursor()
-
+  # Pass CREATE TABLE statements to populate the database.
   cursor2.execute("""CREATE TABLE Users (id serial PRIMARY KEY,
               username VARCHAR(255) NOT NULL UNIQUE,
               password VARCHAR(255) NOT NULL,
@@ -57,11 +69,35 @@ if(not cursor.fetchone()[0]):
               amount_paid_insurance VARCHAR(12)      
               );"""
               )
+  cursor2.execute("""CREATE TABLE Prescriptions (id serial PRIMARY KEY,
+              name VARCHAR(255),
+              amount VARCHAR(255),
+              schedule VARCHAR(255),
+              procedures text,
+              notes text      
+              );"""
+              )
+  cursor2.execute("""CREATE TABLE Admissions (id serial PRIMARY KEY,
+              patientID int REFERENCES Patients(id),
+              time_of_admission timestamp NOT NULL,
+              reason_for_admission VARCHAR(255),
+              personnelID int REFERENCES Users(id),
+              facility VARCHAR(50),
+              floor VARCHAR(10),
+              room_num int,
+              bed_num int,
+              time_of_discharge timestamp,
+              notes text,
+              prescriptionID int REFERENCES Prescriptions(id)    
+              );"""
+              )
+  # Close second connections
+  con2.close()
+  cursor2.close()
   print("Database Created")
 else:
   print("Database Already Exists")
 
-# Closing the connection
+# Close first connections
+cursor.close()
 conn.close()
-
-
