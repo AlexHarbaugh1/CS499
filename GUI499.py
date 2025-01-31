@@ -4,7 +4,11 @@ Created on Wed Jan 29 09:18:06 2025
 
 @author: laure
 """
+<<<<<<< Updated upstream
 
+=======
+import psycopg2
+>>>>>>> Stashed changes
 import sys
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
@@ -27,6 +31,7 @@ class LoginScreen(QDialog):
            if len(user)==0 or len(password)==0:
                self.errorMsg.setText("Missing field.")
               
+<<<<<<< Updated upstream
                ''' This will connect to the certain SQL db
            else:    
                 conn = sql.connect("database name")
@@ -41,6 +46,29 @@ class LoginScreen(QDialog):
                 else:
                     self.errorMsg.setText("Invalid username or password")
               '''
+=======
+               ''' This will connect to the certain SQL db '''
+           else:    
+                conn = psycopg2.connect(
+                database="huntsvillehospital",
+                user='postgres',
+                password='49910',
+                host='localhost',
+                port= '5432'
+                )
+                cur = conn.cursor()
+                # Password is encrytped ao crypt() comapares the decrytped password
+                # The result of the query is a boolean that is true if there is a match and false when there is not a match
+                query = "SELECT (password = crypt('{}', password)) AS password_match FROM Users WHERE username = '{}' ;" .format(password, user)
+                cur.execute(query)
+                result_pass = cur.fetchone()[0]
+                if result_pass:
+                    print("Successfully logged in.")
+                    #self.connect(self.gotosearch)
+                    self.errorMsg.setText("")
+                else:
+                    self.errorMsg.setText("Invalid username or password")
+>>>>>>> Stashed changes
         
                   
                
