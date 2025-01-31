@@ -48,8 +48,10 @@ while True:
         InsertData.insertPatient(cursor, lName, fName, mName, mAddress,  hPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, fDoctor,
                   insCarrier, insAcc, insGNum, billInfo, amountPaid, amountOwed, insAmountPaid )
     elif(mode == '3'):
+        print("To be Added")
+        #cursor.execute("SELECT crypt('enterpword', '{}') ;" .format(passw))
         #Insert Data will perform the SQL to add the user to the database and encrypt the password
-        InsertData.insertAdmission(cursor, username, password, firstname, lastname, type)
+        #InsertData.insertAdmission(cursor, username, password, firstname, lastname, type)1
     quit = input("Would you like to make another addition? (Y/N)\n")
     if quit.lower() == "n":
         break

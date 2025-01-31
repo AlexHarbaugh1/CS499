@@ -1,4 +1,3 @@
-
 import psycopg2
 def run():
   # Connect to root database in postgres
@@ -54,20 +53,20 @@ def run():
                 firstname VARCHAR(255) NOT NULL,
                 middlename VARCHAR(255),
                 mailing_address VARCHAR(255),
-                home_phone VARCHAR(10),
-                work_phone VARCHAR(10),
+                home_phone VARCHAR(255),
+                work_phone VARCHAR(255),
                 contact1_name VARCHAR(255),
-                contact1_phone VARCHAR(10),
+                contact1_phone VARCHAR(255),
                 contact2_name VARCHAR(255),
-                contact2_phone VARCHAR(10),
+                contact2_phone VARCHAR(255),
                 family_doctor VARCHAR(255),
                 insurance_carrier VARCHAR(255),
                 insurance_account VARCHAR(255),
                 insurance_group_number VARCHAR(255),
                 billing_information TEXT,
-                amount_paid VARCHAR(12),
-                amount_owed VARCHAR(12),
-                amount_paid_insurance VARCHAR(12)      
+                amount_paid VARCHAR(255),
+                amount_owed VARCHAR(255),
+                amount_paid_insurance VARCHAR(255)      
                 );"""
                 )
     cursor2.execute("""CREATE TABLE Prescriptions (id serial PRIMARY KEY,
@@ -83,8 +82,8 @@ def run():
                 time_of_admission timestamp NOT NULL,
                 reason_for_admission VARCHAR(255),
                 personnelID int REFERENCES Users(id),
-                facility VARCHAR(50),
-                floor VARCHAR(10),
+                facility VARCHAR(255),
+                floor VARCHAR(255),
                 room_num int,
                 bed_num int,
                 time_of_discharge timestamp,
