@@ -1,9 +1,9 @@
 import psycopg2
-import TestDBPython
+import hospitalDB
 import InsertData # type: ignore
 
-# TestDBPython creates the database and all user tables
-TestDBPython.run()
+# hospitalDB creates the database and all user tables
+hospitalDB.run()
 # Connect to the database
 con = psycopg2.connect(
     database="huntsvillehospital",

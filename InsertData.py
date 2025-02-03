@@ -1,7 +1,7 @@
 import psycopg2
 def insertUser(cursor, username, password, fname, lname, type):
-    cursor.execute("""INSERT INTO Users (username, password, firstname, lastname, type)
-                   VALUES ('{}', crypt('{}', gen_salt('bf')), crypt('{}', gen_salt('md5')), crypt('{}', gen_salt('md5')), '{}') ;""" .format(username, password, fname, lname, type))
+    cursor.execute(f"""INSERT INTO Users (username, password, firstname, lastname, type)
+                   VALUES ('{username}', crypt('{password}', gen_salt('bf')), crypt('{fname}', gen_salt('md5')), crypt('{lname}', gen_salt('md5')), '{type}') ;""")
 
 def insertPatient(cursor, lName, fName, mName, address, hPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
                   insCarrier, insAcc, insGNum, billInfo, amountPaid, amountOwed, insAmountOwed):
