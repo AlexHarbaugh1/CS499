@@ -1,4 +1,6 @@
 import psycopg2
+import os
+from dotenv import load_dotenv
 def run():
   # Connect to root database in postgres
   # This lets you create another database within postgres
@@ -28,6 +30,8 @@ def run():
   # Exists returns true or false if the SQL statement passed returns a result
   if(not cursor.fetchone()[0]):
     cursor.execute("""CREATE DATABASE huntsvillehospital""")
+    load_dotenv()
+    fixed_salt = os.environ['fixed_salt']
     # After creating the new database create a new connection to access it
     con2 = psycopg2.connect(
       database="huntsvillehospital",
@@ -40,6 +44,7 @@ def run():
     con2.autocommit = True
     cursor2 = con2.cursor()
     cursor2.execute("CREATE EXTENSION pgcrypto;")
+    cursor2.execute("CREATE EXTENSION pg_trgm;")
     # Pass CREATE TABLE statements to populate the database.
     # 1. UserType
     cursor2.execute("""CREATE TABLE UserType
@@ -49,42 +54,49 @@ def run():
     # 2. Staff
     cursor2.execute("""CREATE TABLE Staff
                     (user_id SERIAL PRIMARY KEY,
-                    first_name VARCHAR(50) NOT NULL,
-                    last_name VARCHAR(50) NOT NULL,
-                    username VARCHAR(50) NOT NULL UNIQUE,
-                    password_hash VARCHAR(255) NOT NULL,
-                    type_id INT NOT NULL REFERENCES UserType(type_id));"""
+                    type_id INT NOT NULL REFERENCES UserType(type_id),
+                    first_name BYTEA NOT NULL,
+                    last_name BYTEA NOT NULL,
+                    username_hash TEXT NOT NULL,
+                    username BYTEA NOT NULL,
+                    password_hash TEXT NOT NULL);"""
                     )
     # 3. Patient
-    cursor2.execute("""CREATE TABLE Patient
+    cursor2.execute(f"""CREATE TABLE Patient
                     (patient_id SERIAL PRIMARY KEY,
-                    first_name VARCHAR(50) NOT NULL,
-                    last_name VARCHAR(50) NOT NULL,
-                    middle_name VARCHAR(50),
-                    mailing_address TEXT NOT NULL,
+                    first_name BYTEA NOT NULL,
+                    middle_name BYTEA NOT NULL,
+                    last_name BYTEA NOT NULL,
+                    first_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
+                    encode(digest(pgp_sym_decrypt(first_name, '{fixed_salt}'), 'sha256'), 'hex')) STORED,
+                    middle_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
+                    encode(digest(pgp_sym_decrypt(middle_name, '{fixed_salt}'), 'sha256'), 'hex')) STORED,
+                    last_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
+                    encode(digest(pgp_sym_decrypt(last_name, '{fixed_salt}'), 'sha256'), 'hex')) STORED,
+                    mailing_address BYTEA NOT NULL,
                     family_doctor_id INT REFERENCES Staff(user_id));"""
                     )
     # 4. Insurance
     cursor2.execute("""CREATE TABLE Insurance
                     (insurance_id SERIAL PRIMARY KEY,
                     patient_id INT UNIQUE NOT NULL REFERENCES Patient(patient_id),
-                    carrier_name VARCHAR(100) NOT NULL,
-                    account_number VARCHAR(100) NOT NULL,
-                    group_number VARCHAR(100) NOT NULL);"""
+                    carrier_name BYTEA NOT NULL,
+                    account_number BYTEA NOT NULL,
+                    group_number BYTEA NOT NULL);"""
                     )
     # 5. Phonenumber
     cursor2.execute("""CREATE TABLE PhoneNumber
                     (patient_id INT NOT NULL REFERENCES Patient(patient_id),
                     phone_type VARCHAR(20) NOT NULL CHECK (phone_type IN ('Home', 'Work', 'Mobile')),
-                    phone_number VARCHAR(20) NOT NULL,
+                    phone_number BYTEA NOT NULL,
                     PRIMARY KEY (patient_id, phone_type));"""
                     )
     # 6. EmergencyContact
     cursor2.execute("""CREATE TABLE EmergencyContact
                     (contact_id SERIAL PRIMARY KEY,
                     patient_id INT NOT NULL REFERENCES Patient(patient_id),
-                    contact_name VARCHAR(100) NOT NULL,
-                    contact_phone VARCHAR(20) NOT NULL,
+                    contact_name BYTEA NOT NULL,
+                    contact_phone BYTEA NOT NULL,
                     contact_order INT NOT NULL CHECK (contact_order IN (1, 2)),
                     UNIQUE (patient_id, contact_order));"""
                     )
@@ -97,21 +109,21 @@ def run():
                     bed_number VARCHAR(20));"""
                     )
     # 8. Admission
-    cursor2.execute("""CREATE TABLE Admission
-                    (admission_id SERIAL PRIMARY KEY,
+    cursor2.execute("""CREATE TABLE Admission(
+                    admission_id SERIAL PRIMARY KEY,
                     patient_id INT NOT NULL REFERENCES Patient(patient_id),
                     location_id INT NOT NULL REFERENCES Location(location_id),
-                    admittance_datetime TIMESTAMP NOT NULL,
-                    discharge_datetime TIMESTAMP,
-                    reason_for_admission TEXT NOT NULL);"""
+                    admittance_datetime BYTEA NOT NULL,
+                    discharge_datetime BYTEA,
+                    reason_for_admission BYTEA NOT NULL);"""
                     )
     # 9. Prescription
-    cursor2.execute("""CREATE TABLE Prescription
-                    (prescription_id SERIAL PRIMARY KEY,
+    cursor2.execute("""CREATE TABLE Prescription(
+                    prescription_id SERIAL PRIMARY KEY,
                     admission_id INT NOT NULL REFERENCES Admission(admission_id),
-                    medication_name VARCHAR(100) NOT NULL,
-                    amount VARCHAR(50) NOT NULL,
-                    schedule TEXT NOT NULL);"""
+                    medication_name BYTEA NOT NULL,
+                    amount BYTEA NOT NULL,
+                    schedule BYTEA NOT NULL);"""
                     )
     # 10. PatientNote
     cursor2.execute("""CREATE TABLE PatientNote
@@ -119,8 +131,8 @@ def run():
                     admission_id INT NOT NULL REFERENCES Admission(admission_id),
                     author_id INT NOT NULL REFERENCES Staff(user_id),
                     note_type VARCHAR(20) NOT NULL CHECK (note_type IN ('Doctor', 'Nurse')),
-                    note_text TEXT NOT NULL,
-                    note_datetime TIMESTAMP NOT NULL);"""
+                    note_text BYTEA NOT NULL,
+                    note_datetime BYTEA NOT NULL);"""
                     )
     # 11. ScheduledProcedure
     cursor2.execute("""CREATE TABLE ScheduledProcedure
@@ -144,9 +156,11 @@ def run():
                     item_description TEXT NOT NULL,
                     charge_amount DECIMAL(10, 2) NOT NULL);"""
                     )
-    # Adding Index to Patient table to allow for faster queries on patien names.
-    cursor2.execute("CREATE INDEX idx_patient_last_first_name ON Patient (last_name, first_name);")
-    cursor2.execute("CREATE INDEX idx_patient_first_name ON Patient (first_name);")
+    # Adding Index to Patient table to allow for faster queries on patient names.
+    cursor2.execute("CREATE INDEX idx_staff_username_hash ON Staff USING HASH (username_hash);")
+    cursor2.execute("CREATE INDEX idx_first_name_trgm ON Patient USING GIN (first_name_trgm gin_trgm_ops);")
+    cursor2.execute("CREATE INDEX idx_last_name_trgm ON Patient USING GIN (last_name_trgm gin_trgm_ops);")
+    cursor2.execute("CREATE INDEX idx_middle_name_trgm ON Patient USING GIN (middle_name_trgm gin_trgm_ops);")
 
     #Insert User types into database
     cursor2.execute("""INSERT INTO UserType (type_name)
