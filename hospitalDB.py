@@ -1,7 +1,7 @@
 import psycopg2
 import os
 from dotenv import load_dotenv
-def run():
+def run(encryptionkey):
   # Connect to root database in postgres
   # This lets you create another database within postgres
   conn = psycopg2.connect(
@@ -30,8 +30,6 @@ def run():
   # Exists returns true or false if the SQL statement passed returns a result
   if(not cursor.fetchone()[0]):
     cursor.execute("""CREATE DATABASE huntsvillehospital""")
-    load_dotenv()
-    fixed_salt = os.environ['fixed_salt']
     # After creating the new database create a new connection to access it
     con2 = psycopg2.connect(
       database="huntsvillehospital",
@@ -68,11 +66,11 @@ def run():
                     middle_name BYTEA NOT NULL,
                     last_name BYTEA NOT NULL,
                     first_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
-                    encode(digest(pgp_sym_decrypt(first_name, '{fixed_salt}'), 'sha256'), 'hex')) STORED,
+                    encode(digest(pgp_sym_decrypt(first_name, '{encryptionkey}'), 'sha256'), 'hex')) STORED,
                     middle_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
-                    encode(digest(pgp_sym_decrypt(middle_name, '{fixed_salt}'), 'sha256'), 'hex')) STORED,
+                    encode(digest(pgp_sym_decrypt(middle_name, '{encryptionkey}'), 'sha256'), 'hex')) STORED,
                     last_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
-                    encode(digest(pgp_sym_decrypt(last_name, '{fixed_salt}'), 'sha256'), 'hex')) STORED,
+                    encode(digest(pgp_sym_decrypt(last_name, '{encryptionkey}'), 'sha256'), 'hex')) STORED,
                     mailing_address BYTEA NOT NULL,
                     family_doctor_id INT REFERENCES Staff(user_id));"""
                     )

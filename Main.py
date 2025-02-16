@@ -1,9 +1,11 @@
 import psycopg2
 import hospitalDB
 import InsertData
+import EncryptionKey
 
+keys = EncryptionKey.getKeys()
 # hospitalDB creates the database and all user tables
-hospitalDB.run()
+hospitalDB.run(keys[0])
 # Connect to the database
 con = psycopg2.connect(
     database="huntsvillehospital",
@@ -16,6 +18,7 @@ con.autocommit = True
 cursor = con.cursor()
 
 # Ask User for input data
+
 while True:
     mode = input("Select Mode:\n1. Register User\n2. Register Patient\n3. Process Admission\n")
     if(mode == '1'):
@@ -25,7 +28,7 @@ while True:
         lastname = input("Enter lastname\n")
         type = input("Enter Type\n")
         #Insert Data will perform the SQL to add the user to the database and encrypt the password
-        InsertData.insertStaff(cursor, firstname , lastname, username, password, type)
+        InsertData.insertStaff(cursor, firstname , lastname, username, password, type, keys[0], keys[1])
     elif(mode == '2'):
         fName = input("Enter Patient's First Name\n")
         lName = input("Enter Patient's Last Name\n")
@@ -44,7 +47,7 @@ while True:
         insGNum = input("Enter Patient's Insurance Group Number\n")
         con.autocommit = False
         InsertData.insertPatient(cursor, lName, fName, mName, mAddress,  hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, fDoctor,
-                  insCarrier, insAcc, insGNum)
+                  insCarrier, insAcc, insGNum, keys[0], keys[1])
         con.commit()
         con.autocommit = True
     elif(mode == '3'):
