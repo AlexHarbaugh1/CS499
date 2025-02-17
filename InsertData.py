@@ -1,9 +1,6 @@
 import psycopg2
-#import EncryptionKey
-import os
-from dotenv import load_dotenv
+
 def insertStaff(cursor, fname , lname, username, password, type, encryptionkey, fixed_salt):
-    load_dotenv()
     cursor.execute(f"""INSERT INTO Staff (first_name, last_name, username_hash, username, password_hash, type_id)
                    Values(
                    pgp_sym_encrypt('{fname}', '{encryptionkey}'),
@@ -15,8 +12,6 @@ def insertStaff(cursor, fname , lname, username, password, type, encryptionkey, 
 
 def insertPatient(cursor, lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
                   insCarrier, insAcc, insGNum, encryptionkey, fixed_salt):
-    load_dotenv()
-    fixed_salt = os.getenv("fixed_salt")
     sql = """WITH
     doctor AS (
         SELECT user_id 
@@ -88,7 +83,5 @@ def insertPatient(cursor, lname, fname, mname, address, hPhone, mPhone, wPhone, 
 
     cursor.execute(sql, params)
 
-def insertPrescription():
-    print("hi")
 def insertAdmission():
     print("Hi")
