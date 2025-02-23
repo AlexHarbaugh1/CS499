@@ -1,5 +1,4 @@
 import psycopg2
-import os
 from dotenv import load_dotenv
 def run(encryptionkey):
   # Connect to root database in postgres
@@ -104,7 +103,8 @@ def run(encryptionkey):
                     facility VARCHAR(100) NOT NULL,
                     floor INT,
                     room_number VARCHAR(20),
-                    bed_number VARCHAR(20));"""
+                    bed_number VARCHAR(20),
+                    CONSTRAINT unique_location UNIQUE(facility, floor, room_number, bed_number));"""
                     )
     # 8. Admission
     cursor2.execute("""CREATE TABLE Admission(
@@ -136,8 +136,8 @@ def run(encryptionkey):
     cursor2.execute("""CREATE TABLE ScheduledProcedure
                     (procedure_id SERIAL PRIMARY KEY,
                     admission_id INT NOT NULL REFERENCES Admission(admission_id),
-                    procedure_name VARCHAR(100) NOT NULL,
-                    scheduled_datetime TIMESTAMP NOT NULL);"""
+                    procedure_name BYTEA NOT NULL,
+                    scheduled_datetime BYTEA NOT NULL);"""
                     )
     # 12. Billing
     cursor2.execute("""CREATE TABLE Billing

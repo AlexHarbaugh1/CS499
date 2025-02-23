@@ -52,18 +52,21 @@ while True:
         con.commit()
         con.autocommit = True
     elif(mode == '3'):
+        prescriptions = []
+        notes = []
+        procedures = []
         fName = input("Enter Patient's First Name\n")
         mName = input("Enter Patient's Middle Name\n")
         lName = input("Enter Patient's Last Name\n")
-        admissionDateTime = input("Enter Admission Date and Time (YYYY-MM-DD HH:MM:SS\n")
+        admissionDateTime = input("Enter Admission Date and Time (YYYY-MM-DD HH:MM:SS)\n")
         admissionReason = input("Enter Patient's Reason for Admission\n")
+        releaseDateTime = input("Enter Release Date and Time (YYYY-MM-DD HH:MM:SS)\n")
         hospitalFacility = input("Enter Hospital Facility of Patient's Stay\n")
         hospitalFloor = input("Enter Floor of Patient's Stay\n")
         hospitalRoom = input("Enter Room Number of Patient's Stay\n")
         hospitalBed = input("Enter Bed Number of Patient's Stay\n")
         prescriptionsYesNo = input("Did the Patient have any Prescriptions Administered During Stay? (Y/N)\n")
         if(prescriptionsYesNo.lower() == "y"):
-            prescriptions = []
             while(True):
                 prescriptionName = input("Enter Name of Prescription\n")
                 prescriptionAmount = input("Enter Amount of Prescription Administered\n")
@@ -75,9 +78,10 @@ while True:
                     break
         else:
             print("No Prescriptions Administered\n")
+            prescription = {'name': 'None', 'amount': 'None', 'schedule': 'None'}
+            prescriptions.append(prescription)
         notesYesNo = input("Are There Any Notes on the Admission? (Y/N)\n")
         if(notesYesNo.lower() == 'y'):
-            notes = []
             while(True):
                 noteAuthor = input("Enter the Author's Username\n")
                 noteType = input("Nurse's of Doctor's Note? (Doctor/Nurse)\n")
@@ -90,19 +94,22 @@ while True:
                     break
         else:
             print("No Notes Entered\n")
+            note = {'author': 'None', 'type': 'None', 'text': 'None', 'time' : datetime.datetime.now()}
+            notes.append(note)
         proceduresYesNo = input("Does the Patient Require any Procedures? (Y/N)\n")
         if(proceduresYesNo.lower() == 'y'):
-            procedures = []
             while(True):
                 procedureName = input("Enter the Procedure's Name\n")
                 procedureDate = input("Enter the Procedure Date (YYYY-MM-DD HH:MM:SS)\n")
                 procedure = {'name': procedureName, 'date': procedureDate}
                 procedures.append(procedure)
                 anotherProcedure = input("Add Another Procedure? (Y/N)\n")
-                if(anotherNote.lower() == "n"):
+                if(anotherProcedure.lower() == "n"):
                     break
         else:
             print("No Procedures Entered\n")
+            procedure = {'name': 'None', 'date': 'None'}
+            procedures.append(procedure)
         billingTotal = input("Enter the Total Dollar Amount Owed\n")
         billingPaid = input("Enter the Dollar Amount Paid\n")
         billingInsurance = input("Enter the Dollar Amount Paid by Insurance\n")
@@ -110,11 +117,15 @@ while True:
         while(True):
             billItem = input("Enter The Billed Item\n")
             itemCost = input("Enter The Item's Price\n")
-            item = {'name': billItem, 'cost': itemCost}
+            item = {'name': billItem, 'cost': float(itemCost)}
             itemizedBill.append(item)
             anotherItem = input("Add Another Item (Y/N)\n")
             if(anotherItem.lower() == "n"):
                     break
+        con.autocommit = False
+        InsertData.insertAdmission(cursor, fName, mName, lName, admissionDateTime, admissionReason, releaseDateTime, hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, prescriptions, notes, procedures, billingTotal, billingPaid, billingInsurance, itemizedBill, keys[0], keys[1])
+        con.commit()
+        con.autocommit = True
     quit = input("Would you like to make another addition? (Y/N)\n")
     if quit.lower() == "n":
         break
