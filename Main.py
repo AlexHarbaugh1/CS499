@@ -6,7 +6,7 @@ import datetime
 
 keys = EncryptionKey.getKeys()
 # hospitalDB creates the database and all user tables
-hospitalDB.run(keys[0])
+hospitalDB.run()
 # Connect to the database
 con = psycopg2.connect(
     database="huntsvillehospital",

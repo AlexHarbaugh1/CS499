@@ -1,4 +1,9 @@
 import psycopg2
+import hashlib
+def generatePrefixes(text):
+    return [text[:i] for i in range(1, len(text) + 1)]
+def hashPrefix(prefix, fixedSalt):
+    return hashlib.sha256((prefix + fixedSalt).encode()).hexdigest()
 
 def insertStaff(cursor, fname , lname, username, password, type, encryptionKey, fixedSalt):
     cursor.execute(f"""INSERT INTO Staff (first_name, last_name, username_hash, username, password_hash, type_id)
@@ -12,6 +17,10 @@ def insertStaff(cursor, fname , lname, username, password, type, encryptionKey, 
 
 def insertPatient(cursor, lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
                   insCarrier, insAcc, insGNum, encryptionKey, fixedSalt):
+    fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
+    mnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(mname)]
+    lnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(lname)]
+
     sql = """WITH
     doctor AS (
         SELECT user_id 
@@ -19,11 +28,14 @@ def insertPatient(cursor, lname, fname, mname, address, hPhone, mPhone, wPhone, 
         WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
     ),
     new_patient AS (
-        INSERT INTO Patient (first_name, middle_name, last_name, mailing_address, family_doctor_id)
+        INSERT INTO Patient (first_name, middle_name, last_name, first_name_prefix_trgms, middle_name_prefix_trgms, last_name_prefix_trgms, mailing_address, family_doctor_id)
         VALUES (
             pgp_sym_encrypt(%s, %s),
             pgp_sym_encrypt(%s, %s),
             pgp_sym_encrypt(%s, %s),
+            %s,
+            %s,
+            %s,
             pgp_sym_encrypt(%s, %s),
             (SELECT user_id FROM doctor)
         )
@@ -62,6 +74,9 @@ def insertPatient(cursor, lname, fname, mname, address, hPhone, mPhone, wPhone, 
         fname, encryptionKey,
         mname, encryptionKey,
         lname, encryptionKey,
+        fnameHashedPrefixes,
+        mnameHashedPrefixes,
+        lnameHashedPrefixes,
         address, encryptionKey,
         
         # phone_numbers

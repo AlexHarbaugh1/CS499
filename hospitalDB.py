@@ -1,6 +1,6 @@
 import psycopg2
 from dotenv import load_dotenv
-def run(encryptionkey):
+def run():
   # Connect to root database in postgres
   # This lets you create another database within postgres
   conn = psycopg2.connect(
@@ -64,12 +64,9 @@ def run(encryptionkey):
                     first_name BYTEA NOT NULL,
                     middle_name BYTEA NOT NULL,
                     last_name BYTEA NOT NULL,
-                    first_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
-                    encode(digest(pgp_sym_decrypt(first_name, '{encryptionkey}'), 'sha256'), 'hex')) STORED,
-                    middle_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
-                    encode(digest(pgp_sym_decrypt(middle_name, '{encryptionkey}'), 'sha256'), 'hex')) STORED,
-                    last_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
-                    encode(digest(pgp_sym_decrypt(last_name, '{encryptionkey}'), 'sha256'), 'hex')) STORED,
+                    first_name_prefix_trgms TEXT[],
+                    middle_name_prefix_trgms TEXT[],
+                    last_name_prefix_trgms TEXT[],
                     mailing_address BYTEA NOT NULL,
                     family_doctor_id INT REFERENCES Staff(user_id));"""
                     )
@@ -154,11 +151,11 @@ def run(encryptionkey):
                     item_description TEXT NOT NULL,
                     charge_amount DECIMAL(10, 2) NOT NULL);"""
                     )
-    # Adding Index to Patient table to allow for faster queries on patient names.
+    # Adding Indexes for Faster Searching and Partial Searching.
     cursor2.execute("CREATE INDEX idx_staff_username_hash ON Staff USING HASH (username_hash);")
-    cursor2.execute("CREATE INDEX idx_first_name_trgm ON Patient USING GIN (first_name_trgm gin_trgm_ops);")
-    cursor2.execute("CREATE INDEX idx_last_name_trgm ON Patient USING GIN (last_name_trgm gin_trgm_ops);")
-    cursor2.execute("CREATE INDEX idx_middle_name_trgm ON Patient USING GIN (middle_name_trgm gin_trgm_ops);")
+    cursor2.execute("CREATE INDEX idx_first_name_prefix_trgms ON Patient USING gin (first_name_prefix_trgms);")
+    cursor2.execute("CREATE INDEX idx_middle_name_prefix_trgms ON Patient USING gin (middle_name_prefix_trgms);")
+    cursor2.execute("CREATE INDEX idx_last_name_prefix_trgms ON Patient USING gin (last_name_prefix_trgms);")
 
     #Insert User types into database
     cursor2.execute("""INSERT INTO UserType (type_name)
