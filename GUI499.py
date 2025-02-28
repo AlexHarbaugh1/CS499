@@ -98,7 +98,8 @@ class SearchScreen(QDialog):
             if char in string.punctuation:
                 return True
             return False
-        
+    
+    # theres probably a better way to implement this, but I couldnt wrap my head around it    
     def lastSpecChar(input_string):
         '''
         I don't know the specific SQL syntax for a partial search, nor do I know if we
@@ -144,6 +145,55 @@ class ListScreen(QDialog):
     def __init__(self):
         super(ListScreen, self).__init__()
         loadUi("list.ui", self)
+        self.tableWidget.itemSelectionChanged.connect(self.row_selected)
+        self.tableWidget.setColumnWidth(0,150)
+        self.tableWidget.setColumnWidth(1,150)
+        self.tableWidget.setColumnWidth(2,150)
+        self.tableWidget.setHorizontalHeaderLabels(["Last Name", "First Name", "MI"])
+        self.loadData()
+        self.nextButton.clicked.connect(self.selectedfunction)
+        #self.tableWidget.cellClicked.connect(self.cell_was_clicked)
+        
+        
+    def row_selected(self):
+        selected_items = self.tableWidget.selectedItems()
+        if selected_items:
+            row = selected_items[0].row()
+            col_count = self.tableWidget.columnCount()
+            row_data = [self.tableWidget.item(row, col).text() for col in range(col_count)]
+            selectedLName, selectedFName, selectedMI = row_data
+
+        
+    def loadData(self):
+        # another query is needed here, or if we can use the one from the search here
+        self.tableWidget.setRowCount(50)
+        # or self.tableWidget.setRowCount(len(sqlquery))
+        tableRow = 0
+        # you can change the placeholder var name sqlquery to whatever you like
+        for row in cur.execute(sqlquery):
+            self.tableWidget.setItem(tableRow, 0, QtWidgets.QTableWidgetItem(row[0]))
+            self.tableWidget.setItem(tableRow, 1, QtWidgets.QTableWidgetItem(row[1]))
+            self.tableWidget.setItem(tableRow, 2, QtWidgets.QTableWidgetItem(row[2]))
+            tableRow+=1
+            
+    def selectedfunction(self):
+        #do something here with the variables selected:LName/FName/MI from row_selected fxn
+        #another query to pull up all patient data to display on the next screen
+        self.gotodata()
+    
+    def gotodata(self):
+        data=DataScreen()
+        widget.addWidget(data)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+    
+class DataScreen(QDialog):
+    def __init__(self):
+        super(DataScreen, self).__init__()
+        loadUi("data.ui", self)
+        
+
+            
+    
 
 
 # main
