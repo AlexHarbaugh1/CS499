@@ -30,15 +30,7 @@ def run():
   if(not cursor.fetchone()[0]):
     cursor.execute("""CREATE DATABASE huntsvillehospital""")
     # After creating the new database create a new connection to access it
-    con2 = psycopg2.connect(
-      database="huntsvillehospital",
-      user='postgres',
-      password='49910',
-      host='localhost',
-      port= '5432'
-    )
-
-    con2.autocommit = True
+    con2 = getConnection()
     cursor2 = con2.cursor()
     cursor2.execute("CREATE EXTENSION pgcrypto;")
     cursor2.execute("CREATE EXTENSION pg_trgm;")
@@ -167,8 +159,9 @@ def run():
                     ('Physician');""")
     
     # Close second connections
-    con2.close()
+    con2.commit()
     cursor2.close()
+    con2.close()
     print("Database Created")
   else:
     print("Database Already Exists")
@@ -176,3 +169,12 @@ def run():
   # Close first connections
   cursor.close()
   conn.close()
+def getConnection():
+  conn = psycopg2.connect(
+      database="huntsvillehospital",
+      user='postgres',
+      password='49910',
+      host='localhost',
+      port= '5432'
+    )
+  return conn

@@ -8,15 +8,8 @@ keys = EncryptionKey.getKeys()
 # hospitalDB creates the database and all user tables
 hospitalDB.run()
 # Connect to the database
-con = psycopg2.connect(
-    database="huntsvillehospital",
-    user='postgres',
-    password='49910',
-    host='localhost',
-    port= '5432'
-  )
-con.autocommit = True
-cursor = con.cursor()
+conn = hospitalDB.getConnection()
+cursor = conn.cursor()
 
 # Ask User for input data
 
@@ -29,7 +22,7 @@ while True:
         lastname = input("Enter lastname\n")
         type = input("Enter Type\n")
         #Insert Data will perform the SQL to add the user to the database and encrypt the password
-        InsertData.insertStaff(cursor, firstname , lastname, username, password, type, keys[0], keys[1])
+        InsertData.insertStaff(firstname , lastname, username, password, type, keys[0], keys[1])
     elif(mode == '2'):
         fName = input("Enter Patient's First Name\n")
         mName = input("Enter Patient's Middle Name\n")
@@ -46,11 +39,8 @@ while True:
         insCarrier = input("Enter Patient's Insurance Carrier\n")
         insAcc = input("Enter Patient's Insurance Account Number\n")
         insGNum = input("Enter Patient's Insurance Group Number\n")
-        con.autocommit = False
-        InsertData.insertPatient(cursor, lName, fName, mName, mAddress,  hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, fDoctor,
+        InsertData.insertPatient(lName, fName, mName, mAddress,  hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, fDoctor,
                   insCarrier, insAcc, insGNum, keys[0], keys[1])
-        con.commit()
-        con.autocommit = True
     elif(mode == '3'):
         prescriptions = []
         notes = []
@@ -78,8 +68,6 @@ while True:
                     break
         else:
             print("No Prescriptions Administered\n")
-            prescription = {'name': 'None', 'amount': 'None', 'schedule': 'None'}
-            prescriptions.append(prescription)
         notesYesNo = input("Are There Any Notes on the Admission? (Y/N)\n")
         if(notesYesNo.lower() == 'y'):
             while(True):
@@ -94,8 +82,6 @@ while True:
                     break
         else:
             print("No Notes Entered\n")
-            note = {'author': 'None', 'type': 'None', 'text': 'None', 'time' : datetime.datetime.now()}
-            notes.append(note)
         proceduresYesNo = input("Does the Patient Require any Procedures? (Y/N)\n")
         if(proceduresYesNo.lower() == 'y'):
             while(True):
@@ -108,8 +94,6 @@ while True:
                     break
         else:
             print("No Procedures Entered\n")
-            procedure = {'name': 'None', 'date': 'None'}
-            procedures.append(procedure)
         billingTotal = input("Enter the Total Dollar Amount Owed\n")
         billingPaid = input("Enter the Dollar Amount Paid\n")
         billingInsurance = input("Enter the Dollar Amount Paid by Insurance\n")
@@ -122,10 +106,15 @@ while True:
             anotherItem = input("Add Another Item (Y/N)\n")
             if(anotherItem.lower() == "n"):
                     break
-        con.autocommit = False
-        InsertData.insertAdmission(cursor, fName, mName, lName, admissionDateTime, admissionReason, releaseDateTime, hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, prescriptions, notes, procedures, billingTotal, billingPaid, billingInsurance, itemizedBill, keys[0], keys[1])
-        con.commit()
-        con.autocommit = True
+        InsertData.insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, releaseDateTime, hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, keys[0], keys[1])
+        print(cursor.fetchall())
+        if len(prescriptions) > 0:
+            InsertData.insertPrescriptions(prescriptions, keys[0])
+        if len(notes) > 0:
+            InsertData.insertNotes(notes, keys[0], keys[1])
+        if len(procedures) > 0:
+            InsertData.insertProcedures(procedures, keys[0], keys[1])
+        InsertData.insertBill(billingTotal, billingPaid, billingInsurance, itemizedBill)
     quit = input("Would you like to make another addition? (Y/N)\n")
     if quit.lower() == "n":
         break
