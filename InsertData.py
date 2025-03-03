@@ -1,4 +1,3 @@
-
 from hospitalDB import getConnection
 import EncryptionKey
 import datetime
@@ -82,9 +81,9 @@ def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, 
         doctor, fixedSalt,
         
         # new_patient
-        fname, fixedSalt,
-        mname, fixedSalt,
-        lname, fixedSalt,
+        fname, encryptionKey,
+        mname, encryptionKey,
+        lname, encryptionKey,
         fnameHashedPrefixes,
         mnameHashedPrefixes,
         lnameHashedPrefixes,
@@ -290,7 +289,7 @@ def insertBill(billingTotal, billingPaid, billingInsurance, itemizedBill):
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     #insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Medical Personnel', keys[0], keys[1])
-    #insertPatient('Logos', 'Will', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', '3333333333', 'Mitch', '4444444444', 'Taylor', '5555555555', 'BlairStafford', 'United Healthcare', '12345', '54321', keys[0], keys[1])
+    insertPatient('Logos', 'Will', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', '3333333333', 'Mitch', '4444444444', 'Taylor', '5555555555', 'BlairStafford', 'United Healthcare', '12345', '54321', keys[0], keys[1])
     #insertAdmission('Will', 'Graves', 'Logos', '2025-03-02 11:11:00', 'Fingy Broked', '2025-02-03 01:12:00', 'ER', '1', '123', '1', keys[0], keys[1])
     #insertPrescriptions([{'name': 'Ibuprofen', 'amount': '500mg', 'schedule': 'Once Every Six Hours'}, {'name': 'Morphine', 'amount': 'A lot', 'schedule': 'Once, he would not stop screaming'}, {'name': 'Crystal Meth', 'amount': 'One Teenth', 'schedule': 'Twice Daily'}], keys[0])
     #insertNotes([{'author': 'BlairStafford', 'type': 'Doctor', 'text': 'The Meth really showed results', 'time' : datetime.datetime.now()}, {'author': 'BlairStafford', 'type': 'Nurse', 'text': 'I think Dr. Blair needs to be fired.', 'time' : datetime.datetime.now()}], keys[0], keys[1])
