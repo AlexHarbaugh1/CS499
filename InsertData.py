@@ -1,17 +1,35 @@
-import psycopg2
+from hospitalDB import getConnection
+import EncryptionKey
+import datetime
+import hashlib
+def generatePrefixes(text):
+    return [text[:i] for i in range(1, len(text) + 1)]
+def hashPrefix(prefix, fixedSalt):
+    return hashlib.sha256((prefix + fixedSalt).encode()).hexdigest()
 
-def insertStaff(cursor, fname , lname, username, password, type, encryptionkey, fixed_salt):
+def insertStaff(fname , lname, username, password, type, encryptionKey, fixedSalt):
+    conn = getConnection()
+    cursor = conn.cursor()
     cursor.execute(f"""INSERT INTO Staff (first_name, last_name, username_hash, username, password_hash, type_id)
                    Values(
-                   pgp_sym_encrypt('{fname}', '{encryptionkey}'),
-                   pgp_sym_encrypt('{lname}', '{encryptionkey}'),
-                   encode(digest('{username}' || '{fixed_salt}', 'sha256'), 'hex'),
-                   pgp_sym_encrypt('{username}', '{encryptionkey}'),
+                   pgp_sym_encrypt('{fname}', '{encryptionKey}'),
+                   pgp_sym_encrypt('{lname}', '{encryptionKey}'),
+                   encode(digest('{username}' || '{fixedSalt}', 'sha256'), 'hex'),
+                   pgp_sym_encrypt('{username}', '{encryptionKey}'),
                    crypt('{password}', gen_salt('bf')),
                    (SELECT type_id FROM UserType WHERE type_name = '{type}'));""")
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-def insertPatient(cursor, lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
-                  insCarrier, insAcc, insGNum, encryptionkey, fixed_salt):
+def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
+                  insCarrier, insAcc, insGNum, encryptionKey, fixedSalt):
+    conn = getConnection()
+    cursor = conn.cursor()
+    fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
+    mnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(mname)]
+    lnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(lname)]
+
     sql = """WITH
     doctor AS (
         SELECT user_id 
@@ -19,11 +37,14 @@ def insertPatient(cursor, lname, fname, mname, address, hPhone, mPhone, wPhone, 
         WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
     ),
     new_patient AS (
-        INSERT INTO Patient (first_name, last_name, middle_name, mailing_address, family_doctor_id)
+        INSERT INTO Patient (first_name, middle_name, last_name, first_name_prefix_trgms, middle_name_prefix_trgms, last_name_prefix_trgms, mailing_address, family_doctor_id)
         VALUES (
             pgp_sym_encrypt(%s, %s),
             pgp_sym_encrypt(%s, %s),
             pgp_sym_encrypt(%s, %s),
+            %s,
+            %s,
+            %s,
             pgp_sym_encrypt(%s, %s),
             (SELECT user_id FROM doctor)
         )
@@ -53,35 +74,224 @@ def insertPatient(cursor, lname, fname, mname, address, hPhone, mPhone, wPhone, 
     )
     SELECT 1;"""
 
+
 # Pass parameters as a tuple (order matters!)
     params = (
         # Doctor lookup
-        doctor, fixed_salt,
+        doctor, fixedSalt,
         
         # new_patient
-        fname, encryptionkey,
-        mname, encryptionkey,
-        lname, encryptionkey,
-        address, encryptionkey,
+        fname, encryptionKey,
+        mname, encryptionKey,
+        lname, encryptionKey,
+        fnameHashedPrefixes,
+        mnameHashedPrefixes,
+        lnameHashedPrefixes,
+        address, encryptionKey,
         
         # phone_numbers
-        hPhone, encryptionkey,
-        mPhone, encryptionkey,
-        wPhone, encryptionkey,
+        hPhone, encryptionKey,
+        mPhone, encryptionKey,
+        wPhone, encryptionKey,
         
         # emergency_contacts
-        c1Name, encryptionkey,
-        c1Phone, encryptionkey,
-        c2Name, encryptionkey,
-        c2Phone, encryptionkey,
+        c1Name, encryptionKey,
+        c1Phone, encryptionKey,
+        c2Name, encryptionKey,
+        c2Phone, encryptionKey,
         
         # new_insurance
-        insCarrier, encryptionkey,
-        insAcc, encryptionkey,
-        insGNum, encryptionkey
+        insCarrier, encryptionKey,
+        insAcc, encryptionKey,
+        insGNum, encryptionKey
     )
 
     cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
 
-def insertAdmission():
-    print("Hi")
+def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, releaseDateTime,
+                    hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, encryptionKey, fixedSalt):
+    conn = getConnection()
+    cursor = conn.cursor()
+    sql =  """WITH patient AS (
+            SELECT patient_id 
+            FROM Patient
+            WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+            AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+            AND middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+        ),
+        location AS (
+            INSERT INTO Location (facility, floor, room_number, bed_number)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT ON CONSTRAINT unique_location 
+            DO UPDATE SET facility = EXCLUDED.facility
+            RETURNING location_id
+        ),
+        admission AS (
+            INSERT INTO Admission (
+                patient_id, 
+                location_id,
+                admittance_datetime,
+                reason_for_admission,
+                discharge_datetime
+            )
+            VALUES (
+                (SELECT patient_id FROM patient),
+                (SELECT location_id FROM location),
+                pgp_sym_encrypt(%s, %s),
+                pgp_sym_encrypt(%s, %s),
+                pgp_sym_encrypt(%s, %s)
+            )
+            RETURNING admission_id
+        )
+        SELECT 1;"""
+
+
+        
+        
+        # Prepare parameters
+    params = (
+        # Patient lookup
+        fName, fixedSalt,
+        lName, fixedSalt,
+        mName, fixedSalt,
+            
+        # Location
+        hospitalFacility,
+        hospitalFloor,
+        hospitalRoom,
+        hospitalBed,
+            
+        # Admission
+        admissionDateTime, encryptionKey,
+        admissionReason, encryptionKey,
+        releaseDateTime if releaseDateTime else None, encryptionKey,
+
+        
+        )
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def insertPrescriptions( prescriptions, encryptionKey):
+    conn = getConnection()
+    cursor = conn.cursor()
+    sql = """INSERT INTO Prescription (admission_id, medication_name, amount, schedule)
+            SELECT 
+                (SELECT admission_id FROM admission),
+                pgp_sym_encrypt(med, %s),
+                pgp_sym_encrypt(amt, %s),
+                pgp_sym_encrypt(schd, %s)
+            FROM unnest(%s, %s, %s) AS t(med, amt, schd)"""
+    params = (
+        encryptionKey,
+        encryptionKey,
+        encryptionKey,
+        [prescription['name'] for prescription in prescriptions],
+        [prescription['amount'] for prescription in prescriptions],
+        [prescription['schedule'] for prescription in prescriptions],
+    )
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def insertNotes(notes, encryptionKey, fixedSalt):
+    conn = getConnection()
+    cursor = conn.cursor()
+    sql = """INSERT INTO PatientNote (admission_id, author_id, note_type, note_text, note_datetime)
+            SELECT
+                (SELECT admission_id FROM admission),
+                (SELECT user_id FROM Staff WHERE username_hash = encode(digest(author || %s, 'sha256'), 'hex')),
+                type,
+                pgp_sym_encrypt(text, %s),
+                pgp_sym_encrypt(dt, %s)
+            FROM unnest(%s, %s, %s, %s) AS t(author, type, text, dt)"""
+    params =(
+        fixedSalt,
+        encryptionKey,
+        encryptionKey,
+        [note['author'] for note in notes],
+        [note['type'] for note in notes],
+        [note['text'] for note in notes],
+        [note['time'].isoformat() for note in notes]
+    )
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def insertProcedures(procedures, encryptionKey):
+    conn = getConnection()
+    cursor = conn.cursor()
+    sql = """INSERT INTO ScheduledProcedure (admission_id, procedure_name, scheduled_datetime)
+            SELECT
+                (SELECT admission_id FROM admission),
+                pgp_sym_encrypt(proc, %s),
+                pgp_sym_encrypt(dt, %s)
+            FROM unnest(%s, %s) AS t(proc, dt)"""
+    params = (
+        # Procedures
+        encryptionKey,
+        encryptionKey,
+        [procedure['name'] for procedure in procedures],
+        [procedure['date'] for procedure in procedures],
+    )
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def insertBill(billingTotal, billingPaid, billingInsurance, itemizedBill):
+    conn = getConnection()
+    cursor = conn.cursor()
+    sql = """WITH
+    billing AS (
+            INSERT INTO Billing (admission_id, total_amount_owed, total_amount_paid, insurance_paid)
+            VALUES (
+                (SELECT admission_id FROM admission),
+                %s,
+                %s,
+                %s
+            )
+            RETURNING billing_id
+        ),
+        billing_details AS (
+            INSERT INTO BillingDetail (billing_id, item_description, charge_amount)
+            SELECT
+                (SELECT billing_id FROM billing),
+                item_desc,
+                amt
+            FROM unnest(%s, %s) AS t(item_desc, amt)
+        )
+        SELECT 1;"""
+    params = (
+        # Billing
+        billingTotal,
+        billingPaid,
+        billingInsurance,
+            
+        # Billing details
+        [item['name'] for item in itemizedBill],
+        [item['cost'] for item in itemizedBill]
+    )
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    # Test Input data
+    # Uncomment desired function to test
+    # Must have ran all functions above it for the next one to work
+if __name__ == "__main__":
+    keys = EncryptionKey.getKeys()
+    #insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Medical Personnel', keys[0], keys[1])
+    insertPatient('Logos', 'Will', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', '3333333333', 'Mitch', '4444444444', 'Taylor', '5555555555', 'BlairStafford', 'United Healthcare', '12345', '54321', keys[0], keys[1])
+    #insertAdmission('Will', 'Graves', 'Logos', '2025-03-02 11:11:00', 'Fingy Broked', '2025-02-03 01:12:00', 'ER', '1', '123', '1', keys[0], keys[1])
+    #insertPrescriptions([{'name': 'Ibuprofen', 'amount': '500mg', 'schedule': 'Once Every Six Hours'}, {'name': 'Morphine', 'amount': 'A lot', 'schedule': 'Once, he would not stop screaming'}, {'name': 'Crystal Meth', 'amount': 'One Teenth', 'schedule': 'Twice Daily'}], keys[0])
+    #insertNotes([{'author': 'BlairStafford', 'type': 'Doctor', 'text': 'The Meth really showed results', 'time' : datetime.datetime.now()}, {'author': 'BlairStafford', 'type': 'Nurse', 'text': 'I think Dr. Blair needs to be fired.', 'time' : datetime.datetime.now()}], keys[0], keys[1])
+    #insertProcedures([{'name': 'Finger Surgery', 'date': '2025-03-15 12:00:00'}], keys[0])
+    #insertBill('200000', '170000', '30000', [{'name': 'ER Visit', 'cost': float('75.27')}, {'name': 'X-Ray', 'cost': float('4000')}, {'name': 'Ibuprofen', 'cost': float('5.73')}, {'name': 'Morphine', 'cost': float('70919')}, {'name': 'Meth', 'cost': float('100000')}, {'name': 'Finger Surgery', 'cost': float('25000')}])

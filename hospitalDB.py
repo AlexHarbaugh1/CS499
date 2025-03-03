@@ -1,7 +1,6 @@
 import psycopg2
-import os
 from dotenv import load_dotenv
-def run(encryptionkey):
+def run():
   # Connect to root database in postgres
   # This lets you create another database within postgres
   conn = psycopg2.connect(
@@ -31,15 +30,7 @@ def run(encryptionkey):
   if(not cursor.fetchone()[0]):
     cursor.execute("""CREATE DATABASE huntsvillehospital""")
     # After creating the new database create a new connection to access it
-    con2 = psycopg2.connect(
-      database="huntsvillehospital",
-      user='postgres',
-      password='49910',
-      host='localhost',
-      port= '5432'
-    )
-
-    con2.autocommit = True
+    con2 = getConnection()
     cursor2 = con2.cursor()
     cursor2.execute("CREATE EXTENSION pgcrypto;")
     cursor2.execute("CREATE EXTENSION pg_trgm;")
@@ -65,12 +56,9 @@ def run(encryptionkey):
                     first_name BYTEA NOT NULL,
                     middle_name BYTEA NOT NULL,
                     last_name BYTEA NOT NULL,
-                    first_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
-                    encode(digest(pgp_sym_decrypt(first_name, '{encryptionkey}'), 'sha256'), 'hex')) STORED,
-                    middle_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
-                    encode(digest(pgp_sym_decrypt(middle_name, '{encryptionkey}'), 'sha256'), 'hex')) STORED,
-                    last_name_trgm TEXT NOT NULL GENERATED ALWAYS AS (
-                    encode(digest(pgp_sym_decrypt(last_name, '{encryptionkey}'), 'sha256'), 'hex')) STORED,
+                    first_name_prefix_trgms TEXT[],
+                    middle_name_prefix_trgms TEXT[],
+                    last_name_prefix_trgms TEXT[],
                     mailing_address BYTEA NOT NULL,
                     family_doctor_id INT REFERENCES Staff(user_id));"""
                     )
@@ -104,7 +92,8 @@ def run(encryptionkey):
                     facility VARCHAR(100) NOT NULL,
                     floor INT,
                     room_number VARCHAR(20),
-                    bed_number VARCHAR(20));"""
+                    bed_number VARCHAR(20),
+                    CONSTRAINT unique_location UNIQUE(facility, floor, room_number, bed_number));"""
                     )
     # 8. Admission
     cursor2.execute("""CREATE TABLE Admission(
@@ -136,8 +125,8 @@ def run(encryptionkey):
     cursor2.execute("""CREATE TABLE ScheduledProcedure
                     (procedure_id SERIAL PRIMARY KEY,
                     admission_id INT NOT NULL REFERENCES Admission(admission_id),
-                    procedure_name VARCHAR(100) NOT NULL,
-                    scheduled_datetime TIMESTAMP NOT NULL);"""
+                    procedure_name BYTEA NOT NULL,
+                    scheduled_datetime BYTEA NOT NULL);"""
                     )
     # 12. Billing
     cursor2.execute("""CREATE TABLE Billing
@@ -154,11 +143,11 @@ def run(encryptionkey):
                     item_description TEXT NOT NULL,
                     charge_amount DECIMAL(10, 2) NOT NULL);"""
                     )
-    # Adding Index to Patient table to allow for faster queries on patient names.
+    # Adding Indexes for Faster Searching and Partial Searching.
     cursor2.execute("CREATE INDEX idx_staff_username_hash ON Staff USING HASH (username_hash);")
-    cursor2.execute("CREATE INDEX idx_first_name_trgm ON Patient USING GIN (first_name_trgm gin_trgm_ops);")
-    cursor2.execute("CREATE INDEX idx_last_name_trgm ON Patient USING GIN (last_name_trgm gin_trgm_ops);")
-    cursor2.execute("CREATE INDEX idx_middle_name_trgm ON Patient USING GIN (middle_name_trgm gin_trgm_ops);")
+    cursor2.execute("CREATE INDEX idx_first_name_prefix_trgms ON Patient USING gin (first_name_prefix_trgms);")
+    cursor2.execute("CREATE INDEX idx_middle_name_prefix_trgms ON Patient USING gin (middle_name_prefix_trgms);")
+    cursor2.execute("CREATE INDEX idx_last_name_prefix_trgms ON Patient USING gin (last_name_prefix_trgms);")
 
     #Insert User types into database
     cursor2.execute("""INSERT INTO UserType (type_name)
@@ -170,8 +159,9 @@ def run(encryptionkey):
                     ('Physician');""")
     
     # Close second connections
-    con2.close()
+    con2.commit()
     cursor2.close()
+    con2.close()
     print("Database Created")
   else:
     print("Database Already Exists")
@@ -179,3 +169,12 @@ def run(encryptionkey):
   # Close first connections
   cursor.close()
   conn.close()
+def getConnection():
+  conn = psycopg2.connect(
+      database="huntsvillehospital",
+      user='postgres',
+      password='49910',
+      host='localhost',
+      port= '5432'
+    )
+  return conn

@@ -6,17 +6,10 @@ import datetime
 
 keys = EncryptionKey.getKeys()
 # hospitalDB creates the database and all user tables
-hospitalDB.run(keys[0])
+hospitalDB.run()
 # Connect to the database
-con = psycopg2.connect(
-    database="huntsvillehospital",
-    user='postgres',
-    password='49910',
-    host='localhost',
-    port= '5432'
-  )
-con.autocommit = True
-cursor = con.cursor()
+conn = hospitalDB.getConnection()
+cursor = conn.cursor()
 
 # Ask User for input data
 
@@ -29,7 +22,7 @@ while True:
         lastname = input("Enter lastname\n")
         type = input("Enter Type\n")
         #Insert Data will perform the SQL to add the user to the database and encrypt the password
-        InsertData.insertStaff(cursor, firstname , lastname, username, password, type, keys[0], keys[1])
+        InsertData.insertStaff(firstname , lastname, username, password, type, keys[0], keys[1])
     elif(mode == '2'):
         fName = input("Enter Patient's First Name\n")
         mName = input("Enter Patient's Middle Name\n")
@@ -46,24 +39,24 @@ while True:
         insCarrier = input("Enter Patient's Insurance Carrier\n")
         insAcc = input("Enter Patient's Insurance Account Number\n")
         insGNum = input("Enter Patient's Insurance Group Number\n")
-        con.autocommit = False
-        InsertData.insertPatient(cursor, lName, fName, mName, mAddress,  hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, fDoctor,
+        InsertData.insertPatient(lName, fName, mName, mAddress,  hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, fDoctor,
                   insCarrier, insAcc, insGNum, keys[0], keys[1])
-        con.commit()
-        con.autocommit = True
     elif(mode == '3'):
+        prescriptions = []
+        notes = []
+        procedures = []
         fName = input("Enter Patient's First Name\n")
         mName = input("Enter Patient's Middle Name\n")
         lName = input("Enter Patient's Last Name\n")
-        admissionDateTime = input("Enter Admission Date and Time (YYYY-MM-DD HH:MM:SS\n")
+        admissionDateTime = input("Enter Admission Date and Time (YYYY-MM-DD HH:MM:SS)\n")
         admissionReason = input("Enter Patient's Reason for Admission\n")
+        releaseDateTime = input("Enter Release Date and Time (YYYY-MM-DD HH:MM:SS)\n")
         hospitalFacility = input("Enter Hospital Facility of Patient's Stay\n")
         hospitalFloor = input("Enter Floor of Patient's Stay\n")
         hospitalRoom = input("Enter Room Number of Patient's Stay\n")
         hospitalBed = input("Enter Bed Number of Patient's Stay\n")
         prescriptionsYesNo = input("Did the Patient have any Prescriptions Administered During Stay? (Y/N)\n")
         if(prescriptionsYesNo.lower() == "y"):
-            prescriptions = []
             while(True):
                 prescriptionName = input("Enter Name of Prescription\n")
                 prescriptionAmount = input("Enter Amount of Prescription Administered\n")
@@ -77,7 +70,6 @@ while True:
             print("No Prescriptions Administered\n")
         notesYesNo = input("Are There Any Notes on the Admission? (Y/N)\n")
         if(notesYesNo.lower() == 'y'):
-            notes = []
             while(True):
                 noteAuthor = input("Enter the Author's Username\n")
                 noteType = input("Nurse's of Doctor's Note? (Doctor/Nurse)\n")
@@ -92,14 +84,13 @@ while True:
             print("No Notes Entered\n")
         proceduresYesNo = input("Does the Patient Require any Procedures? (Y/N)\n")
         if(proceduresYesNo.lower() == 'y'):
-            procedures = []
             while(True):
                 procedureName = input("Enter the Procedure's Name\n")
                 procedureDate = input("Enter the Procedure Date (YYYY-MM-DD HH:MM:SS)\n")
                 procedure = {'name': procedureName, 'date': procedureDate}
                 procedures.append(procedure)
                 anotherProcedure = input("Add Another Procedure? (Y/N)\n")
-                if(anotherNote.lower() == "n"):
+                if(anotherProcedure.lower() == "n"):
                     break
         else:
             print("No Procedures Entered\n")
@@ -110,11 +101,20 @@ while True:
         while(True):
             billItem = input("Enter The Billed Item\n")
             itemCost = input("Enter The Item's Price\n")
-            item = {'name': billItem, 'cost': itemCost}
+            item = {'name': billItem, 'cost': float(itemCost)}
             itemizedBill.append(item)
             anotherItem = input("Add Another Item (Y/N)\n")
             if(anotherItem.lower() == "n"):
                     break
+        InsertData.insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, releaseDateTime, hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, keys[0], keys[1])
+        print(cursor.fetchall())
+        if len(prescriptions) > 0:
+            InsertData.insertPrescriptions(prescriptions, keys[0])
+        if len(notes) > 0:
+            InsertData.insertNotes(notes, keys[0], keys[1])
+        if len(procedures) > 0:
+            InsertData.insertProcedures(procedures, keys[0], keys[1])
+        InsertData.insertBill(billingTotal, billingPaid, billingInsurance, itemizedBill)
     quit = input("Would you like to make another addition? (Y/N)\n")
     if quit.lower() == "n":
         break
