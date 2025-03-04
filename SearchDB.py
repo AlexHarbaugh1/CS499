@@ -209,22 +209,32 @@ def searchStaffWithID():
 def searchBillingWithAdmission(admissionID):
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """SELECT billing_id AS billing_id, total_amount_owed::FLOAT, total_amount_paid::FLOAT, insurance_paid::FLOAT
+    sql = """SELECT billing_id, total_amount_owed::FLOAT, total_amount_paid::FLOAT, insurance_paid::FLOAT
         FROM Billing
         WHERE admission_id = %s;"""
     params = (
          admissionID
     )
     cursor.execute(sql, params)
-    results = cursor.fetchone()[1:]
+    results = cursor.fetchone()
+    billing = results[1:]
+    billingID = results[0]
+    sql = """SELECT item_description, charge_amount::FLOAT
+        FROM billingdetail
+        WHERE billing_id = %s;"""
+    params = (
+        str(billingID)
+    )
+    cursor.execute(sql, params)
+    billingDetails = cursor.fetchall()
     cursor.close()
     conn.close()
-    return results
+    return billing, billingDetails
 
 
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     #print(passwordMatch('BlairStafford', 'qwertyuiop', keys[1]))
-    for patient in searchPatientWithName('Will', None, None, keys[0], keys[1], True):
-         print(patient)
-    #print(searchBillingWithAdmission('1'))
+    #for patient in searchPatientWithName('Will', None, None, keys[0], keys[1], True):
+         #print(patient)
+    print(searchBillingWithAdmission('1'))
