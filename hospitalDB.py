@@ -54,7 +54,7 @@ def run():
     cursor2.execute(f"""CREATE TABLE Patient
                     (patient_id SERIAL PRIMARY KEY,
                     first_name BYTEA NOT NULL,
-                    middle_name BYTEA NOT NULL,
+                    middle_name BYTEA,
                     last_name BYTEA NOT NULL,
                     first_name_prefix_trgms TEXT[],
                     middle_name_prefix_trgms TEXT[],

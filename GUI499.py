@@ -32,8 +32,6 @@ class LoginScreen(QDialog):
            
            if len(user)==0 or len(password)==0:
                self.errorMsg.setText("Missing field.")
-              
-
            else:
                 keys = EncryptionKey.getKeys() 
                 encryption_key = keys[0]
@@ -48,12 +46,17 @@ class LoginScreen(QDialog):
     def gotosearch(self):
         search=SearchScreen()
         widget.addWidget(search)
-        widget.setCurrentIndex(widget.currentIndex()+1)
-                  
-               
-        
+        widget.setCurrentIndex(widget.currentIndex()+1) 
+    def gotohome(self):
+        home=HomeScreen()
+        widget.addWidget(home)
+        widget.setCurrentIndex(widget.currentIndex()+1)       
 
-        
+class HomeScreen(QDialog):
+    def __init__(self):
+        super(HomeScreen, self).__init__()
+        loadUi("MainScreen.ui", self)
+
 class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
@@ -66,8 +69,15 @@ class SearchScreen(QDialog):
         
         if len(lastName)==0 and len(firstName)==0:
             self.error.setText("Input at least one field.")
-        
-        if len(lastName) > 0 and len(firstName) > 0:
+        else:
+            keys = EncryptionKey.getKeys() 
+            encryption_key = keys[0]
+            fixed_salt = keys[1]   
+            if(firstName[len(firstName) - 1] == "*"):
+                print(SearchDB.searchPatientWithName(firstName[0: len(firstName) - 1], None, lastName, encryption_key, fixed_salt, True))
+            else:
+                print(SearchDB.searchPatientWithName(firstName, None, lastName, encryption_key, fixed_salt))
+        """if len(lastName) > 0 and len(firstName) > 0:
             if self.contains_special_char(lastName):
                 lastName = lastName[:-1]
                 self.lastSpecChar(lastName)
@@ -94,7 +104,7 @@ class SearchScreen(QDialog):
                 firstName = firstName[:-1]
                 self.firstSpecChar(firstName)
             else:
-                self.firstQuery(firstName)
+                self.firstQuery(firstName)"""
                 
     
     def contains_special_char(input_string):
@@ -147,44 +157,13 @@ class SearchScreen(QDialog):
 class ListScreen(QDialog):
     def __init__(self):
         super(ListScreen, self).__init__()
-        loadUi("list.ui", self)
-               ''' This will connect to the certain SQL db '''
-           else:    
-                conn = psycopg2.connect(
-                database="huntsvillehospital",
-                user='postgres',
-                password='49910',
-                host='localhost',
-                port= '5432'
-                )
-                cur = conn.cursor()
-                # Password is encrytped so crypt() comapares the decrytped password
-                # The result of the query is a boolean that is true if there is a match and false when there is not a match
-                query = "SELECT (password = crypt('{}', password)) AS password_match FROM Users WHERE username = '{}' ;" .format(password, user)
-                cur.execute(query)
-                result_pass = cur.fetchone()[0]
-                if result_pass:
-                    print("Successfully logged in.")
-                    #self.connect(self.gotosearch)
-                    self.errorMsg.setText("")
-                else:
-                    self.errorMsg.setText("Invalid username or password")
-        
-                  
-               
-        
+        loadUi("list.ui", self)       
         
    # def gototsearch(self):
      #  search.SearchScreen()
      #  widget.addWidget(search)
      #  widget.setCurrentIndex(widget.currentIndex()+1)
         
-class SearchScreen(QDialog):
-    def __innit__(self):
-        super(SearchScreen, self).__init__()
-        loadUi("searchscreen.ui", self)
-
-
 
 # main
 app = QApplication(sys.argv)
