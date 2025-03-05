@@ -157,8 +157,8 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                         encryptionKey,
                         fname, fixedSalt
                     )
-            elif (mname != None):
-                if(lname != None): 
+        elif (mname != None):
+            if(lname != None): 
                         sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
                             FROM Patient
                             WHERE middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
@@ -234,7 +234,7 @@ def searchBillingWithAdmission(admissionID):
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     #print(passwordMatch('BlairStafford', 'qwertyuiop', keys[1]))
-    print(searchPatientWithName('Ashley', None, "Webb", keys[0], keys[1])[0][0])
-    #for patient in searchPatientWithName('Ashley', None, "Webb", keys[0], keys[1]):
-        # print(patient)
+    #print(searchPatientWithName('W', None, None, keys[0], keys[1], True))
+    for patient in searchPatientWithName(None, "J", None, keys[0], keys[1], True):
+        print(patient)
     #print(searchBillingWithAdmission('1'))
