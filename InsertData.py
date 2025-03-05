@@ -1,6 +1,6 @@
 from hospitalDB import getConnection
 import EncryptionKey
-import datetime
+import SearchDB
 import hashlib
 def generatePrefixes(text):
     return [text[:i] for i in range(1, len(text) + 1)]
@@ -27,7 +27,10 @@ def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, 
     conn = getConnection()
     cursor = conn.cursor()
     fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
-    mnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(mname)]
+    if mname != None:
+        mnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(mname)]
+    else:
+        mnameHashedPrefixes = None
     lnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(lname)]
 
     sql = """WITH
@@ -115,13 +118,8 @@ def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, rel
                     hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, encryptionKey, fixedSalt):
     conn = getConnection()
     cursor = conn.cursor()
-    sql =  """WITH patient AS (
-            SELECT patient_id 
-            FROM Patient
-            WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-            AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-            AND middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-        ),
+    patient_id = SearchDB.searchPatientWithName(fName, mName, lName, encryptionKey, fixedSalt)[0][0]
+    sql =  """WITH 
         location AS (
             INSERT INTO Location (facility, floor, room_number, bed_number)
             VALUES (%s, %s, %s, %s)
@@ -138,26 +136,22 @@ def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, rel
                 discharge_datetime
             )
             VALUES (
-                (SELECT patient_id FROM patient),
+                %s,
                 (SELECT location_id FROM location),
                 pgp_sym_encrypt(%s, %s),
                 pgp_sym_encrypt(%s, %s),
                 pgp_sym_encrypt(%s, %s)
             )
             RETURNING admission_id
-        )
-        SELECT 1;"""
+            )
+            SELECT admission_id FROM admission;"""
 
 
         
         
         # Prepare parameters
     params = (
-        # Patient lookup
-        fName, fixedSalt,
-        lName, fixedSalt,
-        mName, fixedSalt,
-            
+
         # Location
         hospitalFacility,
         hospitalFloor,
@@ -165,6 +159,7 @@ def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, rel
         hospitalBed,
             
         # Admission
+        patient_id,
         admissionDateTime, encryptionKey,
         admissionReason, encryptionKey,
         releaseDateTime if releaseDateTime else None, encryptionKey,
@@ -173,20 +168,23 @@ def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, rel
         )
     cursor.execute(sql, params)
     conn.commit()
+    ID = cursor.fetchone()[0]
     cursor.close()
     conn.close()
+    return ID
 
-def insertPrescriptions( prescriptions, encryptionKey):
+def insertPrescriptions(admissionID, prescriptions, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
     sql = """INSERT INTO Prescription (admission_id, medication_name, amount, schedule)
             SELECT 
-                (SELECT admission_id FROM admission),
+                %s,
                 pgp_sym_encrypt(med, %s),
                 pgp_sym_encrypt(amt, %s),
                 pgp_sym_encrypt(schd, %s)
             FROM unnest(%s, %s, %s) AS t(med, amt, schd)"""
     params = (
+        admissionID,
         encryptionKey,
         encryptionKey,
         encryptionKey,
@@ -199,18 +197,19 @@ def insertPrescriptions( prescriptions, encryptionKey):
     cursor.close()
     conn.close()
 
-def insertNotes(notes, encryptionKey, fixedSalt):
+def insertNotes(admissionID, notes, encryptionKey, fixedSalt):
     conn = getConnection()
     cursor = conn.cursor()
     sql = """INSERT INTO PatientNote (admission_id, author_id, note_type, note_text, note_datetime)
             SELECT
-                (SELECT admission_id FROM admission),
+                %s,
                 (SELECT user_id FROM Staff WHERE username_hash = encode(digest(author || %s, 'sha256'), 'hex')),
                 type,
                 pgp_sym_encrypt(text, %s),
                 pgp_sym_encrypt(dt, %s)
             FROM unnest(%s, %s, %s, %s) AS t(author, type, text, dt)"""
     params =(
+        admissionID,
         fixedSalt,
         encryptionKey,
         encryptionKey,
@@ -224,17 +223,18 @@ def insertNotes(notes, encryptionKey, fixedSalt):
     cursor.close()
     conn.close()
 
-def insertProcedures(procedures, encryptionKey):
+def insertProcedures(admissionID, procedures, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
     sql = """INSERT INTO ScheduledProcedure (admission_id, procedure_name, scheduled_datetime)
             SELECT
-                (SELECT admission_id FROM admission),
+                %s,
                 pgp_sym_encrypt(proc, %s),
                 pgp_sym_encrypt(dt, %s)
             FROM unnest(%s, %s) AS t(proc, dt)"""
     params = (
         # Procedures
+        admissionID,
         encryptionKey,
         encryptionKey,
         [procedure['name'] for procedure in procedures],
@@ -245,14 +245,14 @@ def insertProcedures(procedures, encryptionKey):
     cursor.close()
     conn.close()
 
-def insertBill(billingTotal, billingPaid, billingInsurance, itemizedBill):
+def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemizedBill):
     conn = getConnection()
     cursor = conn.cursor()
     sql = """WITH
     billing AS (
             INSERT INTO Billing (admission_id, total_amount_owed, total_amount_paid, insurance_paid)
             VALUES (
-                (SELECT admission_id FROM admission),
+                %s,
                 %s,
                 %s,
                 %s
@@ -270,6 +270,7 @@ def insertBill(billingTotal, billingPaid, billingInsurance, itemizedBill):
         SELECT 1;"""
     params = (
         # Billing
+        admissionID,
         billingTotal,
         billingPaid,
         billingInsurance,
@@ -289,8 +290,8 @@ def insertBill(billingTotal, billingPaid, billingInsurance, itemizedBill):
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     #insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Medical Personnel', keys[0], keys[1])
-    insertPatient('Logos', 'Will', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', '3333333333', 'Mitch', '4444444444', 'Taylor', '5555555555', 'BlairStafford', 'United Healthcare', '12345', '54321', keys[0], keys[1])
-    #insertAdmission('Will', 'Graves', 'Logos', '2025-03-02 11:11:00', 'Fingy Broked', '2025-02-03 01:12:00', 'ER', '1', '123', '1', keys[0], keys[1])
+    #insertPatient('Logos', 'William', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', '3333333333', 'Mitch', '4444444444', 'Taylor', '5555555555', 'BlairStafford', 'United Healthcare', '12345', '54321', keys[0], keys[1])
+    #print(insertAdmission('William', 'Graves', 'Logos', '2025-03-02 11:11:00', 'Fingy Broked', '2025-02-03 01:12:00', 'ER', '1', '123', '1', keys[0], keys[1]))
     #insertPrescriptions([{'name': 'Ibuprofen', 'amount': '500mg', 'schedule': 'Once Every Six Hours'}, {'name': 'Morphine', 'amount': 'A lot', 'schedule': 'Once, he would not stop screaming'}, {'name': 'Crystal Meth', 'amount': 'One Teenth', 'schedule': 'Twice Daily'}], keys[0])
     #insertNotes([{'author': 'BlairStafford', 'type': 'Doctor', 'text': 'The Meth really showed results', 'time' : datetime.datetime.now()}, {'author': 'BlairStafford', 'type': 'Nurse', 'text': 'I think Dr. Blair needs to be fired.', 'time' : datetime.datetime.now()}], keys[0], keys[1])
     #insertProcedures([{'name': 'Finger Surgery', 'date': '2025-03-15 12:00:00'}], keys[0])
