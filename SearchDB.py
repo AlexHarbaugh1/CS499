@@ -212,17 +212,17 @@ def searchBillingWithAdmission(admissionID):
         FROM Billing
         WHERE admission_id = %s;"""
     params = (
-         admissionID
+        admissionID,
     )
     cursor.execute(sql, params)
     results = cursor.fetchone()
     billing = results[1:]
-    billingID = results[0]
+    billingID = str(results[0])
     sql = """SELECT item_description, charge_amount::FLOAT
         FROM billingdetail
         WHERE billing_id = %s;"""
     params = (
-        str(billingID)
+        billingID,
     )
     cursor.execute(sql, params)
     billingDetails = cursor.fetchall()
@@ -235,6 +235,6 @@ if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     #print(passwordMatch('BlairStafford', 'qwertyuiop', keys[1]))
     #print(searchPatientWithName('W', None, None, keys[0], keys[1], True))
-    for patient in searchPatientWithName(None, "J", None, keys[0], keys[1], True):
-        print(patient)
-    #print(searchBillingWithAdmission('1'))
+    #for patient in searchPatientWithName(None, "Joy", None, keys[0], keys[1]):
+        #print(patient)
+    print(searchBillingWithAdmission('81'))
