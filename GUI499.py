@@ -15,6 +15,17 @@ import EncryptionKey
 import SearchDB
 # import sql thing
 
+class MainScreen(QDialog):
+    def __init__(self):
+        super(MainScreen, self).__init__()
+        loadUi("MainScreen.ui", self)
+        #self.enterApplication = QPushButton("Enter Application", self)
+        self.enterApplication.clicked.connect(self.openLogin)
+       
+    def openLogin(self):
+        self.loginWindow = LoginScreen()
+        self.loginWindow.show()
+        self.close()
 
 class LoginScreen(QDialog):
     def __init__(self):
@@ -51,11 +62,6 @@ class LoginScreen(QDialog):
         home=HomeScreen()
         widget.addWidget(home)
         widget.setCurrentIndex(widget.currentIndex()+1)       
-
-class HomeScreen(QDialog):
-    def __init__(self):
-        super(HomeScreen, self).__init__()
-        loadUi("MainScreen.ui", self)
 
 class SearchScreen(QDialog):
     def __init__(self):
@@ -168,8 +174,9 @@ class ListScreen(QDialog):
 # main
 app = QApplication(sys.argv)
 login = LoginScreen()
+home = MainScreen()
 widget = QtWidgets.QStackedWidget()
-widget.addWidget(login)
+widget.addWidget(home)
 widget.setFixedHeight(800)
 widget.setFixedWidth(1200)
 widget.show()

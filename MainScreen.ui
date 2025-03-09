@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <widget class="QPushButton" name="pushButton">
+  <widget class="QPushButton" name="enterApplication">
    <property name="geometry">
     <rect>
      <x>70</x>
@@ -56,11 +56,9 @@
    </property>
   </widget>
   <zorder>label_2</zorder>
-  <zorder>pushButton</zorder>
+  <zorder>enterApplication</zorder>
   <zorder>label_3</zorder>
  </widget>
- <resources>
-  <include location="Test.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>
