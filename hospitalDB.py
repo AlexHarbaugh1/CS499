@@ -46,6 +46,8 @@ def run():
                     type_id INT NOT NULL REFERENCES UserType(type_id),
                     first_name BYTEA NOT NULL,
                     last_name BYTEA NOT NULL,
+                    first_name_prefix_trgms TEXT[],
+                    last_name_prefix_trgms TEXT[],
                     username_hash TEXT NOT NULL,
                     username BYTEA NOT NULL,
                     password_hash TEXT NOT NULL);"""
