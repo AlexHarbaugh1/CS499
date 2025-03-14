@@ -2,3 +2,5 @@
 /__pycache__
 projectConnection.session.sql
 /__pycache__
+testDataframe.py
+dummyDataGenerator.py

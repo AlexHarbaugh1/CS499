@@ -10,14 +10,29 @@ def hashPrefix(prefix, fixedSalt):
 def insertStaff(fname , lname, username, password, type, encryptionKey, fixedSalt):
     conn = getConnection()
     cursor = conn.cursor()
-    cursor.execute(f"""INSERT INTO Staff (first_name, last_name, username_hash, username, password_hash, type_id)
+    fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
+    lnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(lname)]
+    sql = """INSERT INTO Staff (first_name, last_name, first_name_prefix_trgms, last_name_prefix_trgms, username_hash, username, password_hash, type_id)
                    Values(
-                   pgp_sym_encrypt('{fname}', '{encryptionKey}'),
-                   pgp_sym_encrypt('{lname}', '{encryptionKey}'),
-                   encode(digest('{username}' || '{fixedSalt}', 'sha256'), 'hex'),
-                   pgp_sym_encrypt('{username}', '{encryptionKey}'),
-                   crypt('{password}', gen_salt('bf')),
-                   (SELECT type_id FROM UserType WHERE type_name = '{type}'));""")
+                   pgp_sym_encrypt(%s, %s),
+                   pgp_sym_encrypt(%s, %s),
+                   %s,
+                   %s,
+                   encode(digest(%s || %s, 'sha256'), 'hex'),
+                   pgp_sym_encrypt(%s, %s),
+                   crypt(%s, gen_salt('bf')),
+                   (SELECT type_id FROM UserType WHERE type_name = %s));"""
+    params = (
+        fname, encryptionKey,
+        lname, encryptionKey,
+        fnameHashedPrefixes,
+        lnameHashedPrefixes,
+        username, fixedSalt,
+        username, encryptionKey,
+        password,
+        type
+    )
+    cursor.execute(sql, params)
     conn.commit()
     cursor.close()
     conn.close()
