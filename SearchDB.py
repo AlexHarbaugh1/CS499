@@ -30,7 +30,7 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
         if(fname != None):
             if(mname != None):
                 if(lname != None): 
-                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s)
+                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
                         WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
                         AND middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
@@ -44,10 +44,11 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                         lname, fixedSalt
                     )
                 else:
-                     sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                     sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
                         WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        AND middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex');"""
+                        AND middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+                        ORDER BY decrypted_last_name ASC;"""
                      params = (
                         encryptionKey,
                         encryptionKey,
@@ -57,10 +58,11 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                     )
             elif(mname == None):
                 if(lname != None): 
-                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
                         WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex');"""
+                        AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+                        ORDER BY decrypted_last_name ASC;"""
                     params = (
                         encryptionKey,
                         encryptionKey,
@@ -69,9 +71,10 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                         lname, fixedSalt
                     )
                 else:
-                     sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                     sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
-                        WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex');"""
+                        WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+                        ORDER BY decrypted_last_name ASC;"""
                      params = (
                         encryptionKey,
                         encryptionKey,
@@ -80,10 +83,11 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                     )
         elif (mname != None):
             if(lname != None): 
-                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
                         WHERE middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex');"""
+                        AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+                        ORDER BY decrypted_last_name ASC;"""
                     params = (
                         encryptionKey,
                         encryptionKey,
@@ -92,9 +96,10 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                         lname, fixedSalt
                     )
             else:
-                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
-                        WHERE middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex');"""
+                        WHERE middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+                        ORDER BY decrypted_last_name ASC;"""
                     params = (
                         encryptionKey,
                         encryptionKey,
@@ -102,27 +107,26 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                         mname, fixedSalt
                     )
         else:
-            sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+            sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
                         WHERE last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY
-                        pgp_sym_decrypt(first_name, %s) ASC;"""
+                        ORDER BY decrypted_last_name ASC;"""
             params = (
                         encryptionKey,
                         encryptionKey,
                         encryptionKey,
-                        lname, fixedSalt,
-                        encryptionKey
+                        lname, fixedSalt
                     )
     else:
         if(fname != None):
             if(mname != None):
                 if(lname != None): 
-                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s)
+                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
                         WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
                         AND middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                        AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                        ORDER BY decrypted_last_name ASC;"""
                     params = (
                         encryptionKey,
                         encryptionKey,
@@ -132,10 +136,11 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                         lname, fixedSalt
                     )
                 else:
-                     sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                     sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
                         WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        AND middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                        AND middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                        ORDER BY decrypted_last_name ASC;"""
                      params = (
                         encryptionKey,
                         encryptionKey,
@@ -145,10 +150,11 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                     )
             elif(mname == None):
                 if(lname != None): 
-                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
                         WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                        AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                        ORDER BY decrypted_last_name ASC;"""
                     params = (
                         encryptionKey,
                         encryptionKey,
@@ -157,9 +163,10 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                         lname, fixedSalt
                     )
                 else:
-                     sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                     sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
-                        WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                        WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                        ORDER BY decrypted_last_name ASC;"""
                      params = (
                         encryptionKey,
                         encryptionKey,
@@ -168,10 +175,11 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                     )
         elif (mname != None):
             if(lname != None): 
-                        sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                        sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                             FROM Patient
                             WHERE middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                            AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                            AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                        ORDER BY decrypted_last_name ASC;"""
                         params = (
                             encryptionKey,
                             encryptionKey,
@@ -180,9 +188,10 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                             lname, fixedSalt
                         )
             else:
-                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                    sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                         FROM Patient
-                        WHERE middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                        WHERE middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                        ORDER BY decrypted_last_name ASC;"""
                     params = (
                         encryptionKey,
                         encryptionKey,
@@ -190,9 +199,10 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
                         mname, fixedSalt
                     )
         else:
-                sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) 
+                sql = """SELECT patient_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                             FROM Patient
-                            WHERE last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                            WHERE last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                        ORDER BY decrypted_last_name ASC;"""
                 params = (
                             encryptionKey,
                             encryptionKey,
@@ -258,10 +268,11 @@ def searchStaffWithName(fname, lname, encryptionKey, fixedSalt, partial = False)
     if (not partial):
         if(fname != None):
             if(lname != None): 
-                sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) 
+                sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                     FROM staff
                     WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                    AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex');"""
+                    AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+                    ORDER BY decrypted_last_name ASC;"""
                 params = (
                     encryptionKey,
                     encryptionKey,
@@ -269,33 +280,33 @@ def searchStaffWithName(fname, lname, encryptionKey, fixedSalt, partial = False)
                     lname, fixedSalt
                 )
             else:
-                sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) 
+                sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                     FROM staff
-                    WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex');"""
+                    WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
+                    ORDER BY decrypted_last_name ASC;"""
                 params = (
                     encryptionKey,
                     encryptionKey,
                     fname, fixedSalt
                     )
         else:
-            sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) 
+            sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                     FROM staff
                         WHERE last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY
-                        pgp_sym_decrypt(first_name, %s) ASC;"""
+                        ORDER BY decrypted_last_name ASC;"""
             params = (
                         encryptionKey,
                         encryptionKey,
                         lname, fixedSalt,
-                        encryptionKey
                     )
     else:
         if(fname != None):
             if(lname != None): 
-                sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) 
+                sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                     FROM staff
                     WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                    AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                    AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                    ORDER BY decrypted_last_name ASC;"""
                 params = (
                     encryptionKey,
                     encryptionKey,
@@ -303,18 +314,20 @@ def searchStaffWithName(fname, lname, encryptionKey, fixedSalt, partial = False)
                     lname, fixedSalt
                 )
             else:
-                    sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) 
+                    sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                     FROM staff
-                    WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                    WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                    ORDER BY decrypted_last_name ASC;"""
                     params = (
                     encryptionKey,
                     encryptionKey,
                     fname, fixedSalt
                 )
         else:
-                sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) 
+                sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
                     FROM staff
-                            WHERE last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')];"""
+                    WHERE last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
+                    ORDER BY decrypted_last_name ASC;"""
                 params = (
                             encryptionKey,
                             encryptionKey,
@@ -374,9 +387,9 @@ if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     #print(passwordMatch('BlairStafford', 'qwertyuiop', keys[1]))
     #print(searchPatientWithName('W', None, None, keys[0], keys[1], True))
-    #for patient in searchPatientWithName(None, None, "Stafford", keys[0], keys[1]):
+    #for patient in searchPatientWithName("Ashley", None, None, keys[0], keys[1]):
         #print(patient)
     #print(searchBillingWithAdmission('200'))
     #print(searchPatientWithID('81', keys[0]))
-    #print(searchStaffWithName(None, 'S', keys[0], keys[1], True))
+    #print(searchStaffWithName('S', None, keys[0], keys[1], True))
     #print(searchStaffWithID('1', keys[0]))
