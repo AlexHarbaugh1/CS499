@@ -17,9 +17,9 @@
    <property name="geometry">
     <rect>
      <x>0</x>
-     <y>-140</y>
-     <width>800</width>
-     <height>1200</height>
+     <y>0</y>
+     <width>1200</width>
+     <height>800</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -29,9 +29,9 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>304</x>
+      <x>530</x>
       <y>255</y>
-      <width>141</width>
+      <width>175</width>
       <height>71</height>
      </rect>
     </property>
@@ -39,45 +39,45 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <string notr="true">font: 36pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>PIMS</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:20pt;&quot;&gt;PIMS&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QLabel" name="labelUser">
     <property name="geometry">
      <rect>
-      <x>130</x>
-      <y>400</y>
-      <width>131</width>
-      <height>31</height>
+      <x>300</x>
+      <y>390</y>
+      <width>221</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="styleSheet">
      <string notr="true">font: 16pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>Username:</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;Username:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QLabel" name="labelPass">
     <property name="geometry">
      <rect>
-      <x>130</x>
-      <y>480</y>
-      <width>131</width>
-      <height>31</height>
+      <x>300</x>
+      <y>470</y>
+      <width>221</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="styleSheet">
      <string notr="true">font: 16pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>Password:</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;Password:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="userField">
     <property name="geometry">
      <rect>
-      <x>270</x>
+      <x>530</x>
       <y>400</y>
       <width>211</width>
       <height>31</height>
@@ -87,7 +87,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QLineEdit" name="passwordField">
     <property name="geometry">
      <rect>
-      <x>270</x>
+      <x>530</x>
       <y>480</y>
       <width>211</width>
       <height>31</height>
@@ -97,10 +97,10 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QPushButton" name="login">
     <property name="geometry">
      <rect>
-      <x>330</x>
+      <x>525</x>
       <y>630</y>
-      <width>111</width>
-      <height>51</height>
+      <width>150</width>
+      <height>75</height>
      </rect>
     </property>
     <property name="styleSheet">
