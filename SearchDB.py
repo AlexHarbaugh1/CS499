@@ -249,7 +249,6 @@ def searchPatientWithID(patientID, encryptionKey):
     )
     cursor.execute(sql, params)
     doctorUsername = cursor.fetchone()
-
     sql = """SELECT admission_id, pgp_sym_decrypt(admittance_datetime, %s)
             FROM admission
             WHERE patient_ID = %s"""
@@ -259,9 +258,21 @@ def searchPatientWithID(patientID, encryptionKey):
     )
     cursor.execute(sql, params)
     patientAdmissions = cursor.fetchall()
-
-    return patientData, doctorUsername, patientAdmissions
-    
+    sql = """SELECT pgp_sym_decrypt(carrier_name, %s), pgp_sym_decrypt(account_number, %s), pgp_sym_decrypt(group_number, %s)
+    FROM insurance
+    WHERE patient_id = %s"""
+    params = (
+            encryptionKey,
+            encryptionKey,
+            encryptionKey,
+            patientID,
+        )
+    cursor.execute(sql, params)
+    patientInsurance = cursor.fetchone()
+    return patientData, doctorUsername, patientAdmissions, patientInsurance
+# searchStaffWithName uses same logic as searchPatientWithName to find and list Staff members
+# Returns list of tuples with user_id, first_name, last_name
+# USE CASE: search for staff members on the search screen    
 def searchStaffWithName(fname, lname, encryptionKey, fixedSalt, partial = False):
     conn = getConnection()
     cursor = conn.cursor()
@@ -339,7 +350,8 @@ def searchStaffWithName(fname, lname, encryptionKey, fixedSalt, partial = False)
     cursor.close()
     conn.close()
     return(staff)
-
+# searchStaffWithID takes input user_id and returns relevant staff member information
+# Returns tuple of username, first_name, last_name, type
 def searchStaffWithID(userID, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
@@ -356,7 +368,9 @@ def searchStaffWithID(userID, encryptionKey):
     staffData = cursor.fetchone()
 
     return staffData
-
+# searchBillingWithAdmission takes the admissionID and returns all billing information and Itemized Bill
+# returns tuple with price owed, price paid, price paid by insurance
+# returns a list of tuples with billed item, cost
 def searchBillingWithAdmission(admissionID):
     conn = getConnection()
     cursor = conn.cursor()
@@ -381,8 +395,85 @@ def searchBillingWithAdmission(admissionID):
     cursor.close()
     conn.close()
     return billing, billingDetails
-
-
+# searchAdmissionWithID takes the admission ID and returns all associated admissionData
+# Returns tuple with tuple of admittance date, release date, reason for admission
+# tuple of facility, floor, room number, bed number
+# tuple of doctor first name, last name
+# list of tuples with prescription name, amount, schedule
+# list of tuples with procedure name, scheduled time
+# list of tuples with note author's first name, last name, type of note, note text, note time written
+def searchAdmissionWithID(admissionID, encryptionKey):
+    conn = getConnection()
+    cursor = conn.cursor()
+    sql = """SELECT pgp_sym_decrypt(admittance_datetime, %s), pgp_sym_decrypt(discharge_datetime, %s), pgp_sym_decrypt(reason_for_admission, %s), doctor_id, location_id
+            FROM admission
+            WHERE admission_id = %s;"""
+    params = (
+        encryptionKey,
+        encryptionKey,
+        encryptionKey,
+        admissionID
+    )
+    cursor.execute(sql, params)
+    results = cursor.fetchone()
+    locationID = results[-1]
+    doctorID = results[-2]
+    admissionData = results[:-2]
+    sql = """SELECT facility, floor, room_number, bed_number
+            FROM location
+            WHERE location_id = %s"""
+    params = (
+         locationID,
+         )
+    cursor.execute(sql, params)
+    location = cursor.fetchone()
+    sql = """SELECT pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s)
+            FROM staff 
+            WHERE user_id = %s;"""
+    params = (
+         encryptionKey,
+         encryptionKey,
+         doctorID
+    )
+    cursor.execute(sql, params)
+    doctor = cursor.fetchone()
+    sql = """SELECT pgp_sym_decrypt(medication_name, %s), pgp_sym_decrypt(amount, %s), pgp_sym_decrypt(schedule, %s)
+            FROM prescription
+            WHERE admission_id = %s"""
+    params = (
+        encryptionKey,
+        encryptionKey,
+        encryptionKey,
+        admissionID
+    )
+    cursor.execute(sql, params)
+    prescriptions = cursor.fetchall()
+    sql = """SELECT pgp_sym_decrypt(procedure_name, %s), pgp_sym_decrypt(scheduled_datetime, %s)
+    FROM scheduledprocedure
+    WHERE admission_id = %s"""
+    params = (
+        encryptionKey,
+        encryptionKey,
+        admissionID
+    )
+    cursor.execute(sql, params)
+    procedures = cursor.fetchall()
+    sql = """SELECT pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s), note_type, pgp_sym_decrypt(note_text, %s), pgp_sym_decrypt(note_datetime, %s)
+            FROM patientnote n JOIN staff s ON n.author_id = s.user_id
+            WHERE admission_id = %s"""
+    params = (
+        encryptionKey,
+        encryptionKey,
+        encryptionKey,
+        encryptionKey,
+        admissionID
+    )
+    cursor.execute(sql, params)
+    notes = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return admissionData, location, doctor, prescriptions, procedures, notes
+     
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     #print(passwordMatch('BlairStafford', 'qwertyuiop', keys[1]))
@@ -390,6 +481,7 @@ if __name__ == "__main__":
     #for patient in searchPatientWithName("Ashley", None, None, keys[0], keys[1]):
         #print(patient)
     #print(searchBillingWithAdmission('200'))
-    #print(searchPatientWithID('81', keys[0]))
+    #print(searchPatientWithID('71', keys[0]))
     #print(searchStaffWithName('S', None, keys[0], keys[1], True))
     #print(searchStaffWithID('1', keys[0]))
+    #print(searchAdmissionWithID('10', keys[0]))

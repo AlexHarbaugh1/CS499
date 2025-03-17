@@ -9,7 +9,7 @@ def patientUpdateFirstName(patientID, newName, encryptionKey, fixedSalt):
     sql = """UPDATE Patient
             SET first_name = pgp_sym_encrypt(%s, %s),
             first_name_prefix_trgms = %s
-            WHERE patient_id = %s"""
+            WHERE patient_id = %s;"""
     params = (
         newName, encryptionKey,
         newNameHashedPrefixes,
@@ -27,7 +27,7 @@ def patientUpdateMiddleName(patientID, newName, encryptionKey, fixedSalt):
     sql = """UPDATE Patient
             SET middle_name = pgp_sym_encrypt(%s, %s),
             middle_name_prefix_trgms = %s
-            WHERE patient_id = %s"""
+            WHERE patient_id = %s;"""
     params = (
         newName, encryptionKey,
         newNameHashedPrefixes,
@@ -45,7 +45,7 @@ def patientUpdateLastName(patientID, newName, encryptionKey, fixedSalt):
     sql = """UPDATE Patient
             SET last_name = pgp_sym_encrypt(%s, %s),
             last_name_prefix_trgms = %s
-            WHERE patient_id = %s"""
+            WHERE patient_id = %s;"""
     params = (
         newName, encryptionKey,
         newNameHashedPrefixes,
@@ -61,7 +61,7 @@ def patientUpdateAddress(patientID, newAddress, encryptionKey):
     cursor = conn.cursor()
     sql = """UPDATE Patient
             SET mailing_address = pgp_sym_encrypt(%s, %s)
-            WHERE patient_id = %s"""
+            WHERE patient_id = %s;"""
     params = (
         newAddress, encryptionKey,
         patientID
@@ -71,21 +71,35 @@ def patientUpdateAddress(patientID, newAddress, encryptionKey):
     cursor.close()
     conn.close()
 
-def patientUpdateFamilyDoctor(patientID, newDoctor, encryptionKey):
+def patientUpdateFamilyDoctor(patientID, newDoctor):
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """"""
-    params = ()
+    sql = """UPDATE Patient
+            SET family_doctor_id = %s
+            WHERE patient_id = %s;"""
+    params = (
+        newDoctor,
+        patientID
+    )
     cursor.execute(sql, params)
     conn.commit()
     cursor.close()
     conn.close()
 
-def patientUpdateInsurance(patientID, newInsurance, encryptionKey):
+def patientUpdateInsurance(patientID, newCarrierName, newAccNum, newGroupNum, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """"""
-    params = ()
+    sql = """Update Insurance
+    SET carrier_name = pgp_sym_encrypt(%s, %s),
+    account_number = pgp_sym_encrypt(%s, %s),
+    group_number = pgp_sym_encrypt(%s, %s)
+    WHERE patient_id = %s;"""
+    params = (
+        newCarrierName, encryptionKey,
+        newAccNum, encryptionKey,
+        newGroupNum, encryptionKey,
+        patientID
+        )
     cursor.execute(sql, params)
     conn.commit()
     cursor.close()
@@ -147,3 +161,5 @@ if __name__ == "__main__":
     #patientUpdateMiddleName('81', 'Ellen', keys[0], keys[1])
     #patientUpdateLastName('81', 'Montraeu', keys[0], keys[1])
     #patientUpdateAddress('81', '1234 Main Street, Huntsville, AL 35850', keys[0])
+    #patientUpdateFamilyDoctor('81', '19')
+    patientUpdateInsurance('81', 'United Healthcare', '23523', '63456', keys[0])

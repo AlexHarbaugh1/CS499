@@ -102,6 +102,7 @@ def run():
                     admission_id SERIAL PRIMARY KEY,
                     patient_id INT NOT NULL REFERENCES Patient(patient_id),
                     location_id INT NOT NULL REFERENCES Location(location_id),
+                    doctor_id INT NOT NULL REFERENCES Staff(user_id),
                     admittance_datetime BYTEA NOT NULL,
                     discharge_datetime BYTEA,
                     reason_for_admission BYTEA NOT NULL);"""
@@ -147,6 +148,8 @@ def run():
                     )
     # Adding Indexes for Faster Searching and Partial Searching.
     cursor2.execute("CREATE INDEX idx_staff_username_hash ON Staff USING HASH (username_hash);")
+    cursor2.execute("CREATE INDEX idx_staff_first_name_prefix_trgms ON Staff USING gin (first_name_prefix_trgms);")
+    cursor2.execute("CREATE INDEX idx_staff_last_name_prefix_trgms ON Staff USING gin (last_name_prefix_trgms);")
     cursor2.execute("CREATE INDEX idx_first_name_prefix_trgms ON Patient USING gin (first_name_prefix_trgms);")
     cursor2.execute("CREATE INDEX idx_middle_name_prefix_trgms ON Patient USING gin (middle_name_prefix_trgms);")
     cursor2.execute("CREATE INDEX idx_last_name_prefix_trgms ON Patient USING gin (last_name_prefix_trgms);")

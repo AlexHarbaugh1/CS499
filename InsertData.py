@@ -130,7 +130,7 @@ def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, 
     conn.close()
 
 def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, releaseDateTime,
-                    hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, encryptionKey, fixedSalt):
+                    hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, doctorID, encryptionKey, fixedSalt):
     conn = getConnection()
     cursor = conn.cursor()
     patient_id = SearchDB.searchPatientWithName(fName, mName, lName, encryptionKey, fixedSalt)[0][0]
@@ -146,6 +146,7 @@ def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, rel
             INSERT INTO Admission (
                 patient_id, 
                 location_id,
+                doctor_id,
                 admittance_datetime,
                 reason_for_admission,
                 discharge_datetime
@@ -153,6 +154,7 @@ def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, rel
             VALUES (
                 %s,
                 (SELECT location_id FROM location),
+                %s,
                 pgp_sym_encrypt(%s, %s),
                 pgp_sym_encrypt(%s, %s),
                 pgp_sym_encrypt(%s, %s)
@@ -175,6 +177,7 @@ def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, rel
             
         # Admission
         patient_id,
+        doctorID,
         admissionDateTime, encryptionKey,
         admissionReason, encryptionKey,
         releaseDateTime if releaseDateTime else None, encryptionKey,
