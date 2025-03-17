@@ -48,7 +48,9 @@ def populate_users( encryptionKey, fixedSalt, n=50):
         InsertData.insertStaff(fake.first_name(), fake.last_name(), username, password, user_type, encryptionKey, fixedSalt)
 
 def populate_patients(encryptionKey, fixedSalt, n=100):
-    cursor.execute("SELECT pgp_sym_decrypt(username, 'dee75305637776bbf9c3d5fe6241c904') FROM Staff WHERE type_id = 5")
+    sql = """SELECT pgp_sym_decrypt(username, %s) FROM Staff WHERE type_id = 5"""
+    params = (encryptionKey,)
+    cursor.execute(sql, params)
     doctor_ids = [row[0] for row in cursor.fetchall()]
     insurances = ['Progressive', 'United Healthcare', 'Allstate', 'Local Provider']
     
@@ -59,7 +61,8 @@ def populate_patients(encryptionKey, fixedSalt, n=100):
 def populate_admissions(encryptionKey, fixedSalt, n=200):
     cursor.execute("SELECT patient_id FROM Patient")
     patient_ids = [row[0] for row in cursor.fetchall()]
-    
+    cursor.execute("SELECT user_id FROM Staff WHERE type_id = 5")
+    doctor_ids = [row[0] for row in cursor.fetchall()]
     for _ in range(n):
         admit_date = fake.date_between(start_date="-2y", end_date="today")
         id = random.choice(patient_ids)
@@ -78,7 +81,7 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
 
         discharge_date = admit_date + timedelta(days=random.randint(1, 30)) if random.random() < 0.7 else None
         facilities = ["Main Hospital", "North Clinic", "South Clinic"]
-        admissionID = InsertData.insertAdmission(fname, mname, lname, str(admit_date), fake.sentence(nb_words=6), str(discharge_date), random.choice(facilities), random.randint(1, 10), fake.random_int(100, 999), fake.random_int(1, 50), keys[0], keys[1])
+        admissionID = InsertData.insertAdmission(fname, mname, lname, str(admit_date), fake.sentence(nb_words=6), str(discharge_date), random.choice(facilities), random.randint(1, 10), fake.random_int(100, 999), fake.random_int(1, 50), random.choice(doctor_ids), keys[0], keys[1])
         
         # Add prescriptions (1-3 per admission)
         prescriptions = []
@@ -123,6 +126,6 @@ if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
 
     populate_users(keys[0], keys[1], 50)          # 50 users
-    populate_patients(keys[0], keys[1], 100)      # 100 patients
-    populate_admissions(keys[0], keys[1], 200)    # 200 admissions
+    populate_patients(keys[0], keys[1], 200)      # 200 patients
+    populate_admissions(keys[0], keys[1], 250)    # 250 admissions
     print("Dummy data generation complete!")

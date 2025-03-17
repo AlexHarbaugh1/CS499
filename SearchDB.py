@@ -219,6 +219,7 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
 # Returns tuple of First Name, Middle Name, Last Name, Mailing Address
 # tuple of Family Doctor's Username, First Name, Last Name
 # and a list of tuples with admission_id, admission_datetime
+# and a list of tuples with emergency contact name, phone number
 # USE CASE: Retrieve a patient's information for populating their related page in the GUI
 def searchPatientWithID(patientID, encryptionKey):
     conn = getConnection()
@@ -237,7 +238,15 @@ def searchPatientWithID(patientID, encryptionKey):
     results = cursor.fetchone()
     patientData = results[:-1]
     doctorID = results[-1]
-
+    sql = """SELECT phone_type, pgp_sym_decrypt(phone_number, %s)
+        FROM phonenumber
+        WHERE patient_id = %s"""
+    params = (
+        encryptionKey,
+        patientID
+    )
+    cursor.execute(sql, params)
+    phoneNumbers = cursor.fetchall()
     sql = """SELECT pgp_sym_decrypt(username, %s),  pgp_sym_decrypt(first_name, %s),  pgp_sym_decrypt(last_name, %s)
             FROM staff
             WHERE user_id = %s"""
@@ -269,7 +278,17 @@ def searchPatientWithID(patientID, encryptionKey):
         )
     cursor.execute(sql, params)
     patientInsurance = cursor.fetchone()
-    return patientData, doctorUsername, patientAdmissions, patientInsurance
+    sql = """SELECT pgp_sym_decrypt(contact_name, %s), pgp_sym_decrypt(contact_phone, %s), contact_order
+    FROM emergencycontact
+    WHERE patient_id = %s;"""
+    params = (
+         encryptionKey,
+         encryptionKey,
+         patientID
+    )
+    cursor.execute(sql, params)
+    emergencyContacts = cursor.fetchall()
+    return patientData, phoneNumbers, doctorUsername, patientAdmissions, patientInsurance, emergencyContacts
 # searchStaffWithName uses same logic as searchPatientWithName to find and list Staff members
 # Returns list of tuples with user_id, first_name, last_name
 # USE CASE: search for staff members on the search screen    
@@ -352,6 +371,7 @@ def searchStaffWithName(fname, lname, encryptionKey, fixedSalt, partial = False)
     return(staff)
 # searchStaffWithID takes input user_id and returns relevant staff member information
 # Returns tuple of username, first_name, last_name, type
+# USE CASE: after selecting a staff member, return the data necessary to populate the page
 def searchStaffWithID(userID, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
@@ -371,6 +391,7 @@ def searchStaffWithID(userID, encryptionKey):
 # searchBillingWithAdmission takes the admissionID and returns all billing information and Itemized Bill
 # returns tuple with price owed, price paid, price paid by insurance
 # returns a list of tuples with billed item, cost
+# USE CASE: Find all billing information for printing reports
 def searchBillingWithAdmission(admissionID):
     conn = getConnection()
     cursor = conn.cursor()
@@ -402,6 +423,7 @@ def searchBillingWithAdmission(admissionID):
 # list of tuples with prescription name, amount, schedule
 # list of tuples with procedure name, scheduled time
 # list of tuples with note author's first name, last name, type of note, note text, note time written
+# USE CASE: retrieve all necessary data for populating the GUI and printing reports
 def searchAdmissionWithID(admissionID, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
@@ -481,7 +503,13 @@ if __name__ == "__main__":
     #for patient in searchPatientWithName("Ashley", None, None, keys[0], keys[1]):
         #print(patient)
     #print(searchBillingWithAdmission('200'))
-    #print(searchPatientWithID('71', keys[0]))
+    print(searchPatientWithID('71', keys[0]))
     #print(searchStaffWithName('S', None, keys[0], keys[1], True))
     #print(searchStaffWithID('1', keys[0]))
-    #print(searchAdmissionWithID('10', keys[0]))
+    """admissionData, location, assignedDoctor, prescriptions, procedures, notes = searchAdmissionWithID('10', keys[0])
+    print(admissionData)
+    print(location)
+    print(assignedDoctor)
+    print(prescriptions)
+    print(procedures)
+    print(notes)"""
