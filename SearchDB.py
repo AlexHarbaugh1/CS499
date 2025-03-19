@@ -240,7 +240,8 @@ def searchPatientWithID(patientID, encryptionKey):
     doctorID = results[-1]
     sql = """SELECT phone_type, pgp_sym_decrypt(phone_number, %s)
         FROM phonenumber
-        WHERE patient_id = %s"""
+        WHERE patient_id = %s
+        ORDER BY phone_type;"""
     params = (
         encryptionKey,
         patientID
@@ -258,9 +259,10 @@ def searchPatientWithID(patientID, encryptionKey):
     )
     cursor.execute(sql, params)
     doctorUsername = cursor.fetchone()
-    sql = """SELECT admission_id, pgp_sym_decrypt(admittance_datetime, %s)
+    sql = """SELECT admission_id, pgp_sym_decrypt(admittance_datetime, %s) AS decrypted_time
             FROM admission
-            WHERE patient_ID = %s"""
+            WHERE patient_ID = %s
+            ORDER BY decrypted_time DESC;"""
     params = (
          encryptionKey,
          patientID
@@ -280,7 +282,8 @@ def searchPatientWithID(patientID, encryptionKey):
     patientInsurance = cursor.fetchone()
     sql = """SELECT pgp_sym_decrypt(contact_name, %s), pgp_sym_decrypt(contact_phone, %s), contact_order
     FROM emergencycontact
-    WHERE patient_id = %s;"""
+    WHERE patient_id = %s
+    ORDER BY contact_order ASC;"""
     params = (
          encryptionKey,
          encryptionKey,
@@ -503,7 +506,7 @@ if __name__ == "__main__":
     #for patient in searchPatientWithName("Ashley", None, None, keys[0], keys[1]):
         #print(patient)
     #print(searchBillingWithAdmission('200'))
-    print(searchPatientWithID('71', keys[0]))
+    print(searchPatientWithID('2', keys[0]))
     #print(searchStaffWithName('S', None, keys[0], keys[1], True))
     #print(searchStaffWithID('1', keys[0]))
     """admissionData, location, assignedDoctor, prescriptions, procedures, notes = searchAdmissionWithID('10', keys[0])

@@ -71,6 +71,21 @@ def patientUpdateAddress(patientID, newAddress, encryptionKey):
     cursor.close()
     conn.close()
 
+def patientUpdatePhone(patientID, phoneType, PhoneNumber, encryptionKey):
+    conn = getConnection()
+    cursor = conn.cursor()
+    sql = """UPDATE phonenumber
+            SET phone_number = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s AND phone_type = %s;"""
+    params = (
+        PhoneNumber, encryptionKey,
+        patientID, phoneType
+    )
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def patientUpdateFamilyDoctor(patientID, newDoctor):
     conn = getConnection()
     cursor = conn.cursor()
@@ -105,11 +120,18 @@ def patientUpdateInsurance(patientID, newCarrierName, newAccNum, newGroupNum, en
     cursor.close()
     conn.close()
 
-def patientUpdateContact(patientID, newName, encryptionKey):
+def patientUpdateContact(patientID, newContactName, newContactNumber, contactOrder, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """"""
-    params = ()
+    sql = """UPDATE EmergencyContact
+            SET contact_name = pgp_sym_encrypt(%s, %s),
+            contact_phone = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s AND contact_order = %s;"""
+    params = (
+        newContactName, encryptionKey,
+        newContactNumber, encryptionKey,
+        patientID, contactOrder
+    )
     cursor.execute(sql, params)
     conn.commit()
     cursor.close()
@@ -162,4 +184,6 @@ if __name__ == "__main__":
     #patientUpdateLastName('81', 'Montraeu', keys[0], keys[1])
     #patientUpdateAddress('81', '1234 Main Street, Huntsville, AL 35850', keys[0])
     #patientUpdateFamilyDoctor('81', '19')
-    patientUpdateInsurance('81', 'United Healthcare', '23523', '63456', keys[0])
+    #patientUpdateInsurance('81', 'United Healthcare', '23523', '63456', keys[0])
+    #patientUpdateContact('71', 'Alex Harbaugh', '123-456-7890', 1, keys[0])
+    patientUpdatePhone('2', 'Home', '123-456-7890', keys[0])
