@@ -55,6 +55,12 @@ class SearchScreen(QDialog):
         super(SearchScreen, self).__init__()
         loadUi("patientsearch.ui", self)
         self.search.clicked.connect(self.searchfunction)
+        self.logout.clicked.connect(self.logoutfxn)
+        
+    def logoutfxn(self):
+        login=LoginScreen()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex()+1)
         
     def searchfunction(self):
         lastName = self.lastField.text()
@@ -152,9 +158,18 @@ class ListScreen(QDialog):
         self.tableWidget.setHorizontalHeaderLabels(["Last Name", "First Name", "MI"])
         self.loadData()
         self.nextButton.clicked.connect(self.selectedfunction)
+        self.logoutButton.clicked.connect(self.lgout)
+        self.backSearchButton.clicked.connect(self.back)
         #self.tableWidget.cellClicked.connect(self.cell_was_clicked)
         
-        
+    def back(self):
+        search=SearchScreen()
+        widget.addWidget(search)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+    def lgout(self):
+        login=LoginScreen()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex()+1)
     def row_selected(self):
         selected_items = self.tableWidget.selectedItems()
         if selected_items:
@@ -201,8 +216,8 @@ app = QApplication(sys.argv)
 login = LoginScreen()
 widget = QtWidgets.QStackedWidget()
 widget.addWidget(login)
-widget.setFixedHeight(800)
-widget.setFixedWidth(1200)
+widget.setFixedHeight(881)
+widget.setFixedWidth(801)
 widget.show()
 try:
     sys.exit(app.exec())
