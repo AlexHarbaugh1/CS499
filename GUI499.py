@@ -23,11 +23,9 @@ class MainScreen(QDialog):
         self.enterApplication.clicked.connect(self.openLogin)
        
     def openLogin(self):
-        self.loginWindow = LoginScreen()
-        self.loginWindow.setFixedHeight(800)
-        self.loginWindow.setFixedWidth(1200)
-        self.loginWindow.show()
-        self.close()
+        login = LoginScreen()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex()+1)
 
 class LoginScreen(QDialog):
     def __init__(self):
