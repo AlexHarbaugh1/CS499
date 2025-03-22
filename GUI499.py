@@ -57,10 +57,6 @@ class LoginScreen(QDialog):
     def gotosearch(self):
         search=SearchScreen()
         widget.addWidget(search)
-        widget.setCurrentIndex(widget.currentIndex()+1) 
-    def gotohome(self):
-        home=HomeScreen()
-        widget.addWidget(home)
         widget.setCurrentIndex(widget.currentIndex()+1)       
 
 class SearchScreen(QDialog):

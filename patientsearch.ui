@@ -17,9 +17,9 @@
    <property name="geometry">
     <rect>
      <x>0</x>
-     <y>-60</y>
-     <width>800</width>
-     <height>1200</height>
+     <y>0</y>
+     <width>1200</width>
+     <height>800</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -31,21 +31,21 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <rect>
       <x>190</x>
       <y>170</y>
-      <width>401</width>
-      <height>61</height>
+      <width>600</width>
+      <height>100</height>
      </rect>
     </property>
     <property name="styleSheet">
      <string notr="true">font: 36pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>Patient Lookup</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:26pt;&quot;&gt;Patient Lookup&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QPushButton" name="logout">
     <property name="geometry">
      <rect>
-      <x>652</x>
+      <x>700</x>
       <y>70</y>
       <width>111</width>
       <height>41</height>
@@ -59,38 +59,38 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
     <property name="geometry">
      <rect>
       <x>160</x>
-      <y>320</y>
-      <width>121</width>
-      <height>21</height>
+      <y>310</y>
+      <width>201</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="styleSheet">
      <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>Last Name:</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:10pt;&quot;&gt;Last Name:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QLabel" name="labelFirstName">
     <property name="geometry">
      <rect>
       <x>160</x>
-      <y>400</y>
-      <width>121</width>
-      <height>21</height>
+      <y>390</y>
+      <width>201</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="styleSheet">
      <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>First Name:</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:10pt;&quot;&gt;First Name:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QLineEdit" name="lastField">
     <property name="geometry">
      <rect>
-      <x>280</x>
+      <x>390</x>
       <y>320</y>
       <width>151</width>
       <height>22</height>
@@ -100,8 +100,8 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QLineEdit" name="firstField">
     <property name="geometry">
      <rect>
-      <x>290</x>
-      <y>401</y>
+      <x>390</x>
+      <y>400</y>
       <width>151</width>
       <height>21</height>
      </rect>
@@ -113,7 +113,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
       <x>302</x>
       <y>530</y>
       <width>151</width>
-      <height>28</height>
+      <height>35</height>
      </rect>
     </property>
     <property name="text">
