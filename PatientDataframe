@@ -1,0 +1,126 @@
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QPushButton,
+    QTableView, QMessageBox, QLabel
+)
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtCore import Qt
+import SearchDB
+import EncryptionKey
+import sys
+
+class PatientSearchApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Patient Search")
+        self.setGeometry(100, 100, 700, 400)
+
+        # Main layout and widgets
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
+
+        # Search input field
+        self.search_input = QLineEdit(self)
+        self.search_input.setPlaceholderText("Enter first letter or name...")
+        self.layout.addWidget(self.search_input)
+
+        # Search button
+        self.search_button = QPushButton("Search", self)
+        self.search_button.clicked.connect(self.search_patients)
+        self.layout.addWidget(self.search_button)
+
+        # Table view for displaying patients
+        self.table_view = QTableView()
+        self.layout.addWidget(self.table_view)
+
+        # Model for table data
+        self.model = QStandardItemModel()
+        self.table_view.setModel(self.model)
+
+        # Connect cell click event
+        self.table_view.clicked.connect(self.open_patient_details)
+
+    def search_patients(self):
+        search_query = self.search_input.text().strip()
+        if not search_query:
+            print("No input provided")
+            return
+
+        keys = EncryptionKey.getKeys()
+        self.keys = keys  # Store keys for use in detail window
+
+        patients = SearchDB.searchPatientWithName(search_query, None, None, keys[0], keys[1], True)
+        print(f"Retrieved Patients: {patients}")
+
+        if not patients:
+            print("No patients found!")
+        else:
+            self.populate_table(patients)
+
+    def populate_table(self, patients):
+        self.model.clear()
+        self.model.setHorizontalHeaderLabels(["ID", "First Name", "Middle Name", "Last Name"])
+
+        for patient in patients:
+            print(f"Adding row: {patient}")
+            row = [QStandardItem(str(value)) for value in patient]
+            self.model.appendRow(row)
+
+    def open_patient_details(self, index):
+        patient_id = self.model.item(index.row(), 0).text()
+        self.details_window = PatientDetailsWindow(patient_id, self.keys)
+        self.details_window.show()
+
+class PatientDetailsWindow(QWidget):
+    def __init__(self, patient_id, keys):
+        super().__init__()
+        self.setWindowTitle("Patient Details")
+        self.setGeometry(200, 200, 500, 400)
+
+        layout = QVBoxLayout(self)
+        details = self.get_patient_details(patient_id, keys)
+
+        if details:
+            patientData, doctorUsername, patientAdmissions, patientInsurance = details
+
+            labels = ["First Name", "Middle Name", "Last Name", "Mailing Address"]
+            for i, label in enumerate(labels):
+                layout.addWidget(QLabel(f"{label}: {patientData[i]}"))
+
+            layout.addWidget(QLabel(""))
+            layout.addWidget(QLabel("Family Doctor:"))
+            layout.addWidget(QLabel(f"Username: {doctorUsername[0]}"))
+            layout.addWidget(QLabel(f"Name: {doctorUsername[1]} {doctorUsername[2]}"))
+
+            layout.addWidget(QLabel(""))
+            layout.addWidget(QLabel("Admissions:"))
+            if patientAdmissions:
+                for admission in patientAdmissions:
+                    layout.addWidget(QLabel(f"Admission ID: {admission[0]}, Date: {admission[1]}"))
+            else:
+                layout.addWidget(QLabel("No admissions found."))
+
+            layout.addWidget(QLabel(""))
+            layout.addWidget(QLabel("Insurance Info:"))
+            if patientInsurance:
+                layout.addWidget(QLabel(f"Carrier: {patientInsurance[0]}"))
+                layout.addWidget(QLabel(f"Account #: {patientInsurance[1]}"))
+                layout.addWidget(QLabel(f"Group #: {patientInsurance[2]}"))
+            else:
+                layout.addWidget(QLabel("No insurance found."))
+        else:
+            layout.addWidget(QLabel("No details found"))
+
+    def get_patient_details(self, patient_id, keys):
+        try:
+            return SearchDB.searchPatientWithID(patient_id, keys[0])
+        except Exception as e:
+            print(f"Error fetching patient details: {e}")
+            return None
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = PatientSearchApp()
+    window.show()
+    sys.exit(app.exec_())
