@@ -10,6 +10,7 @@ import sys
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QDialog, QApplication, QWidget
+from PyQt5.QtCore import QTimer, QEvent, QObject
 import string
 import EncryptionKey
 import SearchDB
@@ -57,13 +58,16 @@ class LoginScreen(QDialog):
     def gotosearch(self):
         search=SearchScreen()
         widget.addWidget(search)
-        widget.setCurrentIndex(widget.currentIndex()+1)       
+        widget.setCurrentIndex(widget.currentIndex()+1)
 
 class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
         loadUi("patientsearch.ui", self)
         self.search.clicked.connect(self.searchfunction)
+        self.logout.clicked.connect(LogOut)
+        monitor = InactivityMonitor(timeout = 3000, callback = LogOut)
+        app.installEventFilter(monitor)
         
     def searchfunction(self):
         lastName = self.lastField.text()
@@ -165,8 +169,31 @@ class ListScreen(QDialog):
      #  search.SearchScreen()
      #  widget.addWidget(search)
      #  widget.setCurrentIndex(widget.currentIndex()+1)
-        
 
+class InactivityMonitor(QObject):
+    def __init__(self, timeout = 300000, callback = None, parent = None):
+        super().__init__(parent)
+        self.callback = callback
+        self.timer = QTimer(self)
+        self.timer.setInterval(timeout)
+        self.timer.timeout.connect(self.handleTimeout)
+        self.timer.start()
+
+    def handleTimeout(self):
+        if self.callback:
+            self.callback()
+
+    def eventFilter(self, obj, event):
+        if event.type() in (QEvent.MouseMove, QEvent.KeyPress, QEvent.MouseButtonPress, QEvent.Wheel):
+            self.timer.start()
+        return super().eventFilter(obj, event)
+    
+def LogOut():
+    home = MainScreen()
+    widget.addWidget(home)
+    widget.setCurrentIndex(widget.currentIndex()+1)
+    print("Logging out...")  
+        
 # main
 app = QApplication(sys.argv)
 login = LoginScreen()
