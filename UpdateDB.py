@@ -137,41 +137,68 @@ def patientUpdateContact(patientID, newContactName, newContactNumber, contactOrd
     cursor.close()
     conn.close()
 
-def staffUpdateFirstName(patientID, newName, encryptionKey):
+def staffUpdateFirstName(userID, newName, encryptionKey, fixedSalt):
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """"""
-    params = ()
+    newNameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(newName)]
+    sql = """UPDATE Staff
+            SET first_name = pgp_sym_encrypt(%s, %s),
+            first_name_prefix_trgms = %s
+            WHERE user_id = %s;"""
+    params = (
+        newName, encryptionKey,
+        newNameHashedPrefixes,
+        userID
+        )
     cursor.execute(sql, params)
     conn.commit()
     cursor.close()
     conn.close()
 
-def staffUpdateLastName(patientID, newName, encryptionKey):
+def staffUpdateLastName(userID, newName, encryptionKey, fixedSalt):
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """"""
-    params = ()
+    newNameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(newName)]
+    sql = """UPDATE Staff
+            SET last_name = pgp_sym_encrypt(%s, %s),
+            last_name_prefix_trgms = %s
+            WHERE user_id = %s;"""
+    params = (
+        newName, encryptionKey,
+        newNameHashedPrefixes,
+        userID
+        )
     cursor.execute(sql, params)
     conn.commit()
     cursor.close()
     conn.close()
 
-def staffUpdateUsername(patientID, newName, encryptionKey):
+def staffUpdateUsername(userID, newName, encryptionKey, fixedSalt):
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """"""
-    params = ()
+    sql = """UPDATE Staff
+            SET username = pgp_sym_encrypt(%s, %s),
+            username_hash = encode(digest(%s || %s, 'sha256'), 'hex') 
+            WHERE user_id = %s;"""
+    params = (
+        newName, encryptionKey,
+        newName, fixedSalt,
+        userID
+        )
     cursor.execute(sql, params)
     conn.commit()
     cursor.close()
     conn.close()
 
-def staffUpdateType(patientID, newName, encryptionKey):
+def staffUpdateType(userID, newType):
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """"""
-    params = ()
+    sql = """Update Staff
+            SET type_id = (SELECT type_id FROM usertype where type_name = %s)
+            WHERE user_id = %s"""
+    params = (
+        newType,
+        userID)
     cursor.execute(sql, params)
     conn.commit()
     cursor.close()
@@ -186,4 +213,8 @@ if __name__ == "__main__":
     #patientUpdateFamilyDoctor('81', '19')
     #patientUpdateInsurance('81', 'United Healthcare', '23523', '63456', keys[0])
     #patientUpdateContact('71', 'Alex Harbaugh', '123-456-7890', 1, keys[0])
-    patientUpdatePhone('2', 'Home', '123-456-7890', keys[0])
+    #patientUpdatePhone('2', 'Home', '123-456-7890', keys[0])
+    #staffUpdateFirstName('1', 'Johnny', keys[0], keys[1])
+    #staffUpdateLastName('1', 'Johnson', keys[0], keys[1])
+    #staffUpdateUsername('1', 'JohnSquared', keys[0], keys[1])
+    staffUpdateType('1','Physician')
