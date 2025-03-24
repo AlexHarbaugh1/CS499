@@ -1,5 +1,6 @@
 from hospitalDB import getConnection
 from InsertData import hashPrefix, generatePrefixes
+from SearchDB import passwordMatch
 import EncryptionKey
 
 def patientUpdateFirstName(patientID, newName, encryptionKey, fixedSalt):
@@ -190,6 +191,22 @@ def staffUpdateUsername(userID, newName, encryptionKey, fixedSalt):
     cursor.close()
     conn.close()
 
+def staffUpdatePassword(userID, username, newPassword, oldPassword, fixedSalt):
+    conn = getConnection()
+    cursor = conn.cursor()
+    if (passwordMatch(username, oldPassword, fixedSalt)):
+        sql = """UPDATE Staff
+                SET password_hash = crypt(%s, gen_salt('bf'))
+                WHERE user_id = %s;"""
+        params = (
+            newPassword,
+            userID
+            )
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def staffUpdateType(userID, newType):
     conn = getConnection()
     cursor = conn.cursor()
@@ -217,4 +234,5 @@ if __name__ == "__main__":
     #staffUpdateFirstName('1', 'Johnny', keys[0], keys[1])
     #staffUpdateLastName('1', 'Johnson', keys[0], keys[1])
     #staffUpdateUsername('1', 'JohnSquared', keys[0], keys[1])
-    staffUpdateType('1','Physician')
+    #staffUpdateType('1','Physician')
+    #staffUpdatePassword('51', 'BlairStafford', 'poiuytrewq', 'qwertyuiop', keys[1])
