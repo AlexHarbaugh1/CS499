@@ -1,7 +1,7 @@
 from hospitalDB import getConnection
 import EncryptionKey
-import SearchDB
 import hashlib
+import datetime
 def generatePrefixes(text):
     return [text[:i] for i in range(1, len(text) + 1)]
 def hashPrefix(prefix, fixedSalt):
@@ -129,11 +129,10 @@ def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, 
     cursor.close()
     conn.close()
 
-def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, releaseDateTime,
-                    hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, doctorID, encryptionKey, fixedSalt):
+def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTime,
+                    hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, doctorID, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
-    patient_id = SearchDB.searchPatientWithName(fName, mName, lName, encryptionKey, fixedSalt)[0][0]
     sql =  """WITH 
         location AS (
             INSERT INTO Location (facility, floor, room_number, bed_number)
@@ -176,7 +175,7 @@ def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, rel
         hospitalBed,
             
         # Admission
-        patient_id,
+        patientID,
         doctorID,
         admissionDateTime, encryptionKey,
         admissionReason, encryptionKey,
@@ -191,6 +190,23 @@ def insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, rel
     conn.close()
     return ID
 
+def insertVisitors(admissionID, visitorNames, encryptionKey):
+    conn = getConnection()
+    cursor = conn.cursor()
+    sql = """INSERT INTO approvedvisitor (admission_id, name)
+            SELECT
+            %s,
+            pgp_sym_encrypt(name, %s)
+            FROM UNNEST(%s) AS t(name);"""
+    params = (
+        admissionID,
+        encryptionKey,
+        [visitorName for visitorName in visitorNames]
+    )
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
 def insertPrescriptions(admissionID, prescriptions, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
@@ -307,10 +323,12 @@ def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemize
     # Must have ran all functions above it for the next one to work
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
-    insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Medical Personnel', keys[0], keys[1])
-    #insertPatient('Logos', 'William', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', '3333333333', 'Mitch', '4444444444', 'Taylor', '5555555555', 'BlairStafford', 'United Healthcare', '12345', '54321', keys[0], keys[1])
-    #print(insertAdmission('William', 'Graves', 'Logos', '2025-03-02 11:11:00', 'Fingy Broked', '2025-02-03 01:12:00', 'ER', '1', '123', '1', keys[0], keys[1]))
-    #insertPrescriptions([{'name': 'Ibuprofen', 'amount': '500mg', 'schedule': 'Once Every Six Hours'}, {'name': 'Morphine', 'amount': 'A lot', 'schedule': 'Once, he would not stop screaming'}, {'name': 'Crystal Meth', 'amount': 'One Teenth', 'schedule': 'Twice Daily'}], keys[0])
-    #insertNotes([{'author': 'BlairStafford', 'type': 'Doctor', 'text': 'The Meth really showed results', 'time' : datetime.datetime.now()}, {'author': 'BlairStafford', 'type': 'Nurse', 'text': 'I think Dr. Blair needs to be fired.', 'time' : datetime.datetime.now()}], keys[0], keys[1])
-    #insertProcedures([{'name': 'Finger Surgery', 'date': '2025-03-15 12:00:00'}], keys[0])
-    #insertBill('200000', '170000', '30000', [{'name': 'ER Visit', 'cost': float('75.27')}, {'name': 'X-Ray', 'cost': float('4000')}, {'name': 'Ibuprofen', 'cost': float('5.73')}, {'name': 'Morphine', 'cost': float('70919')}, {'name': 'Meth', 'cost': float('100000')}, {'name': 'Finger Surgery', 'cost': float('25000')}])
+    #insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Volunteer', keys[0], keys[1])
+    #insertPatient('Logos', 'William', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', None, 'Mitch', '4444444444', None, None, 'BlairStafford', None, None, None, keys[0], keys[1])
+    #insertPatient('Doe', 'John', None, None, None, None, None, None, None, None, None, 'BlairStafford', None, None, None, keys[0], keys[1])
+    #admissionID = insertAdmission('1', '2025-03-02 11:11:00', 'Fingy Broked', '2025-02-03 01:12:00', 'ER', '1', '123', '1', '1', keys[0])
+    insertVisitors('1', ['Mitch', 'Taylor', 'Josh'], keys[0])
+    #insertPrescriptions(admissionID, [{'name': 'Ibuprofen', 'amount': '500mg', 'schedule': 'Once Every Six Hours'}, {'name': 'Morphine', 'amount': 'A lot', 'schedule': 'Once, he would not stop screaming'}, {'name': 'Crystal Meth', 'amount': 'One Teenth', 'schedule': 'Twice Daily'}], keys[0])
+    #insertNotes(admissionID, [{'author': 'BlairStafford', 'type': 'Doctor', 'text': 'The Meth really showed results', 'time' : datetime.datetime.now()}, {'author': 'BlairStafford', 'type': 'Nurse', 'text': 'I think Dr. Blair needs to be fired.', 'time' : datetime.datetime.now()}], keys[0], keys[1])
+    #insertProcedures(admissionID, [{'name': 'Finger Surgery', 'date': '2025-03-15 12:00:00'}], keys[0])
+    #insertBill(admissionID, '200000', '170000', '30000', [{'name': 'ER Visit', 'cost': float('75.27')}, {'name': 'X-Ray', 'cost': float('4000')}, {'name': 'Ibuprofen', 'cost': float('5.73')}, {'name': 'Morphine', 'cost': float('70919')}, {'name': 'Meth', 'cost': float('100000')}, {'name': 'Finger Surgery', 'cost': float('25000')}])

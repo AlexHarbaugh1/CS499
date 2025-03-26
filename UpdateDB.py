@@ -221,6 +221,8 @@ def staffUpdateType(userID, newType):
     cursor.close()
     conn.close()
 
+def admissionUpddateDischarge(admissionID, dischargeTime, encryptionkey):
+    print("help me please")
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     #patientUpdateFirstName('81', 'Alexa', keys[0], keys[1])

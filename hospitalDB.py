@@ -53,7 +53,7 @@ def run():
                     password_hash TEXT NOT NULL);"""
                     )
     # 3. Patient
-    cursor2.execute(f"""CREATE TABLE Patient
+    cursor2.execute("""CREATE TABLE Patient
                     (patient_id SERIAL PRIMARY KEY,
                     first_name BYTEA NOT NULL,
                     middle_name BYTEA,
@@ -61,30 +61,30 @@ def run():
                     first_name_prefix_trgms TEXT[],
                     middle_name_prefix_trgms TEXT[],
                     last_name_prefix_trgms TEXT[],
-                    mailing_address BYTEA NOT NULL,
+                    mailing_address BYTEA,
                     family_doctor_id INT REFERENCES Staff(user_id));"""
                     )
     # 4. Insurance
     cursor2.execute("""CREATE TABLE Insurance
                     (insurance_id SERIAL PRIMARY KEY,
                     patient_id INT UNIQUE NOT NULL REFERENCES Patient(patient_id),
-                    carrier_name BYTEA NOT NULL,
-                    account_number BYTEA NOT NULL,
-                    group_number BYTEA NOT NULL);"""
+                    carrier_name BYTEA,
+                    account_number BYTEA,
+                    group_number BYTEA);"""
                     )
     # 5. Phonenumber
     cursor2.execute("""CREATE TABLE PhoneNumber
                     (patient_id INT NOT NULL REFERENCES Patient(patient_id),
                     phone_type VARCHAR(20) NOT NULL CHECK (phone_type IN ('Home', 'Work', 'Mobile')),
-                    phone_number BYTEA NOT NULL,
+                    phone_number BYTEA,
                     PRIMARY KEY (patient_id, phone_type));"""
                     )
     # 6. EmergencyContact
     cursor2.execute("""CREATE TABLE EmergencyContact
                     (contact_id SERIAL PRIMARY KEY,
                     patient_id INT NOT NULL REFERENCES Patient(patient_id),
-                    contact_name BYTEA NOT NULL,
-                    contact_phone BYTEA NOT NULL,
+                    contact_name BYTEA,
+                    contact_phone BYTEA,
                     contact_order INT NOT NULL CHECK (contact_order IN (1, 2)),
                     UNIQUE (patient_id, contact_order));"""
                     )
@@ -107,7 +107,12 @@ def run():
                     discharge_datetime BYTEA,
                     reason_for_admission BYTEA NOT NULL);"""
                     )
-    # 9. Prescription
+    # 9. Approved Visitors
+    cursor2.execute("""CREATE TABLE ApprovedVisitor
+                    (visitor_id SERIAL PRIMARY KEY,
+                    admission_id INT NOT NULL REFERENCES Admission(admission_id),
+                    name BYTEA);""")
+    # 10. Prescription
     cursor2.execute("""CREATE TABLE Prescription(
                     prescription_id SERIAL PRIMARY KEY,
                     admission_id INT NOT NULL REFERENCES Admission(admission_id),
@@ -115,7 +120,7 @@ def run():
                     amount BYTEA NOT NULL,
                     schedule BYTEA NOT NULL);"""
                     )
-    # 10. PatientNote
+    # 11. PatientNote
     cursor2.execute("""CREATE TABLE PatientNote
                     (note_id SERIAL PRIMARY KEY,
                     admission_id INT NOT NULL REFERENCES Admission(admission_id),
@@ -124,14 +129,14 @@ def run():
                     note_text BYTEA NOT NULL,
                     note_datetime BYTEA NOT NULL);"""
                     )
-    # 11. ScheduledProcedure
+    # 12. ScheduledProcedure
     cursor2.execute("""CREATE TABLE ScheduledProcedure
                     (procedure_id SERIAL PRIMARY KEY,
                     admission_id INT NOT NULL REFERENCES Admission(admission_id),
                     procedure_name BYTEA NOT NULL,
                     scheduled_datetime BYTEA NOT NULL);"""
                     )
-    # 12. Billing
+    # 13. Billing
     cursor2.execute("""CREATE TABLE Billing
                     (billing_id SERIAL PRIMARY KEY,
                     admission_id INT NOT NULL REFERENCES Admission(admission_id),
@@ -139,7 +144,7 @@ def run():
                     total_amount_paid DECIMAL(10, 2) NOT NULL,
                     insurance_paid DECIMAL(10, 2) NOT NULL);"""
                     )
-    # 13. Billing Detail
+    # 14. Billing Detail
     cursor2.execute("""CREATE TABLE BillingDetail
                     (billing_detail_id SERIAL PRIMARY KEY,
                     billing_id INT NOT NULL REFERENCES Billing(billing_id),
@@ -153,7 +158,33 @@ def run():
     cursor2.execute("CREATE INDEX idx_first_name_prefix_trgms ON Patient USING gin (first_name_prefix_trgms);")
     cursor2.execute("CREATE INDEX idx_middle_name_prefix_trgms ON Patient USING gin (middle_name_prefix_trgms);")
     cursor2.execute("CREATE INDEX idx_last_name_prefix_trgms ON Patient USING gin (last_name_prefix_trgms);")
-
+    # Create roles for each user
+    # Check if the roles already exist
+    cursor2.execute("SELECT rolname from pg_roles;")
+    roleslists = cursor2.fetchall()
+    roles = []
+    for role in roleslists:
+      roles.append(role[0])
+    if not ('volunteer_role' in roles):
+      cursor2.execute("CREATE ROLE volunteer_role;")
+      print("Created Volunteer Role!")
+    else: print('volunteer_role Already Exists!')
+    if not ('medicalpersonel_role' in roles):
+      cursor2.execute("CREATE ROLE medicalpersonel_role;")
+      print("Created Medical Personel Role!")
+    else: print('medicalpersonel_role Already Exists!')
+    if not ('administrator_role' in roles):
+      cursor2.execute("CREATE ROLE administrator_role;")
+      print("Created Administrator Role!")
+    else: print('administrator_role Already Exists!')
+    if not ('officestaff_role' in roles):
+      cursor2.execute("CREATE ROLE officestaff_role;")
+      print("Created Office Staff Role!")
+    else: print('officestaff_role Already Exists!')
+    if not ('physician_role' in roles):
+      cursor2.execute("CREATE ROLE physician_role;")
+      print("Created Physician Role!")
+    else: print('physician_role Already Exists!')
     #Insert User types into database
     cursor2.execute("""INSERT INTO UserType (type_name)
                     VALUES
@@ -162,7 +193,39 @@ def run():
                     ('Office Staff'),
                     ('Volunteer'),
                     ('Physician');""")
-    
+    # Create Views for data security
+    cursor2.execute("""CREATE VIEW SearchView AS
+                    SELECT
+                    patient_id,
+                    first_name,
+                    middle_name,
+                    last_name,
+                    first_name_prefix_trgms,
+                    middle_name_prefix_trgms,
+                    last_name_prefix_trgms
+                    FROM patient"""
+                    )
+    cursor2.execute("GRANT SELECT ON SearchView TO volunteer_role;")
+    cursor2.execute("GRANT SELECT ON SearchView TO officestaff_role;")
+    cursor2.execute("GRANT SELECT ON SearchView TO medicalpersonel_role;")
+    cursor2.execute("GRANT SELECT ON SearchView TO administrator_role;")
+    cursor2.execute("GRANT SELECT ON SearchView TO physician_role;")
+    cursor2.execute("""CREATE VIEW VolunteerView AS
+                    SELECT
+                    p.patient_id,
+                    p.first_name,
+                    p.last_name,
+                    l.facility,
+                    l.floor,
+                    l.room_number,
+                    l.bed_number
+                    FROM patient p
+                    JOIN admission a ON p.patient_id = a.patient_id
+                    JOIN Location l ON a.location_id = l.location_id;""")
+    cursor2.execute("""CREATE VIEW officestaff_role AS
+                    SELECT""")
+    cursor2.execute("GRANT SELECT ON VolunteerView TO volunteer_role;")
+
     # Close second connections
     con2.commit()
     cursor2.close()
@@ -183,3 +246,6 @@ def getConnection():
       port= '5432'
     )
   return conn
+
+if __name__ == "__main__":
+  run()

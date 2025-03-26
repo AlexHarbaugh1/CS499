@@ -55,7 +55,7 @@ def populate_patients(encryptionKey, fixedSalt, n=100):
     insurances = ['Progressive', 'United Healthcare', 'Allstate', 'Local Provider']
     
     for _ in range(n):
-        InsertData.insertPatient(fake.last_name(), fake.first_name(), fake.first_name() if random.random() < 0.3 else None, fake.address(), generate_phone(), generate_phone(), generate_phone(), fake.first_name(), generate_phone(), fake.first_name(), generate_phone(), random.choice(doctor_ids), random.choice(insurances), str(fake.random_int(10000, 99999)), str(fake.random_int(10000, 99999)), keys[0], keys[1])
+        InsertData.insertPatient(fake.last_name(), fake.first_name(), fake.first_name() if random.random() < 0.3 else None, fake.address(), generate_phone(), generate_phone(), generate_phone(), fake.first_name() + ' ' + fake.last_name(), generate_phone(), fake.first_name() + ' ' + fake.last_name(), generate_phone(), random.choice(doctor_ids), random.choice(insurances), str(fake.random_int(10000, 99999)), str(fake.random_int(10000, 99999)), keys[0], keys[1])
 
 
 def populate_admissions(encryptionKey, fixedSalt, n=200):
@@ -66,23 +66,15 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
     for _ in range(n):
         admit_date = fake.date_between(start_date="-2y", end_date="today")
         id = random.choice(patient_ids)
-        sql = """SELECT pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s)
-                        FROM Patient
-                        WHERE patient_id = %s;"""
-        params = (
-            encryptionKey,
-            encryptionKey,
-            encryptionKey,
-            id
-        )
-        cursor.execute(sql, params)
-        fname, mname, lname = cursor.fetchone()
-
-
         discharge_date = admit_date + timedelta(days=random.randint(1, 30)) if random.random() < 0.7 else None
         facilities = ["Main Hospital", "North Clinic", "South Clinic"]
-        admissionID = InsertData.insertAdmission(fname, mname, lname, str(admit_date), fake.sentence(nb_words=6), str(discharge_date), random.choice(facilities), random.randint(1, 10), fake.random_int(100, 999), fake.random_int(1, 50), random.choice(doctor_ids), keys[0], keys[1])
-        
+        admissionID = InsertData.insertAdmission(id, str(admit_date), fake.sentence(nb_words=6), str(discharge_date), random.choice(facilities), random.randint(1, 10), fake.random_int(100, 999), fake.random_int(1, 50), random.choice(doctor_ids), keys[0])
+        # Add Approved Visitors (0 - 5, Any)
+        visitors = []
+        for _ in range(random.randint(1, 5)):
+            visitors.append(fake.first_name() + ' ' + fake.last_name())
+        print(visitors)
+        InsertData.insertVisitors(admissionID, visitors, encryptionKey)
         # Add prescriptions (1-3 per admission)
         prescriptions = []
         for _ in range(random.randint(1, 3)):
@@ -91,7 +83,9 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
         InsertData.insertPrescriptions(admissionID, prescriptions, encryptionKey)
 
         # Add notes (2-5 per admission)
-        cursor.execute("SELECT pgp_sym_decrypt(username, 'dee75305637776bbf9c3d5fe6241c904') FROM Staff WHERE type_id IN (2, 5)")
+        sql = "SELECT pgp_sym_decrypt(username, %s) FROM Staff WHERE type_id IN (2, 5)"
+        params = (encryptionKey,)
+        cursor.execute(sql, params)
         staff_ids = [row[0] for row in cursor.fetchall()]
         notes = []
         for _ in range(random.randint(2, 5)):
