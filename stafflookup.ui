@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>diaPtntLookup</class>
+ <widget class="QDialog" name="diaPtntLookup">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>1200</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <widget class="QWidget" name="widget" native="true">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>-60</y>
+     <width>800</width>
+     <height>1200</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QWidget#widget{
+background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop:0 rgba(0, 170, 255, 255), stop:1 rgba(255, 255, 255, 255))}</string>
+   </property>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>210</x>
+      <y>200</y>
+      <width>401</width>
+      <height>71</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font: 36pt &quot;MS Shell Dlg 2&quot;;</string>
+    </property>
+    <property name="text">
+     <string>Staff Lookup</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="logout">
+    <property name="geometry">
+     <rect>
+      <x>652</x>
+      <y>70</y>
+      <width>111</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Logout</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="labelLastName">
+    <property name="geometry">
+     <rect>
+      <x>160</x>
+      <y>320</y>
+      <width>121</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
+    </property>
+    <property name="text">
+     <string>Last Name:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="labelFirstName">
+    <property name="geometry">
+     <rect>
+      <x>160</x>
+      <y>400</y>
+      <width>121</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
+    </property>
+    <property name="text">
+     <string>First Name:</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="lastField">
+    <property name="geometry">
+     <rect>
+      <x>280</x>
+      <y>320</y>
+      <width>151</width>
+      <height>22</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="firstField">
+    <property name="geometry">
+     <rect>
+      <x>290</x>
+      <y>401</y>
+      <width>151</width>
+      <height>21</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="search">
+    <property name="geometry">
+     <rect>
+      <x>302</x>
+      <y>530</y>
+      <width>151</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Search</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="error">
+    <property name="geometry">
+     <rect>
+      <x>230</x>
+      <y>490</y>
+      <width>291</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QWidget#widget{
+background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop:0 rgba(0, 170, 255, 255), stop:1 rgba(255, 255, 255, 255))}</string>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="partSearch">
+    <property name="geometry">
+     <rect>
+      <x>310</x>
+      <y>450</y>
+      <width>111</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Partial Search</string>
+    </property>
+   </widget>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

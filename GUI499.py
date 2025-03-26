@@ -6,6 +6,16 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QDialog, QApplication, QWidget
 import string
 
+class MainScreen(QDialog):
+    def __init__(self):
+        super(MainScreen, self).__init__()
+        loadUi("mainscreen.ui", self)
+        self.enterApplication.clicked.connect(self.openLogin)
+
+    def openLogin(self):
+        login=LoginScreen()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex()+1)
 
 class LoginScreen(QDialog):
     def __init__(self):
@@ -38,18 +48,147 @@ class LoginScreen(QDialog):
                 if result_pass:
                     print("Successfully logged in.")
                     self.errorMsg.setText("")
-                    self.gotosearch()
+                    #store user type here maybe?
+                    if userType == "admin":
+                        self.gotoadmin()
+                    else:
+                        self.gotosearch()
                 else:
                     self.errorMsg.setText("Invalid username or password")
     def gotosearch(self):
         search=SearchScreen()
         widget.addWidget(search)
         widget.setCurrentIndex(widget.currentIndex()+1)
-                  
-               
-        
 
+    def gotoadmin(self):
+        admin=AdminScreen()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+
+class AdminScreen(QDialog):
+    def __init__(self):
+        super(AdminScreen,self).__init__()
+        loadUi("admin.ui",self)
+        self.insStaff.clicked.connect(self.insertStaffFunction)
+        self.insPat.clicked.connect(self.insertPatientFunction)
+        self.searchStaff.clicked.connect(self.searchStaffFunction)
+        self.searchPatient.clicked.connect(self.searchPatFunction)
+
+    def insertStaffFunction(self):
+        insertStaff=InsertStaff()
+        widget.addWidget(insertStaff)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+    
+    def insertPatientFunction(self):
+        insertPatient=InsertPatient()
+        widget.addWidget(insertPatient)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+
+    def searchStaffFunction(self):
+        searchStaff=SearchStaff()
+        widget.addWidget(searchStaff)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+
+    def searchPatFunction(self):
+        search=SearchScreen()
+        widget.addWidget(search)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+               
+class InsertStaff(QDialog):
+    def __init__(self):
+        super(InsertStaff,self).__init__()
+        loadUi("insertstaff.ui",self)
+        self.backTo.clicked.connect(self.toAdmin)
+        '''
+        for i in range(0,5):
+            firstName=self.tableWidget.item(i, 1)
+            lastName=self.tableWidget.item(i,1)
+            username = self.tableWidget.item(i,1)
+            password = self.tableWidget.item(i,1)
+            staffType = self.tableWidget.item(i,1)
+            '''
+        self.addStaff.clicked.connect(self.addStaff)
+    def addStaff(self):
+        for i in range(0,5):
+            firstName=self.tableWidget.item(i, 0)
+            lastName=self.tableWidget.item(i,0)
+            username = self.tableWidget.item(i,0)
+            password = self.tableWidget.item(i,0)
+            staffType = self.tableWidget.item(i,0)
+            #do sql stuff here
+            self.insertStaffFunction()
+    #takes you back to add staff screen where user can go back to admin/add more staff if they choose
+    def insertStaffFunction(self):
+        insertStaff=InsertStaff()
+        widget.addWidget(insertStaff)
+        widget.setCurrentIndex(widget.currentIndex()+1)            
+
+    def toAdmin(self):
+        admin=AdminScreen()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+
+class InsertPatient(QDialog):
+    def __init__(self):
+        super(InsertPatient,self).__init__()
+        loadUi("insertpat.ui",self)
+        self.back.clicked.connect(self.toAdmin)
+        self.addPatient.clicked.connect(self.addPatient)
+
+    def addPatient(self):
+        for i in range(0,15):
+            lastName=self.tableWidget.item(i,0)
+            firstName=self.tableWidget.item(i,0)
+            midInit=self.tableWidget.item(i,0)
+            address=self.tableWidget.item(i,0)
+            hPhone=self.tableWidget.item(i,0)
+            cPhone=self.tableWidget.item(i,0)
+            wPhone=self.tableWidget.item(i,0)
+            c1Name=self.tableWidget.item(i,0)
+            c1Phone=self.tableWidget.item(i,0)
+            c2Name=self.tableWidget.item(i,0)
+            c2Phone=self.tableWidget.item(i,0)
+            doctor=self.tableWidget.item(i,0)
+            insurance=self.tableWidget.item(i,0)
+            insAcct=self.tableWidget.item(i,0)
+            insGNum=self.tableWidget.item(i,0)
+            #do sql here
+            self.insertPatientFunction()
+        #takes you back to insert patient screen where user can add more/go back to admin space    
+    def insertPatientFunction(self):
+        insertPatient=InsertPatient()
+        widget.addWidget(insertPatient)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+
+    def toAdmin(self):
+        admin=AdminScreen()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+
+class SearchStaff(QDialog):
+    def __init__(self):
+        super(SearchStaff,self).__init__()
+        loadUi("stafflookup.ui",self)
+        self.search.clicked.connect(self.searchfunction)
+        self.logout.clicked.connect(self.logoutfxn)
+
+    def logoutfxn(self):
+        login=LoginScreen()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+
+    def searchfunction(self):
+        lastName = self.lastField.text()
+        firstName = self.firstField.text()
         
+        if len(lastName)==0 and len(firstName)==0:
+            self.error.setText("Input at least one field.")
+#do something here with sql
+        self.gotolist()
+    def gotolist(self):
+        plist=ListScreen()
+        widget.addWidget(plist)
+        widget.setCurrentIndex(widget.currentIndex()+1)
 class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
@@ -204,8 +343,27 @@ class ListScreen(QDialog):
 class DataScreen(QDialog):
     def __init__(self):
         super(DataScreen, self).__init__()
-        loadUi("data.ui", self)
+        loadUi("data2.ui", self)
         
+    def checkCreds(self):
+        #somehow test credentials of staff probably with query, put their position in a variable, test variable against different staff types
+        if staffType == "Office Staff":
+            patInfo = QtWidgets.QWidget()
+            tableView = QtWidgets.QTableView(patInfo)
+            layout = QtWidgets.QVBoxLayout(patInfo)
+            layout.addWidget(tableView)
+            patInfo.setLayout(layout)
+            self.tabWidget.addTab(patInfo, "Patient Information")
+            insuranceTab = QtWidgets.QWidget()
+            tableInsurance = QtWidgets.QTableView(insuranceTab)
+            layoutIns = QtWidgets.QVBoxLayout(insuranceTab)
+            layout.addWidget(tableInsurance)
+            insuranceTab.setLayout(layoutIns)
+            self.tabWidget.addTab(insuranceTab, "Insurance")
+
+        #elif staffType == "Medical Personnel":
+            #
+
 
             
     
@@ -213,9 +371,9 @@ class DataScreen(QDialog):
 
 # main
 app = QApplication(sys.argv)
-login = LoginScreen()
+mainscreen = MainScreen()
 widget = QtWidgets.QStackedWidget()
-widget.addWidget(login)
+widget.addWidget(mainscreen)
 widget.setFixedHeight(881)
 widget.setFixedWidth(801)
 widget.show()
