@@ -1,6 +1,7 @@
 import psycopg2
-from dotenv import load_dotenv
+from EncryptionKey import getKeys
 def run():
+  keys = getKeys()
   # Connect to root database in postgres
   # This lets you create another database within postgres
   conn = psycopg2.connect(
@@ -158,6 +159,31 @@ def run():
     cursor2.execute("CREATE INDEX idx_first_name_prefix_trgms ON Patient USING gin (first_name_prefix_trgms);")
     cursor2.execute("CREATE INDEX idx_middle_name_prefix_trgms ON Patient USING gin (middle_name_prefix_trgms);")
     cursor2.execute("CREATE INDEX idx_last_name_prefix_trgms ON Patient USING gin (last_name_prefix_trgms);")
+    # Create Trigger to remove unneeded visitor data after admission closes
+    sql = """CREATE OR REPLACE FUNCTION delete_approved_visitors_on_discharge()
+          RETURNS TRIGGER AS $$
+          DECLARE
+          old_discharge_text TEXT;
+          new_discharge_text TEXT;
+          BEGIN
+            old_discharge_text := pgp_sym_decrypt(OLD.discharge_datetime, %s);
+            new_discharge_text := pgp_sym_decrypt(NEW.discharge_datetime, %s);
+            IF old_discharge_text = 'None' AND new_discharge_text != 'None' THEN
+            DELETE FROM ApprovedVisitor
+            WHERE admission_id = NEW.admission_id;
+          END IF;
+        RETURN NEW;
+      END; $$
+      LANGUAGE plpgsql"""
+    params = (
+      keys[0],
+      keys[0]
+    )
+    cursor2.execute(sql, params)
+    cursor2.execute("""CREATE TRIGGER after_discharge_cleanup
+                    AFTER UPDATE OF discharge_datetime ON Admission
+                    FOR EACH ROW
+                    EXECUTE FUNCTION delete_approved_visitors_on_discharge();""")
     # Create roles for each user
     # Check if the roles already exist
     cursor2.execute("SELECT rolname from pg_roles;")
@@ -194,36 +220,51 @@ def run():
                     ('Volunteer'),
                     ('Physician');""")
     # Create Views for data security
-    cursor2.execute("""CREATE VIEW SearchView AS
+    sql = """CREATE VIEW SearchView AS
                     SELECT
                     patient_id,
-                    first_name,
-                    middle_name,
-                    last_name,
+                    pgp_sym_decrypt(first_name, %s) AS first_name,
+                    pgp_sym_decrypt(middle_name, %s) AS middle_name,
+                    pgp_sym_decrypt(last_name, %s) AS last_name,
                     first_name_prefix_trgms,
                     middle_name_prefix_trgms,
                     last_name_prefix_trgms
-                    FROM patient"""
-                    )
+                    FROM patient;"""
+    params = (
+      keys[0],
+      keys[0],
+      keys[0]
+    )
+    cursor2.execute(sql, params)
     cursor2.execute("GRANT SELECT ON SearchView TO volunteer_role;")
     cursor2.execute("GRANT SELECT ON SearchView TO officestaff_role;")
     cursor2.execute("GRANT SELECT ON SearchView TO medicalpersonel_role;")
     cursor2.execute("GRANT SELECT ON SearchView TO administrator_role;")
     cursor2.execute("GRANT SELECT ON SearchView TO physician_role;")
-    cursor2.execute("""CREATE VIEW VolunteerView AS
+    sql = """CREATE VIEW VolunteerView AS
                     SELECT
                     p.patient_id,
-                    p.first_name,
-                    p.last_name,
+                    pgp_sym_decrypt(p.first_name, %s) AS first_name,
+                    pgp_sym_decrypt(p.middle_name, %s) AS middle_name,
+                    pgp_sym_decrypt(p.last_name, %s) AS last_name,
                     l.facility,
                     l.floor,
                     l.room_number,
                     l.bed_number
                     FROM patient p
                     JOIN admission a ON p.patient_id = a.patient_id
-                    JOIN Location l ON a.location_id = l.location_id;""")
-    cursor2.execute("""CREATE VIEW officestaff_role AS
-                    SELECT""")
+                    JOIN Location l ON a.location_id = l.location_id
+                    WHERE pgp_sym_decrypt(a.discharge_datetime, %s) = 'None';"""
+    params = (
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0]
+    )
+    cursor2.execute(sql, params)
+    '''sql = """CREATE VIEW officestaff_role AS
+            SELECT"""
+    cursor2.execute(sql, params)'''
     cursor2.execute("GRANT SELECT ON VolunteerView TO volunteer_role;")
 
     # Close second connections

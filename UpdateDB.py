@@ -2,6 +2,7 @@ from hospitalDB import getConnection
 from InsertData import hashPrefix, generatePrefixes
 from SearchDB import passwordMatch
 import EncryptionKey
+import datetime
 
 def patientUpdateFirstName(patientID, newName, encryptionKey, fixedSalt):
     conn = getConnection()
@@ -221,8 +222,19 @@ def staffUpdateType(userID, newType):
     cursor.close()
     conn.close()
 
-def admissionUpddateDischarge(admissionID, dischargeTime, encryptionkey):
-    print("help me please")
+def admissionUpdateDischarge(admissionID, dischargeTime, encryptionkey):
+    conn = getConnection()
+    cursor = conn.cursor()
+    sql = """UPDATE admission
+            SET discharge_datetime = pgp_sym_encrypt(%s, %s)
+            WHERE admission_id = %s;"""
+    params = (
+        str(dischargeTime), encryptionkey,
+        admissionID)
+    cursor.execute(sql, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     #patientUpdateFirstName('81', 'Alexa', keys[0], keys[1])
@@ -238,3 +250,4 @@ if __name__ == "__main__":
     #staffUpdateUsername('1', 'JohnSquared', keys[0], keys[1])
     #staffUpdateType('1','Physician')
     #staffUpdatePassword('51', 'BlairStafford', 'poiuytrewq', 'qwertyuiop', keys[1])
+    admissionUpdateDischarge('2', datetime.datetime.now(), keys[0])

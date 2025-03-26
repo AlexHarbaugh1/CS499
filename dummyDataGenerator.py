@@ -73,7 +73,6 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
         visitors = []
         for _ in range(random.randint(1, 5)):
             visitors.append(fake.first_name() + ' ' + fake.last_name())
-        print(visitors)
         InsertData.insertVisitors(admissionID, visitors, encryptionKey)
         # Add prescriptions (1-3 per admission)
         prescriptions = []
