@@ -32,6 +32,7 @@ def run():
     cursor.execute("""CREATE DATABASE huntsvillehospital""")
     # After creating the new database create a new connection to access it
     con2 = getConnection()
+    con2.autocommit = True
     cursor2 = con2.cursor()
     cursor2.execute("CREATE EXTENSION pgcrypto;")
     cursor2.execute("CREATE EXTENSION pg_trgm;")
@@ -152,6 +153,11 @@ def run():
                     item_description TEXT NOT NULL,
                     charge_amount DECIMAL(10, 2) NOT NULL);"""
                     )
+    # 15. Audit Log
+    cursor2.execute("""CREATE TABLE audit_log
+                    (username TEXT,
+                    action TEXT,
+                    timestamp TIMESTAMP);""")
     # Adding Indexes for Faster Searching and Partial Searching.
     cursor2.execute("CREATE INDEX idx_staff_username_hash ON Staff USING HASH (username_hash);")
     cursor2.execute("CREATE INDEX idx_staff_first_name_prefix_trgms ON Staff USING gin (first_name_prefix_trgms);")
@@ -219,8 +225,9 @@ def run():
                     ('Office Staff'),
                     ('Volunteer'),
                     ('Physician');""")
-    # Create Views for data security
-    sql = """CREATE VIEW SearchView AS
+    # Create Views for data security/
+    # searchview is the table used for the search screen, accesible to all user roles
+    sql = """CREATE VIEW searchview AS
                     SELECT
                     patient_id,
                     pgp_sym_decrypt(first_name, %s) AS first_name,
@@ -236,12 +243,13 @@ def run():
       keys[0]
     )
     cursor2.execute(sql, params)
-    cursor2.execute("GRANT SELECT ON SearchView TO volunteer_role;")
-    cursor2.execute("GRANT SELECT ON SearchView TO officestaff_role;")
-    cursor2.execute("GRANT SELECT ON SearchView TO medicalpersonel_role;")
-    cursor2.execute("GRANT SELECT ON SearchView TO administrator_role;")
-    cursor2.execute("GRANT SELECT ON SearchView TO physician_role;")
-    sql = """CREATE VIEW VolunteerView AS
+    cursor2.execute("GRANT SELECT ON searchview TO volunteer_role;")
+    cursor2.execute("GRANT SELECT ON searchview TO officestaff_role;")
+    cursor2.execute("GRANT SELECT ON searchview TO medicalpersonel_role;")
+    cursor2.execute("GRANT SELECT ON searchview TO administrator_role;")
+    cursor2.execute("GRANT SELECT ON searchview TO physician_role;")
+    # volunteerview selects only the patients name and location as per requirements
+    sql = """CREATE VIEW volunteerview AS
                     SELECT
                     p.patient_id,
                     pgp_sym_decrypt(p.first_name, %s) AS first_name,
@@ -262,13 +270,86 @@ def run():
       keys[0]
     )
     cursor2.execute(sql, params)
-    '''sql = """CREATE VIEW officestaff_role AS
-            SELECT"""
-    cursor2.execute(sql, params)'''
-    cursor2.execute("GRANT SELECT ON VolunteerView TO volunteer_role;")
-
+    cursor2.execute("GRANT SELECT ON volunteerview TO volunteer_role;")
+    # Office View Selects all none medical data and uses triggers to update the underlying database.
+    sql = """CREATE VIEW officestaffview AS
+          SELECT
+            p.patient_id,
+            pgp_sym_decrypt(p.first_name, %s) AS first_name,
+            pgp_sym_decrypt(p.middle_name, %s) AS middle_name,
+            pgp_sym_decrypt(p.last_name, %s) AS last_name,
+            pgp_sym_decrypt(p.mailing_address, %s) AS mailing_address,
+            pgp_sym_decrypt(i.carrier_name, %s) AS insurance_carrier,
+            pgp_sym_decrypt(i.account_number, %s) AS insurance_account,
+            pgp_sym_decrypt(i.group_number, %s) AS insurance_group,
+            ARRAY(
+              SELECT pgp_sym_decrypt(phone_number, %s)
+              FROM PhoneNumber 
+              WHERE patient_id = p.patient_id) AS phone_numbers,
+            ARRAY(
+              SELECT json_build_object(
+              'name', pgp_sym_decrypt(contact_name, %s),
+              'phone', pgp_sym_decrypt(contact_phone, %s),
+              'order', contact_order)
+              FROM EmergencyContact 
+              WHERE patient_id = p.patient_id) AS emergency_contacts
+          FROM Patient p
+          LEFT JOIN Insurance i ON p.patient_id = i.patient_id;"""
+    params = (
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0]
+    )
+    cursor2.execute(sql, params)
+    cursor2.execute("""GRANT SELECT, UPDATE (
+                    first_name,
+                    middle_name,
+                    last_name,
+                    mailing_address,
+                    insurance_carrier,
+                    insurance_account,
+                    insurance_group)
+                    ON officestaffview TO officestaff_role""")
+    # Triggers and Functions for updating table
+    sql = """CREATE OR REPLACE FUNCTION update_office_staff_patient()
+          RETURNS TRIGGER AS $$
+          BEGIN
+            UPDATE Patient SET
+              first_name = pgp_sym_encrypt(NEW.first_name, %s),
+              middle_name = pgp_sym_encrypt(NEW.middle_name, %s),
+              last_name = pgp_sym_encrypt(NEW.last_name, %s),
+              mailing_address = pgp_sym_encrypt(NEW.mailing_address, %s)
+            WHERE patient_id = OLD.patient_id;
+            UPDATE Insurance SET
+              carrier_name = pgp_sym_encrypt(NEW.insurance_carrier, %s),
+              account_number = pgp_sym_encrypt(NEW.insurance_account, %s),
+              group_number = pgp_sym_encrypt(NEW.insurance_group, %s)
+            WHERE patient_id = OLD.patient_id;
+          RETURN NEW;
+          END;$$
+        LANGUAGE plpgsql;"""
+    params = (
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0],
+      keys[0]
+    )
+    cursor2.execute(sql, params)
+    cursor2.execute("""CREATE TRIGGER office_staff_update
+                   INSTEAD OF UPDATE ON officestaffview
+                    FOR EACH ROW
+                      EXECUTE FUNCTION update_office_staff_patient();""")
     # Close second connections
-    con2.commit()
     cursor2.close()
     con2.close()
     print("Database Created")
