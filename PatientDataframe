@@ -1,0 +1,177 @@
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QWidget, QLineEdit, QPushButton,
+    QTableView, QLabel
+)
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtCore import Qt
+import SearchDB
+import EncryptionKey
+import sys
+
+class PatientSearchApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Patient Search")
+        self.setGeometry(100, 100, 700, 400)
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
+        self.search_input = QLineEdit(self)
+        self.search_input.setPlaceholderText("Enter first letter or name...")
+        self.layout.addWidget(self.search_input)
+        self.search_button = QPushButton("Search", self)
+        self.search_button.clicked.connect(self.search_patients)
+        self.layout.addWidget(self.search_button)
+        self.table_view = QTableView()
+        self.layout.addWidget(self.table_view)
+        self.model = QStandardItemModel()
+        self.model.setHorizontalHeaderLabels(["ID", "First Name", "Middle Name", "Last Name"])
+        self.table_view.setModel(self.model)
+        self.table_view.setSortingEnabled(False)
+        self.table_view.clicked.connect(self.open_patient_details)
+
+    def search_patients(self):
+        search_query = self.search_input.text().strip()
+        if not search_query:
+            return
+        keys = EncryptionKey.getKeys()
+        self.keys = keys
+        name_parts = search_query.split()
+        first_name = name_parts[0] if len(name_parts) > 0 else None
+        last_name = name_parts[1] if len(name_parts) > 1 else None
+        if first_name and last_name:
+            patients = SearchDB.searchPatientWithName(first_name, None, last_name, keys[0], keys[1], True)
+        else:
+            patients = SearchDB.searchPatientWithName(first_name, None, None, keys[0], keys[1], True)
+            if not patients:
+                patients = SearchDB.searchPatientWithName(None, None, first_name, keys[0], keys[1], True)
+        if not patients:
+            return
+        self.populate_table(patients)
+
+    def populate_table(self, patients):
+        self.model.removeRows(0, self.model.rowCount())
+        for patient in patients:
+            row = [QStandardItem(str(value)) for value in patient]
+            self.model.appendRow(row)
+
+    def open_patient_details(self, index):
+        patient_id = self.model.item(index.row(), 0).text()
+        self.details_window = PatientDetailsWindow(patient_id, self.keys)
+        self.details_window.show()
+
+class PatientDetailsWindow(QWidget):
+    def __init__(self, patient_id, keys):
+        super().__init__()
+        self.setWindowTitle("Patient Details")
+        self.setGeometry(200, 200, 600, 400)
+        layout = QVBoxLayout(self)
+        details = self.get_patient_details(patient_id, keys)
+        if not details:
+            layout.addWidget(QLabel("No details found"))
+            return
+
+        (patientData, doctorUsername, patientAdmissions, patientInsurance, phoneNumbers,
+         emergencyContacts, locationInfo, doctorNotes, nurseNotes, prescriptions, procedures) = details
+
+        detail_model = QStandardItemModel()
+        detail_model.setHorizontalHeaderLabels(["Field", "Value"])
+
+        fields = [
+            ("Last Name", patientData[2]),
+            ("First Name", patientData[0]),
+            ("Middle Name", patientData[1]),
+            ("Mailing Address", patientData[3]),
+            ("Doctor Username", doctorUsername[0]),
+            ("Doctor Name", f"{doctorUsername[1]} {doctorUsername[2]}")
+        ]
+
+        if patientAdmissions:
+            for admission in patientAdmissions:
+                fields.append(("Admission ID", admission[0]))
+                fields.append(("Admission Date", admission[1]))
+                fields.append(("Discharge Date", admission[3] if len(admission) > 3 and admission[3] else "No discharge date provided."))
+                fields.append(("Reason for Admission", admission[2] if len(admission) > 2 and admission[2] else "No reason provided."))
+        else:
+            fields.append(("Admissions", "No admissions found."))
+
+        if locationInfo:
+            fields.append(("Facility", locationInfo[0]))
+            fields.append(("Floor", locationInfo[1]))
+            fields.append(("Room Number", locationInfo[2]))
+            fields.append(("Bed Number", locationInfo[3]))
+        else:
+            fields.append(("Location", "No location data found."))
+
+        if phoneNumbers:
+            for phone in phoneNumbers:
+                fields.append((f"{phone[0].capitalize()} Phone", phone[1]))
+        else:
+            fields.append(("Phone Numbers", "No phone numbers found."))
+
+        if emergencyContacts:
+            for i, contact in enumerate(emergencyContacts):
+                label = f"Emergency Contact {i + 1}"
+                name = contact[0]
+                phone = contact[1]
+                fields.append((label, f"{name} - {phone}"))
+        else:
+            fields.append(("Emergency Contacts", "No emergency contacts found."))
+
+        if patientInsurance:
+            fields.append(("Insurance Carrier", patientInsurance[0]))
+            fields.append(("Account Number", patientInsurance[1]))
+            fields.append(("Group Number", patientInsurance[2]))
+        else:
+            fields.append(("Insurance Info", "No insurance found."))
+
+        if doctorNotes:
+            for note in doctorNotes:
+                fields.append(("Doctor Note", note[0]))
+                fields.append(("Note Time", note[1]))
+        else:
+            fields.append(("Doctor Notes", "No notes found."))
+
+        if nurseNotes:
+            for note in nurseNotes:
+                fields.append(("Nurse Note", note[0]))
+                fields.append(("Note Time", note[1]))
+        else:
+            fields.append(("Nurse Notes", "No notes found."))
+
+        if prescriptions:
+            for prescription in prescriptions:
+                fields.append(("Medication", prescription[0]))
+                fields.append(("Amount", prescription[1]))
+                fields.append(("Schedule", prescription[2]))
+        else:
+            fields.append(("Prescriptions", "No prescriptions found."))
+
+        if procedures:
+            for procedure in procedures:
+                fields.append(("Procedure", procedure[0]))
+                fields.append(("Scheduled Time", procedure[1]))
+        else:
+            fields.append(("Scheduled Procedures", "No procedures found."))
+
+        for field, value in fields:
+            detail_model.appendRow([QStandardItem(field), QStandardItem(str(value))])
+        table_view = QTableView()
+        table_view.setModel(detail_model)
+        table_view.setSortingEnabled(False)
+        layout.addWidget(table_view)
+
+    def get_patient_details(self, patient_id, keys):
+        try:
+            result = SearchDB.searchPatientWithID(patient_id, keys[0])
+            return result
+        except Exception as e:
+            print(f"Error fetching patient details: {e}")
+            return None
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = PatientSearchApp()
+    window.show()
+    sys.exit(app.exec_())
+

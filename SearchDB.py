@@ -561,4 +561,8 @@ if __name__ == "__main__":
     #print(searchPatientWithID('71', keys[0]))
     #print(searchStaffWithName('S', None, keys[0], keys[1], True))
     #print(searchStaffWithID('2', keys[0]))
+
     print(searchAdmissionWithID('2', keys[0]))
+
+    print(searchAdmissionWithID('2', keys[0]))
+
