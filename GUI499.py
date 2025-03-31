@@ -66,8 +66,8 @@ class SearchScreen(QDialog):
         loadUi("patientsearch.ui", self)
         self.search.clicked.connect(self.searchfunction)
         self.logout.clicked.connect(LogOut)
-        monitor = InactivityMonitor(timeout = 3000, callback = LogOut)
-        app.installEventFilter(monitor)
+#        monitor = InactivityMonitor(timeout = 5000, callback = LogOut)
+#        self.installEventFilter(monitor)
         
     def searchfunction(self):
         lastName = self.lastField.text()
@@ -170,23 +170,26 @@ class ListScreen(QDialog):
      #  widget.addWidget(search)
      #  widget.setCurrentIndex(widget.currentIndex()+1)
 
-class InactivityMonitor(QObject):
-    def __init__(self, timeout = 300000, callback = None, parent = None):
-        super().__init__(parent)
-        self.callback = callback
-        self.timer = QTimer(self)
-        self.timer.setInterval(timeout)
-        self.timer.timeout.connect(self.handleTimeout)
-        self.timer.start()
+# class InactivityMonitor(QObject):
+#     def __init__(self, timeout = 300000, callback = None, parent = None):
+#         super().__init__(parent)
+#         print("Inactivity monitor created")
+#         print("Timeout = ", timeout)
+#         self.callback = callback
+#         self.timer = QTimer(self)
+#         self.timer.singleShot(timeout, self.callback)
+#         print("Timer has started")
 
-    def handleTimeout(self):
-        if self.callback:
-            self.callback()
+#     def handleTimeout(self):
+#         print("Handle Timeout")
+#         if self.callback:
+#             self.callback()
 
-    def eventFilter(self, obj, event):
-        if event.type() in (QEvent.MouseMove, QEvent.KeyPress, QEvent.MouseButtonPress, QEvent.Wheel):
-            self.timer.start()
-        return super().eventFilter(obj, event)
+#     def eventFilter(self, obj, event):
+#         if event.type() in (QEvent.MouseMove, QEvent.KeyPress, QEvent.MouseButtonPress, QEvent.Wheel):
+#             self.timer.start()
+#             print("Button pressed")
+#         return super().eventFilter(obj, event)
     
 def LogOut():
     home = MainScreen()

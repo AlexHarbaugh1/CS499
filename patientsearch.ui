@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>1200</height>
+    <width>1200</width>
+    <height>800</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -29,7 +29,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>190</x>
+      <x>300</x>
       <y>170</y>
       <width>600</width>
       <height>100</height>
@@ -39,13 +39,13 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <string notr="true">font: 36pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:26pt;&quot;&gt;Patient Lookup&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:26pt;&quot;&gt;Patient Lookup&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
     </property>
    </widget>
    <widget class="QPushButton" name="logout">
     <property name="geometry">
      <rect>
-      <x>700</x>
+      <x>1000</x>
       <y>70</y>
       <width>111</width>
       <height>41</height>
@@ -58,7 +58,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QLabel" name="labelLastName">
     <property name="geometry">
      <rect>
-      <x>160</x>
+      <x>300</x>
       <y>310</y>
       <width>201</width>
       <height>51</height>
@@ -74,7 +74,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QLabel" name="labelFirstName">
     <property name="geometry">
      <rect>
-      <x>160</x>
+      <x>300</x>
       <y>390</y>
       <width>201</width>
       <height>51</height>
@@ -90,7 +90,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QLineEdit" name="lastField">
     <property name="geometry">
      <rect>
-      <x>390</x>
+      <x>590</x>
       <y>320</y>
       <width>151</width>
       <height>22</height>
@@ -100,7 +100,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QLineEdit" name="firstField">
     <property name="geometry">
      <rect>
-      <x>390</x>
+      <x>590</x>
       <y>400</y>
       <width>151</width>
       <height>21</height>
@@ -110,9 +110,9 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QPushButton" name="search">
     <property name="geometry">
      <rect>
-      <x>302</x>
+      <x>525</x>
       <y>530</y>
-      <width>151</width>
+      <width>150</width>
       <height>35</height>
      </rect>
     </property>
