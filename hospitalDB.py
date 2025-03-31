@@ -318,36 +318,30 @@ def run():
               NEW.insurance_account IS DISTINCT FROM OLD.insurance_account OR
               NEW.insurance_group IS DISTINCT FROM OLD.insurance_group 
             THEN
-              INSERT INTO Insurance (patient_id, carrier_name, account_number, group_number)
-              VALUES (
-                OLD.patient_id,
-                pgp_sym_encrypt(NEW.insurance_carrier, encryption_key),
-                pgp_sym_encrypt(NEW.insurance_account, encryption_key),
-                pgp_sym_encrypt(NEW.insurance_group, encryption_key)
-              )
-            ON CONFLICT (patient_id) DO UPDATE SET
-              carrier_name = EXCLUDED.carrier_name,
-              account_number = EXCLUDED.account_number,
-              group_number = EXCLUDED.group_number;
+              UPDATE Insurance SET
+              carrier_name = pgp_sym_encrypt(NEW.insurance_carrier, encryption_key),
+              account_number = pgp_sym_encrypt(NEW.insurance_account, encryption_key),
+              group_number = pgp_sym_encrypt(NEW.insurance_group, encryption_key)
+              WHERE patient_id = OLD.patient_id;
           END IF;
           IF NEW.home_phone IS DISTINCT FROM OLD.home_phone THEN
-            PERFORM update_phone('Home', NEW.home_phone);
+            PERFORM update_phone(OLD.patient_id, 'Home', NEW.home_phone);
           END IF;
           IF NEW.work_phone IS DISTINCT FROM OLD.work_phone THEN
-            PERFORM update_phone('Work', NEW.work_phone);
+            PERFORM update_phone(OLD.patient_id, 'Work', NEW.work_phone);
           END IF;
           IF NEW.mobile_phone IS DISTINCT FROM OLD.mobile_phone THEN
-            PERFORM update_phone('Mobile', NEW.mobile_phone);
+            PERFORM update_phone(OLD.patient_id, 'Mobile', NEW.mobile_phone);
           END IF;
           IF NEW.ec1_name IS DISTINCT FROM OLD.ec1_name OR
             NEW.ec1_phone IS DISTINCT FROM OLD.ec1_phone 
           THEN
-            PERFORM update_emergency_contact(1, NEW.ec1_name, NEW.ec1_phone);
+            PERFORM update_emergency_contact(OLD.patient_id, 1, NEW.ec1_name, NEW.ec1_phone);
           END IF;
           IF NEW.ec2_name IS DISTINCT FROM OLD.ec2_name OR
             NEW.ec2_phone IS DISTINCT FROM OLD.ec2_phone 
           THEN
-            PERFORM update_emergency_contact(2, NEW.ec2_name, NEW.ec2_phone);
+            PERFORM update_emergency_contact(OLD.patient_id, 2, NEW.ec2_name, NEW.ec2_phone);
           END IF;
 
           RETURN NEW;
@@ -357,6 +351,7 @@ def run():
     cursor2.execute(sql, params)
     cursor2.execute("""ALTER FUNCTION update_office_staff_all() OWNER TO admin_role;""")
     sql = """CREATE OR REPLACE FUNCTION update_phone(
+          patient_id INT,
           phone_type TEXT, 
           new_number TEXT
         ) RETURNS VOID AS $$
@@ -365,23 +360,19 @@ def run():
       BEGIN
         IF new_number IS NULL THEN
           DELETE FROM PhoneNumber 
-          WHERE patient_id = OLD.patient_id AND phone_type = phone_type;
+          WHERE PhoneNumber.patient_id = update_phone.patient_id AND PhoneNumber.phone_type = update_phone.phone_type;
         ELSE
-          INSERT INTO PhoneNumber (patient_id, phone_type, phone_number)
-          VALUES (
-            OLD.patient_id, 
-            phone_type, 
-            pgp_sym_encrypt(new_number, encryption_key)
-          )
-          ON CONFLICT (patient_id, phone_type) DO UPDATE
-          SET phone_number = EXCLUDED.phone_number;
+          UPDATE PhoneNumber
+          SET phone_number = pgp_sym_encrypt(new_number, encryption_key)
+          WHERE PhoneNumber.patient_id = update_phone.patient_id AND PhoneNumber.phone_type = update_phone.phone_type;
         END IF;
       END;
       $$ LANGUAGE plpgsql;"""
     params = (keys[0],)
     cursor2.execute(sql, params)
-    cursor2.execute("""ALTER FUNCTION update_phone(phone_type TEXT, new_number TEXT) OWNER TO admin_role;""")
+    cursor2.execute("""ALTER FUNCTION update_phone(patient_id INT, phone_type TEXT, new_number TEXT) OWNER TO admin_role;""")
     sql = """CREATE OR REPLACE FUNCTION update_emergency_contact(
+        patient_id INT,
         contact_order INT, 
         new_name TEXT, 
         new_phone TEXT
@@ -391,29 +382,18 @@ def run():
       BEGIN
         IF new_name IS NULL AND new_phone IS NULL THEN
           DELETE FROM EmergencyContact 
-          WHERE patient_id = OLD.patient_id AND contact_order = contact_order;
+          WHERE EmergencyContact.patient_id = update_emergency_contact.patient_id AND EmergencyContact.contact_order = update_emergency_contact.contact_order;
         ELSE
-          INSERT INTO EmergencyContact (
-            patient_id, 
-            contact_order, 
-            contact_name, 
-            contact_phone
-          )
-          VALUES (
-            OLD.patient_id,
-            contact_order,
-            pgp_sym_encrypt(new_name, encryption_key),
-            pgp_sym_encrypt(new_phone, encryption_key)
-          )
-          ON CONFLICT (patient_id, contact_order) DO UPDATE SET
-            contact_name = EXCLUDED.contact_name,
-            contact_phone = EXCLUDED.contact_phone;
+          UPDATE EmergencyContact SET
+            contact_name = pgp_sym_encrypt(new_name, encryption_key),
+            contact_phone = pgp_sym_encrypt(new_phone, encryption_key)
+          WHERE EmergencyContact.patient_id = update_emergency_contact.patient_id AND EmergencyContact.contact_order = update_emergency_contact.contact_order;
         END IF;
       END;
       $$ LANGUAGE plpgsql;"""
     params = (keys[0],)
     cursor2.execute(sql, params)
-    cursor2.execute("""ALTER FUNCTION update_emergency_contact(contact_order INT, new_name TEXT, new_phone TEXT) OWNER TO admin_role;""")
+    cursor2.execute("""ALTER FUNCTION update_emergency_contact(patient_id INT, contact_order INT, new_name TEXT, new_phone TEXT) OWNER TO admin_role;""")
     sql = """CREATE TRIGGER office_staff_view_update
       INSTEAD OF UPDATE ON officestaffview
       FOR EACH ROW
