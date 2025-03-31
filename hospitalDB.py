@@ -165,31 +165,15 @@ def run():
     cursor2.execute("CREATE INDEX idx_first_name_prefix_trgms ON Patient USING gin (first_name_prefix_trgms);")
     cursor2.execute("CREATE INDEX idx_middle_name_prefix_trgms ON Patient USING gin (middle_name_prefix_trgms);")
     cursor2.execute("CREATE INDEX idx_last_name_prefix_trgms ON Patient USING gin (last_name_prefix_trgms);")
-    # Create Trigger to remove unneeded visitor data after admission closes
-    sql = """CREATE OR REPLACE FUNCTION delete_approved_visitors_on_discharge()
-          RETURNS TRIGGER AS $$
-          DECLARE
-          old_discharge_text TEXT;
-          new_discharge_text TEXT;
-          BEGIN
-            old_discharge_text := pgp_sym_decrypt(OLD.discharge_datetime, %s);
-            new_discharge_text := pgp_sym_decrypt(NEW.discharge_datetime, %s);
-            IF old_discharge_text = 'None' AND new_discharge_text != 'None' THEN
-            DELETE FROM ApprovedVisitor
-            WHERE admission_id = NEW.admission_id;
-          END IF;
-        RETURN NEW;
-      END; $$
-      LANGUAGE plpgsql"""
-    params = (
-      keys[0],
-      keys[0]
-    )
-    cursor2.execute(sql, params)
-    cursor2.execute("""CREATE TRIGGER after_discharge_cleanup
-                    AFTER UPDATE OF discharge_datetime ON Admission
-                    FOR EACH ROW
-                    EXECUTE FUNCTION delete_approved_visitors_on_discharge();""")
+    #Insert User types into database
+    cursor2.execute("""INSERT INTO UserType (type_name)
+                    VALUES
+                    ('Administrator'),
+                    ('Medical Personnel'),
+                    ('Office Staff'),
+                    ('Volunteer'),
+                    ('Physician');""")
+    
     # Create roles for each user
     # Check if the roles already exist
     cursor2.execute("SELECT rolname from pg_roles;")
@@ -205,10 +189,10 @@ def run():
       cursor2.execute("CREATE ROLE medicalpersonel_role;")
       print("Created Medical Personel Role!")
     else: print('medicalpersonel_role Already Exists!')
-    if not ('administrator_role' in roles):
-      cursor2.execute("CREATE ROLE administrator_role;")
-      print("Created Administrator Role!")
-    else: print('administrator_role Already Exists!')
+    if not ('admin_role' in roles):
+      cursor2.execute("CREATE ROLE admin_role;")
+      print("Created Admin Role!")
+    else: print('admin_role Already Exists!')
     if not ('officestaff_role' in roles):
       cursor2.execute("CREATE ROLE officestaff_role;")
       print("Created Office Staff Role!")
@@ -217,15 +201,9 @@ def run():
       cursor2.execute("CREATE ROLE physician_role;")
       print("Created Physician Role!")
     else: print('physician_role Already Exists!')
-    #Insert User types into database
-    cursor2.execute("""INSERT INTO UserType (type_name)
-                    VALUES
-                    ('Administrator'),
-                    ('Medical Personnel'),
-                    ('Office Staff'),
-                    ('Volunteer'),
-                    ('Physician');""")
-    # Create Views for data security/
+    cursor2.execute("""GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin_role;""")
+
+    # Create Views for data security
     # searchview is the table used for the search screen, accesible to all user roles
     sql = """CREATE VIEW searchview AS
                     SELECT
@@ -246,7 +224,6 @@ def run():
     cursor2.execute("GRANT SELECT ON searchview TO volunteer_role;")
     cursor2.execute("GRANT SELECT ON searchview TO officestaff_role;")
     cursor2.execute("GRANT SELECT ON searchview TO medicalpersonel_role;")
-    cursor2.execute("GRANT SELECT ON searchview TO administrator_role;")
     cursor2.execute("GRANT SELECT ON searchview TO physician_role;")
     # volunteerview selects only the patients name and location as per requirements
     sql = """CREATE VIEW volunteerview AS
@@ -275,38 +252,28 @@ def run():
     sql = """CREATE VIEW officestaffview AS
           SELECT
             p.patient_id,
-            pgp_sym_decrypt(p.first_name, %s) AS first_name,
-            pgp_sym_decrypt(p.middle_name, %s) AS middle_name,
-            pgp_sym_decrypt(p.last_name, %s) AS last_name,
-            pgp_sym_decrypt(p.mailing_address, %s) AS mailing_address,
-            pgp_sym_decrypt(i.carrier_name, %s) AS insurance_carrier,
-            pgp_sym_decrypt(i.account_number, %s) AS insurance_account,
-            pgp_sym_decrypt(i.group_number, %s) AS insurance_group,
-            ARRAY(
-              SELECT pgp_sym_decrypt(phone_number, %s)
-              FROM PhoneNumber 
-              WHERE patient_id = p.patient_id) AS phone_numbers,
-            ARRAY(
-              SELECT json_build_object(
-              'name', pgp_sym_decrypt(contact_name, %s),
-              'phone', pgp_sym_decrypt(contact_phone, %s),
-              'order', contact_order)
-              FROM EmergencyContact 
-              WHERE patient_id = p.patient_id) AS emergency_contacts
+            MAX(pgp_sym_decrypt(p.first_name, %s)) AS first_name,
+            MAX(pgp_sym_decrypt(p.middle_name, %s)) AS middle_name,
+            MAX(pgp_sym_decrypt(p.last_name, %s)) AS last_name,
+            MAX(pgp_sym_decrypt(p.mailing_address, %s)) AS mailing_address,
+            MAX(pgp_sym_decrypt(i.carrier_name, %s)) AS insurance_carrier,
+            MAX(pgp_sym_decrypt(i.account_number, %s)) AS insurance_account,
+            MAX(pgp_sym_decrypt(i.group_number, %s)) AS insurance_group,
+            MAX(CASE WHEN pn.phone_type = 'Home' THEN pgp_sym_decrypt(pn.phone_number, %s) END) AS home_phone,
+            MAX(CASE WHEN pn.phone_type = 'Work' THEN pgp_sym_decrypt(pn.phone_number, %s) END) AS work_phone,
+            MAX(CASE WHEN pn.phone_type = 'Mobile' THEN pgp_sym_decrypt(pn.phone_number, %s) END) AS mobile_phone,
+            MAX(CASE WHEN ec.contact_order = 1 THEN pgp_sym_decrypt(ec.contact_name, %s) END) AS ec1_name,
+            MAX(CASE WHEN ec.contact_order = 1 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec1_phone,
+            MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_name, %s) END) AS ec2_name,
+            MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec2_phone\
           FROM Patient p
-          LEFT JOIN Insurance i ON p.patient_id = i.patient_id;"""
+          LEFT JOIN Insurance i ON p.patient_id = i.patient_id
+          LEFT JOIN PhoneNumber pn ON p.patient_id = pn.patient_id
+          LEFT JOIN EmergencyContact ec ON p.patient_id = ec.patient_id
+          GROUP BY p.patient_id;"""
     params = (
       keys[0],
-      keys[0],
-      keys[0],
-      keys[0],
-      keys[0],
-      keys[0],
-      keys[0],
-      keys[0],
-      keys[0],
-      keys[0]
-    )
+    ) *14
     cursor2.execute(sql, params)
     cursor2.execute("""GRANT SELECT, UPDATE (
                     first_name,
@@ -315,40 +282,191 @@ def run():
                     mailing_address,
                     insurance_carrier,
                     insurance_account,
-                    insurance_group)
-                    ON officestaffview TO officestaff_role""")
-    # Triggers and Functions for updating table
-    sql = """CREATE OR REPLACE FUNCTION update_office_staff_patient()
+                    insurance_group,
+                    home_phone,
+                    work_phone,
+                    mobile_phone,
+                    ec1_name, ec1_phone,
+                    ec2_name,
+                    ec2_phone)
+                    ON officestaffview TO officestaff_role;""")
+    cursor2.execute("""GRANT SELECT, UPDATE (first_name, last_name, mailing_address) ON Patient TO officestaff_role;""")
+    cursor2.execute("""GRANT INSERT, UPDATE ON Insurance TO officestaff_role;""")
+    cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON PhoneNumber TO officestaff_role;""")
+    cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON EmergencyContact TO officestaff_role;""")
+    cursor2.execute("""GRANT USAGE ON SEQUENCE insurance_insurance_id_seq TO officestaff_role;""")
+    # Functions For Updating Patient Data
+    # Name and Address
+    sql = """CREATE OR REPLACE FUNCTION update_office_staff_all()
           RETURNS TRIGGER AS $$
+          DECLARE
+          encryption_key TEXT := %s;
           BEGIN
-            UPDATE Patient SET
-              first_name = pgp_sym_encrypt(NEW.first_name, %s),
-              middle_name = pgp_sym_encrypt(NEW.middle_name, %s),
-              last_name = pgp_sym_encrypt(NEW.last_name, %s),
-              mailing_address = pgp_sym_encrypt(NEW.mailing_address, %s)
-            WHERE patient_id = OLD.patient_id;
-            UPDATE Insurance SET
-              carrier_name = pgp_sym_encrypt(NEW.insurance_carrier, %s),
-              account_number = pgp_sym_encrypt(NEW.insurance_account, %s),
-              group_number = pgp_sym_encrypt(NEW.insurance_group, %s)
-            WHERE patient_id = OLD.patient_id;
+            IF NEW.first_name IS DISTINCT FROM OLD.first_name OR
+              NEW.middle_name IS DISTINCT FROM OLD.middle_name OR
+              NEW.last_name IS DISTINCT FROM OLD.last_name OR
+              NEW.mailing_address IS DISTINCT FROM OLD.mailing_address
+            THEN
+              UPDATE Patient SET
+                first_name = pgp_sym_encrypt(NEW.first_name, encryption_key),
+                middle_name = pgp_sym_encrypt(NEW.middle_name, encryption_key),
+                last_name = pgp_sym_encrypt(NEW.last_name, encryption_key),
+                mailing_address = pgp_sym_encrypt(NEW.mailing_address, encryption_key)
+              WHERE patient_id = OLD.patient_id;
+            END IF;
+            IF NEW.insurance_carrier IS DISTINCT FROM OLD.insurance_carrier OR
+              NEW.insurance_account IS DISTINCT FROM OLD.insurance_account OR
+              NEW.insurance_group IS DISTINCT FROM OLD.insurance_group 
+            THEN
+              INSERT INTO Insurance (patient_id, carrier_name, account_number, group_number)
+              VALUES (
+                OLD.patient_id,
+                pgp_sym_encrypt(NEW.insurance_carrier, encryption_key),
+                pgp_sym_encrypt(NEW.insurance_account, encryption_key),
+                pgp_sym_encrypt(NEW.insurance_group, encryption_key)
+              )
+            ON CONFLICT (patient_id) DO UPDATE SET
+              carrier_name = EXCLUDED.carrier_name,
+              account_number = EXCLUDED.account_number,
+              group_number = EXCLUDED.group_number;
+          END IF;
+          IF NEW.home_phone IS DISTINCT FROM OLD.home_phone THEN
+            PERFORM update_phone('Home', NEW.home_phone);
+          END IF;
+          IF NEW.work_phone IS DISTINCT FROM OLD.work_phone THEN
+            PERFORM update_phone('Work', NEW.work_phone);
+          END IF;
+          IF NEW.mobile_phone IS DISTINCT FROM OLD.mobile_phone THEN
+            PERFORM update_phone('Mobile', NEW.mobile_phone);
+          END IF;
+          IF NEW.ec1_name IS DISTINCT FROM OLD.ec1_name OR
+            NEW.ec1_phone IS DISTINCT FROM OLD.ec1_phone 
+          THEN
+            PERFORM update_emergency_contact(1, NEW.ec1_name, NEW.ec1_phone);
+          END IF;
+          IF NEW.ec2_name IS DISTINCT FROM OLD.ec2_name OR
+            NEW.ec2_phone IS DISTINCT FROM OLD.ec2_phone 
+          THEN
+            PERFORM update_emergency_contact(2, NEW.ec2_name, NEW.ec2_phone);
+          END IF;
+
           RETURN NEW;
-          END;$$
-        LANGUAGE plpgsql;"""
+        END;
+        $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+    params = (keys[0],)
+    cursor2.execute(sql, params)
+    cursor2.execute("""ALTER FUNCTION update_office_staff_all() OWNER TO admin_role;""")
+    sql = """CREATE OR REPLACE FUNCTION update_phone(
+          phone_type TEXT, 
+          new_number TEXT
+        ) RETURNS VOID AS $$
+        DECLARE
+          encryption_key TEXT := %s;
+      BEGIN
+        IF new_number IS NULL THEN
+          DELETE FROM PhoneNumber 
+          WHERE patient_id = OLD.patient_id AND phone_type = phone_type;
+        ELSE
+          INSERT INTO PhoneNumber (patient_id, phone_type, phone_number)
+          VALUES (
+            OLD.patient_id, 
+            phone_type, 
+            pgp_sym_encrypt(new_number, encryption_key)
+          )
+          ON CONFLICT (patient_id, phone_type) DO UPDATE
+          SET phone_number = EXCLUDED.phone_number;
+        END IF;
+      END;
+      $$ LANGUAGE plpgsql;"""
+    params = (keys[0],)
+    cursor2.execute(sql, params)
+    cursor2.execute("""ALTER FUNCTION update_phone(phone_type TEXT, new_number TEXT) OWNER TO admin_role;""")
+    sql = """CREATE OR REPLACE FUNCTION update_emergency_contact(
+        contact_order INT, 
+        new_name TEXT, 
+        new_phone TEXT
+      ) RETURNS VOID AS $$
+      DECLARE
+        encryption_key TEXT := %s;
+      BEGIN
+        IF new_name IS NULL AND new_phone IS NULL THEN
+          DELETE FROM EmergencyContact 
+          WHERE patient_id = OLD.patient_id AND contact_order = contact_order;
+        ELSE
+          INSERT INTO EmergencyContact (
+            patient_id, 
+            contact_order, 
+            contact_name, 
+            contact_phone
+          )
+          VALUES (
+            OLD.patient_id,
+            contact_order,
+            pgp_sym_encrypt(new_name, encryption_key),
+            pgp_sym_encrypt(new_phone, encryption_key)
+          )
+          ON CONFLICT (patient_id, contact_order) DO UPDATE SET
+            contact_name = EXCLUDED.contact_name,
+            contact_phone = EXCLUDED.contact_phone;
+        END IF;
+      END;
+      $$ LANGUAGE plpgsql;"""
+    params = (keys[0],)
+    cursor2.execute(sql, params)
+    cursor2.execute("""ALTER FUNCTION update_emergency_contact(contact_order INT, new_name TEXT, new_phone TEXT) OWNER TO admin_role;""")
+    sql = """CREATE TRIGGER office_staff_view_update
+      INSTEAD OF UPDATE ON officestaffview
+      FOR EACH ROW
+      EXECUTE FUNCTION update_office_staff_all();"""
+    cursor2.execute(sql, params)
+  
+    # Medical Personnel View
+    sql = """CREATE VIEW MedicalPersonnelView AS
+          SELECT
+            p.patient_id,
+            pgp_sym_decrypt(p.first_name, %s) AS first_name,
+            pgp_sym_decrypt(p.last_name, %s) AS last_name,
+            a.admission_id,
+            pgp_sym_decrypt(a.admittance_datetime, %s) AS admittance_datetime,
+            pgp_sym_decrypt(pn.note_text, %s) AS doctor_note,
+            pgp_sym_decrypt(pn.note_datetime, %s) AS doctor_note_time,
+            pgp_sym_decrypt(pr.medication_name, %s) AS medication_name,
+            pgp_sym_decrypt(pr.dosage, %s) AS dosage,
+            pgp_sym_decrypt(sp.procedure_name, %s) AS procedure_name,
+            pgp_sym_decrypt(sp.scheduled_datetime, %s) AS scheduled_datetime,
+            NULL AS nurse_note_text
+          FROM Patient p JOIN Admission a ON p.patient_id = a.patient_id
+          LEFT JOIN PatientNote pn ON a.admission_id = pn.admission_id AND pn.note_type = 'Doctor'
+          LEFT JOIN Prescription pr ON a.admission_id = pr.admission_id
+          LEFT JOIN ScheduledProcedure sp ON a.admission_id = sp.admission_id;"""
+    
+    # Create Trigger to remove unneeded visitor data after admission closes
+    sql = """CREATE OR REPLACE FUNCTION delete_approved_visitors_on_discharge()
+          RETURNS TRIGGER AS $$
+          DECLARE
+          old_discharge_text TEXT;
+          new_discharge_text TEXT;
+          BEGIN
+            old_discharge_text := pgp_sym_decrypt(OLD.discharge_datetime, %s);
+            new_discharge_text := pgp_sym_decrypt(NEW.discharge_datetime, %s);
+            IF old_discharge_text = 'None' AND new_discharge_text != 'None' THEN
+            DELETE FROM ApprovedVisitor
+            WHERE admission_id = NEW.admission_id;
+          END IF;
+        RETURN NEW;
+      END; $$
+      LANGUAGE plpgsql SECURITY DEFINER;"""
     params = (
-      keys[0],
-      keys[0],
-      keys[0],
-      keys[0],
-      keys[0],
       keys[0],
       keys[0]
     )
     cursor2.execute(sql, params)
-    cursor2.execute("""CREATE TRIGGER office_staff_update
-                   INSTEAD OF UPDATE ON officestaffview
+    cursor2.execute("""ALTER FUNCTION delete_approved_visitors_on_discharge() OWNER TO admin_role;""")
+    cursor2.execute("""CREATE TRIGGER after_discharge_cleanup
+                    AFTER UPDATE OF discharge_datetime ON Admission
                     FOR EACH ROW
-                      EXECUTE FUNCTION update_office_staff_patient();""")
+                    EXECUTE FUNCTION delete_approved_visitors_on_discharge();""")
+    
     # Close second connections
     cursor2.close()
     con2.close()
