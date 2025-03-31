@@ -193,15 +193,27 @@ def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTi
 def insertVisitors(admissionID, visitorNames, encryptionKey):
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """INSERT INTO approvedvisitor (admission_id, name)
+    sql = """INSERT INTO approvedvisitors(admission_id)
             SELECT
-            %s,
-            pgp_sym_encrypt(name, %s)
-            FROM UNNEST(%s) AS t(name);"""
+            %s;"""
     params = (
         admissionID,
-        encryptionKey,
-        [visitorName for visitorName in visitorNames]
+        visitorNames,
+        encryptionKey
+    )
+    encryptedNames = []
+    for name in visitorNames:
+        sql = "SELECT pgp_sym_encrypt(%s, %s) AS encrypted_name;"
+        params = (name, encryptionKey)
+        cursor.execute(sql, params)
+        encryptedNames.append(cursor.fetchone()[0])
+    sql = """INSERT INTO approvedvisitors(admission_id, names)
+            SELECT
+            %s,
+            %s;"""
+    params = (
+        admissionID,
+        encryptedNames
     )
     cursor.execute(sql, params)
     conn.commit()

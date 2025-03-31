@@ -221,77 +221,17 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
 # and a list of tuples with admission_id, admission_datetime
 # and a list of tuples with emergency contact name, phone number
 # USE CASE: Retrieve a patient's information for populating their related page in the GUI
-def searchPatientWithID(patientID, encryptionKey):
+def searchPatientWithID(patientID, usertype):
+    sql = {'volunteer_role': "SELECT * FROM VolunteerView WHERE patient_ID = %s",
+           'officestaff_role': "SELECT * FROM officestaffview WHERE patient_ID = %s;",
+           'medicalpersonel_role': "SELECT * FROM medicalpersonelview WHERE patient_ID = %s;",
+           'physician_role' : "SELECT * FROM physicianview WHERE patient_ID = %s;"}
     conn = getConnection()
     cursor = conn.cursor()
-    sql = """SELECT pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s), pgp_sym_decrypt(mailing_address, %s), family_doctor_id  
-            FROM patient
-            WHERE patient_id = %s"""
-    params = (
-         encryptionKey,
-         encryptionKey,
-         encryptionKey,
-         encryptionKey,
-         patientID
-    )
-    cursor.execute(sql, params)
-    results = cursor.fetchone()
-    patientData = results[:-1]
-    doctorID = results[-1]
-    sql = """SELECT phone_type, pgp_sym_decrypt(phone_number, %s)
-        FROM phonenumber
-        WHERE patient_id = %s
-        ORDER BY phone_type;"""
-    params = (
-        encryptionKey,
-        patientID
-    )
-    cursor.execute(sql, params)
-    phoneNumbers = cursor.fetchall()
-    sql = """SELECT pgp_sym_decrypt(username, %s),  pgp_sym_decrypt(first_name, %s),  pgp_sym_decrypt(last_name, %s)
-            FROM staff
-            WHERE user_id = %s"""
-    params = (
-         encryptionKey,
-         encryptionKey,
-         encryptionKey,
-         doctorID
-    )
-    cursor.execute(sql, params)
-    doctorUsername = cursor.fetchone()
-    sql = """SELECT admission_id, pgp_sym_decrypt(admittance_datetime, %s) AS decrypted_time
-            FROM admission
-            WHERE patient_ID = %s
-            ORDER BY decrypted_time DESC;"""
-    params = (
-         encryptionKey,
-         patientID
-    )
-    cursor.execute(sql, params)
-    patientAdmissions = cursor.fetchall()
-    sql = """SELECT pgp_sym_decrypt(carrier_name, %s), pgp_sym_decrypt(account_number, %s), pgp_sym_decrypt(group_number, %s)
-    FROM insurance
-    WHERE patient_id = %s"""
-    params = (
-            encryptionKey,
-            encryptionKey,
-            encryptionKey,
-            patientID,
-        )
-    cursor.execute(sql, params)
-    patientInsurance = cursor.fetchone()
-    sql = """SELECT pgp_sym_decrypt(contact_name, %s), pgp_sym_decrypt(contact_phone, %s), contact_order
-    FROM emergencycontact
-    WHERE patient_id = %s
-    ORDER BY contact_order ASC;"""
-    params = (
-         encryptionKey,
-         encryptionKey,
-         patientID
-    )
-    cursor.execute(sql, params)
-    emergencyContacts = cursor.fetchall()
-    return patientData, phoneNumbers, doctorUsername, patientAdmissions, patientInsurance, emergencyContacts
+    params = (patientID, )
+    cursor.execute(sql[usertype], params)
+    patientData = cursor.fetchall()
+    return patientData
 # searchStaffWithName uses same logic as searchPatientWithName to find and list Staff members
 # Returns list of tuples with user_id, first_name, last_name
 # USE CASE: search for staff members on the search screen    
@@ -506,7 +446,7 @@ if __name__ == "__main__":
     #for patient in searchPatientWithName("Ashley", None, None, keys[0], keys[1]):
         #print(patient)
     #print(searchBillingWithAdmission('200'))
-    print(searchPatientWithID('1', keys[0]))
+    print(searchPatientWithID('2', 'volunteer_role'))
     #print(searchStaffWithName('S', None, keys[0], keys[1], True))
     #print(searchStaffWithID('51', keys[0]))
     """admissionData, location, assignedDoctor, prescriptions, procedures, notes = searchAdmissionWithID('10', keys[0])

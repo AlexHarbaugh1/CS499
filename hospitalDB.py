@@ -110,10 +110,10 @@ def run():
                     reason_for_admission BYTEA NOT NULL);"""
                     )
     # 9. Approved Visitors
-    cursor2.execute("""CREATE TABLE ApprovedVisitor
-                    (visitor_id SERIAL PRIMARY KEY,
+    cursor2.execute("""CREATE TABLE ApprovedVisitors
+                    (visitors_id SERIAL PRIMARY KEY,
                     admission_id INT NOT NULL REFERENCES Admission(admission_id),
-                    name BYTEA);""")
+                    names BYTEA[]);""")
     # 10. Prescription
     cursor2.execute("""CREATE TABLE Prescription(
                     prescription_id SERIAL PRIMARY KEY,
@@ -235,10 +235,12 @@ def run():
                     l.facility,
                     l.floor,
                     l.room_number,
-                    l.bed_number
+                    l.bed_number,
+                    v.names
                     FROM patient p
                     JOIN admission a ON p.patient_id = a.patient_id
                     JOIN Location l ON a.location_id = l.location_id
+                    JOIN approvedvisitors v on a.admission_id = v.admission_id
                     WHERE pgp_sym_decrypt(a.discharge_datetime, %s) = 'None';"""
     params = (
       keys[0],
@@ -265,7 +267,7 @@ def run():
             MAX(CASE WHEN ec.contact_order = 1 THEN pgp_sym_decrypt(ec.contact_name, %s) END) AS ec1_name,
             MAX(CASE WHEN ec.contact_order = 1 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec1_phone,
             MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_name, %s) END) AS ec2_name,
-            MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec2_phone\
+            MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec2_phone
           FROM Patient p
           LEFT JOIN Insurance i ON p.patient_id = i.patient_id
           LEFT JOIN PhoneNumber pn ON p.patient_id = pn.patient_id
