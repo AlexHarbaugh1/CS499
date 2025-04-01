@@ -6,7 +6,7 @@ from decimal import Decimal
 import hospitalDB
 import EncryptionKey
 import InsertData
-
+import UpdateDB
 # Initialize Faker and DB connection
 hospitalDB.run()
 fake = Faker()
@@ -66,9 +66,9 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
     for _ in range(n):
         admit_date = fake.date_between(start_date="-2y", end_date="today")
         id = random.choice(patient_ids)
-        discharge_date = admit_date + timedelta(days=random.randint(1, 30)) if random.random() < 0.7 else None
+        discharge_date = None
         facilities = ["Main Hospital", "North Clinic", "South Clinic"]
-        admissionID = InsertData.insertAdmission(id, str(admit_date), fake.sentence(nb_words=6), str(discharge_date), random.choice(facilities), random.randint(1, 10), fake.random_int(100, 999), fake.random_int(1, 50), random.choice(doctor_ids), keys[0])
+        admissionID = InsertData.insertAdmission(id, str(admit_date), fake.sentence(nb_words=6), discharge_date, random.choice(facilities), random.randint(1, 10), fake.random_int(100, 999), fake.random_int(1, 50), random.choice(doctor_ids), keys[0])
         # Add Approved Visitors (0 - 5, Any)
         visitors = []
         for _ in range(random.randint(1, 5)):
@@ -110,7 +110,8 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
             item = {'name': random.choice(items), 'cost': float(random.randint(50, 5000))}
             itemlist.append(item)
         InsertData.insertBill(admissionID, total_owed, total_paid, insurance_paid, itemlist)
-
+        if random.random() < 0.7:
+            UpdateDB.admissionUpdateDischarge(admissionID, admit_date + timedelta(days=random.randint(1, 30)), encryptionKey)
     conn.commit()
 
 # --- Execute Data Generation ---
@@ -118,7 +119,7 @@ if __name__ == "__main__":
 
     keys = EncryptionKey.getKeys()
 
-    populate_users(keys[0], keys[1], 50)          # 50 users
-    populate_patients(keys[0], keys[1], 200)      # 200 patients
-    populate_admissions(keys[0], keys[1], 250)    # 250 admissions
+    populate_users(keys[0], keys[1], 10)          # 50 users
+    populate_patients(keys[0], keys[1], 50)      # 200 patients
+    populate_admissions(keys[0], keys[1], 50)    # 250 admissions
     print("Dummy data generation complete!")

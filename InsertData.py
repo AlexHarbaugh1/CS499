@@ -179,7 +179,7 @@ def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTi
         doctorID,
         admissionDateTime, encryptionKey,
         admissionReason, encryptionKey,
-        releaseDateTime if releaseDateTime else None, encryptionKey,
+        str(releaseDateTime) if releaseDateTime else None, encryptionKey,
 
         
         )
@@ -335,10 +335,10 @@ def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemize
     # Must have ran all functions above it for the next one to work
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
-    insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Volunteer', keys[0], keys[1])
+    insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Physician', keys[0], keys[1])
     insertPatient('Logos', 'William', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', None, 'Mitch', '4444444444', None, None, 'BlairStafford', None, None, None, keys[0], keys[1])
-    insertPatient('Doe', 'John', None, None, None, None, None, None, None, None, None, 'BlairStafford', None, None, None, keys[0], keys[1])
-    admissionID = insertAdmission('1', '2025-03-02 11:11:00', 'Fingy Broked', '2025-02-03 01:12:00', 'ER', '1', '123', '1', '1', keys[0])
+    #insertPatient('Doe', 'John', None, None, None, None, None, None, None, None, None, 'BlairStafford', None, None, None, keys[0], keys[1])
+    admissionID = insertAdmission('1', '2025-03-02 11:11:00', 'Fingy Broked', None, 'ER', '1', '123', '1', '1', keys[0])
     insertVisitors('1', ['Mitch', 'Taylor', 'Josh'], keys[0])
     insertPrescriptions(admissionID, [{'name': 'Ibuprofen', 'amount': '500mg', 'schedule': 'Once Every Six Hours'}, {'name': 'Morphine', 'amount': 'A lot', 'schedule': 'Once, he would not stop screaming'}, {'name': 'Crystal Meth', 'amount': 'One Teenth', 'schedule': 'Twice Daily'}], keys[0])
     insertNotes(admissionID, [{'author': 'BlairStafford', 'type': 'Doctor', 'text': 'The Meth really showed results', 'time' : datetime.datetime.now()}, {'author': 'BlairStafford', 'type': 'Nurse', 'text': 'I think Dr. Blair needs to be fired.', 'time' : datetime.datetime.now()}], keys[0], keys[1])

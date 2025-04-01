@@ -236,18 +236,14 @@ def run():
                     l.floor,
                     l.room_number,
                     l.bed_number,
-                    v.names
+                    ARRAY (SELECT pgp_sym_decrypt(visitor, %s)
+                    FROM unnest(v.names) AS visitor) AS decrypted_visitors
                     FROM patient p
                     JOIN admission a ON p.patient_id = a.patient_id
                     JOIN Location l ON a.location_id = l.location_id
                     JOIN approvedvisitors v on a.admission_id = v.admission_id
-                    WHERE pgp_sym_decrypt(a.discharge_datetime, %s) = 'None';"""
-    params = (
-      keys[0],
-      keys[0],
-      keys[0],
-      keys[0]
-    )
+                    WHERE a.discharge_datetime IS NULL;"""
+    params = (keys[0],)*4
     cursor2.execute(sql, params)
     cursor2.execute("GRANT SELECT ON volunteerview TO volunteer_role;")
     # Office View Selects all none medical data and uses triggers to update the underlying database.
@@ -431,8 +427,8 @@ def run():
           BEGIN
             old_discharge_text := pgp_sym_decrypt(OLD.discharge_datetime, %s);
             new_discharge_text := pgp_sym_decrypt(NEW.discharge_datetime, %s);
-            IF old_discharge_text = 'None' AND new_discharge_text != 'None' THEN
-            DELETE FROM ApprovedVisitor
+            IF old_discharge_text IS NULL AND new_discharge_text != 'None' THEN
+            DELETE FROM ApprovedVisitors
             WHERE admission_id = NEW.admission_id;
           END IF;
         RETURN NEW;
