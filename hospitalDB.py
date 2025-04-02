@@ -292,7 +292,6 @@ def run():
     cursor2.execute("""GRANT INSERT, UPDATE ON Insurance TO officestaff_role;""")
     cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON PhoneNumber TO officestaff_role;""")
     cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON EmergencyContact TO officestaff_role;""")
-    cursor2.execute("""GRANT USAGE ON SEQUENCE insurance_insurance_id_seq TO officestaff_role;""")
     # Functions For Updating Patient Data
     # Name and Address
     sql = """CREATE OR REPLACE FUNCTION update_office_staff_all()

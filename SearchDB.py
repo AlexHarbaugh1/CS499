@@ -7,7 +7,6 @@ def passwordMatch(username, password, fixedSalt):
     cursor = conn.cursor()
     sql = """SELECT (password_hash = crypt(%s, password_hash)) AS password_match
     FROM Staff WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex');"""
-    
     params = (
         password,
         username, fixedSalt
@@ -23,156 +22,53 @@ def passwordMatch(username, password, fixedSalt):
 # leave partial blank to do exact search, set partial to TRUE for partial search on all entered names
 # Returns list of tuples with PatientID, First Name, Middle Name, Last Name
 # USE CASE: search for patients on the search page
-def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial=False):
+def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial_fields=set(), is_volunteer=False):
     conn = getConnection()
     cursor = conn.cursor()
-    if (not partial):
-        if(fname != None):
-            if(mname != None):
-                if(lname != None): 
-                    sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM SearchView
-                        WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        AND middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex');"""
-                    params = (
-                        fname, fixedSalt,
-                        mname, fixedSalt,
-                        lname, fixedSalt
-                    )
-                else:
-                     sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        AND middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY last_name ASC;"""
-                     params = (
-                        fname, fixedSalt,
-                        mname, fixedSalt
-                    )
-            elif(mname == None):
-                if(lname != None): 
-                    sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY last_name ASC;"""
-                    params = (
-                        fname, fixedSalt,
-                        lname, fixedSalt
-                    )
-                else:
-                     sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY last_name ASC;"""
-                     params = (
-                        fname, fixedSalt
-                    )
-        elif (mname != None):
-            if(lname != None): 
-                    sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY last_name ASC;"""
-                    params = (
-                        mname, fixedSalt,
-                        lname, fixedSalt
-                    )
+    conditions = []
+    params = []
+    name_parts = [
+        (fname, 'first_name_prefix_trgms', 'fname'),
+        (mname, 'middle_name_prefix_trgms', 'mname'),
+        (lname, 'last_name_prefix_trgms', 'lname'),
+    ]
+
+    for value, column, field in name_parts:
+        if value:
+            hashed = "encode(digest(%s || %s, 'sha256'), 'hex')"
+            
+            # Choose operator based on whether field is in partial_fields
+            if field in partial_fields:
+                condition = f"{column} && ARRAY[{hashed}]"  # Partial match
             else:
-                    sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE middle_name_prefix_trgms[array_upper(middle_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY last_name ASC;"""
-                    params = (
-                        mname, fixedSalt
-                    )
-        else:
-            sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY last_name ASC;"""
-            params = (
-                        lname, fixedSalt
-                    )
+                condition = f"{column}[array_upper({column}, 1)] = {hashed}"  # Exact match
+                
+            conditions.append(condition)
+            params.extend([value, fixedSalt])
+
+    # Base query construction
+    if is_volunteer:
+        base_sql = """SELECT sv.patient_id, sv.first_name, 
+                             sv.middle_name, sv.last_name
+                      FROM SearchView sv
+                      JOIN Admission a ON sv.patient_id = a.patient_id
+                      WHERE a.discharge_datetime IS NULL"""
     else:
-        if(fname != None):
-            if(mname != None):
-                if(lname != None): 
-                    sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        AND middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY last_name ASC;"""
-                    params = (
-                        fname, fixedSalt,
-                        mname, fixedSalt,
-                        lname, fixedSalt
-                    )
-                else:
-                     sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        AND middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY last_name ASC;"""
-                     params = (
-                        fname, fixedSalt,
-                        mname, fixedSalt
-                    )
-            elif(mname == None):
-                if(lname != None): 
-                    sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY last_name ASC;"""
-                    params = (
-                        fname, fixedSalt,
-                        lname, fixedSalt
-                    )
-                else:
-                     sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY last_name ASC;"""
-                     params = (
-                        fname, fixedSalt
-                    )
-        elif (mname != None):
-            if(lname != None): 
-                        sql = """SELECT patient_id, first_name, middle_name, last_name
-                            FROM searchview
-                            WHERE middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                            AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY last_name ASC;"""
-                        params = (
-                            mname, fixedSalt,
-                            lname, fixedSalt
-                        )
-            else:
-                    sql = """SELECT patient_id, first_name, middle_name, last_name
-                        FROM searchview
-                        WHERE middle_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY last_name ASC;"""
-                    params = (
-                        mname, fixedSalt
-                    )
-        else:
-                sql = """SELECT patient_id, first_name, middle_name, last_name
-                            FROM searchview
-                            WHERE last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY last_name ASC;"""
-                params = (
-                            lname, fixedSalt
-                        )
-    
-    cursor.execute(sql,params)
+        base_sql = "SELECT patient_id, first_name, middle_name, last_name FROM SearchView"
+
+    # Add conditions if any exist
+    if conditions:
+        sql = f"{base_sql} WHERE {' AND '.join(conditions)}"
+    else:
+        sql = base_sql
+
+    sql += " ORDER BY last_name ASC;"
+    cursor.execute(sql, params)
     patients = cursor.fetchall()
     cursor.close()
     conn.close()
-    return(patients)       
+    return patients
+
 # searchPatientWithID takes patientID to find the rest of the patient data
 # Returns tuple of First Name, Middle Name, Last Name, Mailing Address
 # tuple of Family Doctor's Username, First Name, Last Name
@@ -182,7 +78,7 @@ def searchPatientWithName(fname, mname, lname, encryptionKey, fixedSalt, partial
 def searchPatientWithID(patientID, usertype):
     sql = {'volunteer_role': "SELECT * FROM VolunteerView WHERE patient_ID = %s",
            'officestaff_role': "SELECT * FROM officestaffview WHERE patient_ID = %s;",
-           'medicalpersonel_role': "SELECT * FROM medicalpersonelview WHERE patient_ID = %s;",
+           'medicalpersonnel_role': "SELECT * FROM medicalpersonnelview WHERE patient_ID = %s;",
            'physician_role' : "SELECT * FROM physicianview WHERE patient_ID = %s;"}
     conn = getConnection()
     cursor = conn.cursor()
@@ -399,13 +295,15 @@ def searchAdmissionWithID(admissionID, encryptionKey):
      
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
+    fixedSalt = keys[1]
     #print(passwordMatch('BlairStafford', 'qwertyuiop', keys[1]))
-    #print(searchPatientWithName(None, None, 'J', keys[0], keys[1], True))
+    print(searchPatientWithName(fixedSalt,fname='A', partial_fields={'fname'}))
+    #searchPatientWithName(fixedSalt, fname=None, lname=None, lname=None, partial_fields={'fname','mname','lname'}) THIS IS THE FORMAT FOR SEARCHING BY NAME PUT FIELDS THAT YOU WANT TO BE PARTIAL SEARCHED INTO THE PARTIAL FIELDS SET
     #for patient in searchPatientWithName("Ashley", None, None, keys[0], keys[1]):
         #print(patient)
     #print(searchBillingWithAdmission('200'))
     #print(searchPatientWithID('2', 'volunteer_role'))
-    print(searchStaffWithName('Blair', None, keys[0], keys[1], True))
+    #print(searchStaffWithName('Blair', None, keys[0], keys[1], True))
     #print(searchStaffWithID('51', keys[0]))
     """admissionData, location, assignedDoctor, prescriptions, procedures, notes = searchAdmissionWithID('10', keys[0])
     print(admissionData)
