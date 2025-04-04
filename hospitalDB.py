@@ -465,6 +465,7 @@ def run():
           GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name;"""
       params = (keys[0],)*15
       cursor2.execute(sql, params)
+      cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
       #Smaller Views for updating the data
       sql = """CREATE VIEW NurseWriteView AS
             SELECT
@@ -581,45 +582,45 @@ def createConnection():
         global_connection.autocommit = True
 
 def userLogin(username, password, fixedSalt):
-  cursor = get_cursor()
-  sql = """SELECT (password_hash = crypt(%s, password_hash)) AS password_match
-  FROM Staff WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex');"""
-  params = (
-      password,
-      username, fixedSalt
-  )
-  cursor.execute(sql, params)
-  results = cursor.fetchone()
-  if (not results) or (not results[0]):
-    print("Incorrect Username or Password")
-    cursor.close()
-    return False
-  else:
-    sql = """SELECT set_config(
-          'app.current_user_id', 
-          (SELECT user_id::TEXT FROM staff 
-           WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
-           LIMIT 1),
-          false
-        );"""
+  with get_cursor() as cursor:
+    sql = """SELECT (password_hash = crypt(%s, password_hash)) AS password_match
+    FROM Staff WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex');"""
     params = (
-      username, fixedSalt
+        password,
+        username, fixedSalt
     )
     cursor.execute(sql, params)
-    sql = """SELECT set_config(
-          'app.current_user_type', 
-          (SELECT type_name FROM staff NATURAL JOIN usertype WHERE user_id::TEXT = (SELECT current_setting('app.current_user_id', true))
-           LIMIT 1),
-          false
-        );"""
-    cursor.execute(sql)
-    usertype = cursor.fetchone()[0]
-    role = usertype.lower().replace(" ", "") + "_role"
-    sql = """SET ROLE %s;"""
-    params = (role,)
-    cursor.execute(sql, params)
-    print("Successfully Signed In")
-    cursor.close()
+    results = cursor.fetchone()
+    if (not results) or (not results[0]):
+      print("Incorrect Username or Password")
+      cursor.close()
+      return False
+    else:
+      sql = """SELECT set_config(
+            'app.current_user_id', 
+            (SELECT user_id::TEXT FROM staff 
+            WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
+            LIMIT 1),
+            false
+          );"""
+      params = (
+        username, fixedSalt
+      )
+      cursor.execute(sql, params)
+      sql = """SELECT set_config(
+            'app.current_user_type', 
+            (SELECT type_name FROM staff NATURAL JOIN usertype WHERE user_id::TEXT = (SELECT current_setting('app.current_user_id', true))
+            LIMIT 1),
+            false
+          );"""
+      cursor.execute(sql)
+      usertype = cursor.fetchone()[0]
+      role = usertype.lower().replace(" ", "") + "_role"
+      sql = """SET ROLE %s;"""
+      params = (role,)
+      cursor.execute(sql, params)
+      print("Successfully Signed In")
+      cursor.close()
     return True
 
 def getCurrentUserType():
