@@ -623,17 +623,17 @@ def userLogin(username, password, fixedSalt):
     return True
 
 def getCurrentUserType():
-  cursor = get_cursor()
-  cursor.execute("SELECT current_setting('app.current_user_type', true) AS user_type;")
-  results = cursor.fetchone()[0]
-  cursor.close()
+  with get_cursor() as cursor:
+    cursor.execute("SELECT current_setting('app.current_user_type', true) AS user_type;")
+    results = cursor.fetchone()[0]
+    cursor.close()
   return results
 
 def getCurrentUserID():
-  cursor = get_cursor()
-  cursor.execute("SELECT current_setting('app.current_user_id', true) AS user_type;")
-  results = cursor.fetchone()[0]
-  cursor.close()
+  with get_cursor() as cursor:
+    cursor.execute("SELECT current_setting('app.current_user_id', true) AS user_type;")
+    results = cursor.fetchone()[0]
+    cursor.close()
   return results
 
 if __name__ == "__main__":
