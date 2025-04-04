@@ -10,10 +10,10 @@ if (hospitalDB.userLogin(username, password, keys[1])):
     cursor = conn.cursor()
     conn.commit()
     searchName = input("Enter Last Name: ")
-    results = SearchDB.searchPatientWithName(None, None, searchName, keys[0], keys[1], True)
+    results = SearchDB.searchPatientWithName(keys[1], fname=None, mname=None, lname=searchName, partial_fields={'lname'})
     for patient in results:
         print(patient)
     id = input("Enter Patient ID to View Data: ")
-    results = SearchDB.searchPatientWithID(id, keys[0])
+    results = SearchDB.searchPatientWithID(id)
     for item in results:
         print(item)

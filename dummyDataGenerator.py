@@ -10,8 +10,7 @@ import UpdateDB
 # Initialize Faker and DB connection
 hospitalDB.run()
 fake = Faker()
-conn = hospitalDB.getConnection()
-cursor = conn.cursor()
+
 
 # Configure for realistic medical data
 Faker.seed(42)
@@ -50,8 +49,9 @@ def populate_users( encryptionKey, fixedSalt, n=50):
 def populate_patients(encryptionKey, fixedSalt, n=100):
     sql = """SELECT pgp_sym_decrypt(username, %s) FROM Staff WHERE type_id = 5"""
     params = (encryptionKey,)
-    cursor.execute(sql, params)
-    doctor_ids = [row[0] for row in cursor.fetchall()]
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute(sql, params)
+        doctor_ids = [row[0] for row in cursor.fetchall()]
     insurances = ['Progressive', 'United Healthcare', 'Allstate', 'Local Provider']
     
     for _ in range(n):
@@ -59,10 +59,11 @@ def populate_patients(encryptionKey, fixedSalt, n=100):
 
 
 def populate_admissions(encryptionKey, fixedSalt, n=200):
-    cursor.execute("SELECT patient_id FROM Patient")
-    patient_ids = [row[0] for row in cursor.fetchall()]
-    cursor.execute("SELECT user_id FROM Staff WHERE type_id = 5")
-    doctor_ids = [row[0] for row in cursor.fetchall()]
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute("SELECT patient_id FROM Patient")
+        patient_ids = [row[0] for row in cursor.fetchall()]
+        cursor.execute("SELECT user_id FROM Staff WHERE type_id = 5")
+        doctor_ids = [row[0] for row in cursor.fetchall()]
     for _ in range(n):
         admit_date = fake.date_between(start_date="-2y", end_date="today")
         id = random.choice(patient_ids)
@@ -84,8 +85,9 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
         # Add notes (2-5 per admission)
         sql = "SELECT pgp_sym_decrypt(username, %s) FROM Staff WHERE type_id IN (2, 5)"
         params = (encryptionKey,)
-        cursor.execute(sql, params)
-        staff_ids = [row[0] for row in cursor.fetchall()]
+        with hospitalDB.get_cursor() as cursor:
+            cursor.execute(sql, params)
+            staff_ids = [row[0] for row in cursor.fetchall()]
         notes = []
         for _ in range(random.randint(2, 5)):
             note = {'author': random.choice(staff_ids), 'type': random.choice(["Doctor", "Nurse"]), 'text': fake.paragraph(nb_sentences=3), 'time' : fake.date_time_between(start_date=admit_date, end_date=discharge_date or datetime.now())}
@@ -112,14 +114,13 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
         InsertData.insertBill(admissionID, total_owed, total_paid, insurance_paid, itemlist)
         if random.random() < 0.7:
             UpdateDB.admissionUpdateDischarge(admissionID, admit_date + timedelta(days=random.randint(1, 30)), encryptionKey)
-    conn.commit()
 
 # --- Execute Data Generation ---
 if __name__ == "__main__":
 
     keys = EncryptionKey.getKeys()
 
-    populate_users(keys[0], keys[1], 10)          # 50 users
-    populate_patients(keys[0], keys[1], 50)      # 200 patients
-    populate_admissions(keys[0], keys[1], 50)    # 250 admissions
+    populate_users(keys[0], keys[1], 50)          # 50 users
+    populate_patients(keys[0], keys[1], 200)      # 200 patients
+    populate_admissions(keys[0], keys[1], 250)    # 250 admissions
     print("Dummy data generation complete!")
