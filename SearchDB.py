@@ -78,7 +78,7 @@ def searchPatientWithID(patientID):
     sql = {'Volunteer': "SELECT * FROM VolunteerView WHERE patient_ID = %s",
            'Office Staff': "SELECT * FROM officestaffview WHERE patient_ID = %s;",
            'Medical Personnel': "SELECT * FROM patientadmissionoverview WHERE patient_ID = %s;",
-           'Physician' : "SELECT * FROM physicianview WHERE patient_ID = %s;"}
+           'Physician' : "SELECT * FROM patientadmissionoverview WHERE patient_ID = %s;"}
     with hospitalDB.get_cursor() as cursor:
         params = (patientID, )
         cursor.execute(sql[usertype], params)

@@ -1,4 +1,4 @@
-from hospitalDB import get_cursor
+import hospitalDB
 import EncryptionKey
 import hashlib
 import datetime
@@ -9,7 +9,7 @@ def hashPrefix(prefix, fixedSalt):
 
 def insertStaff(fname , lname, username, password, type, encryptionKey, fixedSalt):
 
-    with get_cursor() as cursor:
+    with hospitalDB.get_cursor() as cursor:
         fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
         lnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(lname)]
         sql = """INSERT INTO Staff (first_name, last_name, first_name_prefix_trgms, last_name_prefix_trgms, username_hash, username, password_hash, type_id)
@@ -39,7 +39,7 @@ def insertStaff(fname , lname, username, password, type, encryptionKey, fixedSal
 def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
                   insCarrier, insAcc, insGNum, encryptionKey, fixedSalt):
 
-    with get_cursor() as cursor:
+    with hospitalDB.get_cursor() as cursor:
         fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
         if mname != None:
             mnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(mname)]
@@ -129,7 +129,7 @@ def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, 
 def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTime,
                     hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, doctorID, encryptionKey):
 
-    with get_cursor() as cursor:
+    with  hospitalDB.get_cursor() as cursor:
         sql =  """WITH 
             location AS (
                 INSERT INTO Location (facility, floor, room_number, bed_number)
@@ -188,7 +188,7 @@ def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTi
     return ID
 
 def insertVisitors(admissionID, visitorNames, encryptionKey):
-    with get_cursor() as cursor:
+    with  hospitalDB.get_cursor() as cursor:
         sql = """INSERT INTO approvedvisitors(admission_id)
                 SELECT
                 %s;"""
@@ -214,7 +214,7 @@ def insertVisitors(admissionID, visitorNames, encryptionKey):
         cursor.execute(sql, params)
         cursor.close()
 def insertPrescriptions(admissionID, prescriptions, encryptionKey):
-    with get_cursor() as cursor:
+    with  hospitalDB.get_cursor() as cursor:
         sql = """INSERT INTO Prescription (admission_id, medication_name, amount, schedule)
                 SELECT 
                     %s,
@@ -235,7 +235,7 @@ def insertPrescriptions(admissionID, prescriptions, encryptionKey):
         cursor.close()
 
 def insertNotes(admissionID, notes, encryptionKey, fixedSalt):
-    with get_cursor() as cursor:
+    with  hospitalDB.get_cursor() as cursor:
         sql = """INSERT INTO PatientNote (admission_id, author_id, note_type, note_text, note_datetime)
                 SELECT
                     %s,
@@ -256,10 +256,32 @@ def insertNotes(admissionID, notes, encryptionKey, fixedSalt):
         )
         cursor.execute(sql, params)
         cursor.close()
+def insertNote(patientID, admissionID, noteText):
+    usertype = hospitalDB.getCurrentUserType()
+    if (usertype == 'Physician'):
+        sql = """UPDATE PhysicianWriteView
+                SET
+                note_text = %s
+                WHERE patient_id = %s AND admission_id = %s;"""
+    else:
+        sql = """UPDATE NurseWriteView
+                SET
+                note_text = %s
+                WHERE patient_id = %s AND admission_id = %s;"""
+    with  hospitalDB.get_cursor() as cursor:
+        
+        params = (
+            noteText,
+            patientID,
+            admissionID
+        )
+        cursor.execute(sql, params)
+        cursor.close()
+
 
 def insertProcedures(admissionID, procedures, encryptionKey):
 
-    with get_cursor() as cursor:
+    with  hospitalDB.get_cursor() as cursor:
         sql = """INSERT INTO ScheduledProcedure (admission_id, procedure_name, scheduled_datetime)
                 SELECT
                     %s,
@@ -278,7 +300,7 @@ def insertProcedures(admissionID, procedures, encryptionKey):
         cursor.close()
 
 def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemizedBill):
-    with get_cursor() as cursor:
+    with  hospitalDB.get_cursor() as cursor:
         sql = """WITH
         billing AS (
                 INSERT INTO Billing (admission_id, total_amount_owed, total_amount_paid, insurance_paid)
@@ -318,7 +340,7 @@ def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemize
     # Must have ran all functions above it for the next one to work
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
-    insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Volunteer', keys[0], keys[1])
+    insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Physician', keys[0], keys[1])
     insertStaff('User', 'Two', 'User2', 'poiuytrewq', 'Medical Personnel', keys[0], keys[1])
     #insertPatient('Logos', 'William', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', None, 'Mitch', '4444444444', None, None, 'BlairStafford', None, None, None, keys[0], keys[1])
     #insertPatient('Doe', 'John', None, None, None, None, None, None, None, None, None, 'BlairStafford', None, None, None, keys[0], keys[1])

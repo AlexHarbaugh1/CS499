@@ -466,6 +466,7 @@ def run():
       params = (keys[0],)*15
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
+      cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")
       #Smaller Views for updating the data
       sql = """CREATE VIEW NurseWriteView AS
             SELECT
@@ -476,7 +477,7 @@ def run():
             FROM PatientAdmissionOverview;"""
       cursor2.execute(sql)
       cursor2.execute("""GRANT INSERT ON PatientNote TO medicalpersonnel_role;""")
-      cursor2.execute("""GRANT SELECT ON NurseWriteView TO medicalpersonnel_role;""")
+      cursor2.execute("""GRANT SELECT, UPDATE ON NurseWriteView TO medicalpersonnel_role;""")
       #Functions And Triggers
       # Helper Function To Unnest Admission ID from JSON Data
       sql = """CREATE OR REPLACE FUNCTION get_admission_id(patient_id INT, admission_idx INT)
@@ -532,6 +533,90 @@ def run():
                       INSTEAD OF UPDATE ON NurseWriteView
                       FOR EACH ROW
                       EXECUTE FUNCTION nurse_write_trigger();""")
+      # Physician View for Updating Data
+      sql = """CREATE VIEW PhysicianWriteView AS
+            SELECT
+              patient_id,
+              (jsonb_array_elements(admissions) ->> 'admission_id')::INT AS admission_id,
+              'Doctor' AS note_type,
+              NULL::TEXT AS note_text,
+              NULL::TEXT AS medication_name,
+              NULL::TEXT AS medication_amount,
+              NULL::TEXT AS medication_schedule,
+              NULL::TEXT AS procedure_name,
+              NULL::TEXT AS procedure_schedule
+            FROM PatientAdmissionOverview;"""
+      cursor2.execute(sql)
+      cursor2.execute("""GRANT INSERT ON PatientNote TO physician_role;""")
+      cursor2.execute("""GRANT INSERT ON Prescription TO physician_role;""")
+      cursor2.execute("""GRANT INSERT ON ScheduledProcedure TO physician_role;""")
+      cursor2.execute("""GRANT SELECT, UPDATE ON PhysicianWriteView TO physician_role;""")
+      # Function for Inserting nurse notes into database
+      sql = """CREATE OR REPLACE FUNCTION physician_write_trigger()
+              RETURNS TRIGGER AS $$
+              DECLARE
+                encryption_key TEXT := %s;
+                valid_admission BOOLEAN;
+              BEGIN
+              SELECT EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(
+                  (SELECT admissions FROM PatientAdmissionOverview WHERE patient_id = NEW.patient_id)
+                ) AS admission
+                WHERE (admission ->> 'admission_id')::INT = NEW.admission_id
+              ) INTO valid_admission;
+
+              IF NOT valid_admission THEN
+                RAISE EXCEPTION 'Invalid admission_id %% for patient %%', NEW.admission_id, NEW.patient_id;
+              END IF;
+              IF new.note_text IS NOT NULL THEN
+                INSERT INTO PatientNote (
+                  admission_id,
+                  note_type,
+                  note_text,
+                  note_datetime,
+                  author_id
+                ) VALUES (
+                  NEW.admission_id,
+                  'Doctor',
+                  pgp_sym_encrypt(NEW.note_text, encryption_key),
+                  pgp_sym_encrypt(NOW()::text, encryption_key),
+                  current_setting('app.current_user_id')::INT
+                );
+              END IF;
+              IF new.medication_name IS NOT NULL THEN
+                INSERT INTO Prescription (
+                  admission_id,
+                  medication_name,
+                  amount,
+                  schedule
+                ) VALUES (
+                  NEW.admission_id,
+                  pgp_sym_encrypt(NEW.medication_name, encryption_key),
+                  pgp_sym_encrypt(NEW.medication_amount, encryption_key),
+                  pgp_sym_encrypt(NEW.medication_schedule, encryption_key)
+                );
+              END IF;
+              IF new.procedure_name IS NOT NULL THEN
+                INSERT INTO ScheduledProcedure (
+                  admission_id,
+                  procedure_name,
+                  scheduled_datetime
+                ) Values (
+                NEW.admission_id,
+                pgp_sym_encrypt(NEW.procedure_name, encryption_key),
+                  pgp_sym_encrypt(NEW.procedure_schedule, encryption_key)
+                );
+              END IF;
+                RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+      params = (keys[0],)
+      cursor2.execute(sql, params)
+      cursor2.execute("""CREATE TRIGGER physician_write_trigger
+                      INSTEAD OF UPDATE ON PhysicianWriteView
+                      FOR EACH ROW
+                      EXECUTE FUNCTION Physician_write_trigger();""")
       # Create Trigger to remove unneeded visitor data after admission closes
       sql = """CREATE OR REPLACE FUNCTION delete_approved_visitors_on_discharge()
             RETURNS TRIGGER AS $$
