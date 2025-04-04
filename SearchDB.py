@@ -51,8 +51,8 @@ def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial
         base_sql = """SELECT sv.patient_id, sv.first_name, 
                              sv.middle_name, sv.last_name
                       FROM SearchView sv
-                      JOIN Admission a ON sv.patient_id = a.patient_id
-                      WHERE a.discharge_datetime IS NULL"""
+                      JOIN (SELECT * FROM admission WHERE discharge_datetime IS NULL) AS a ON sv.patient_id = a.patient_id
+                      """
     else:
         base_sql = "SELECT patient_id, first_name, middle_name, last_name FROM SearchView"
 
@@ -297,8 +297,8 @@ if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     fixedSalt = keys[1]
     #print(passwordMatch('BlairStafford', 'qwertyuiop', keys[1]))
-    print(searchPatientWithName(fixedSalt,fname='A', partial_fields={'fname'}))
-    #searchPatientWithName(fixedSalt, fname=None, lname=None, lname=None, partial_fields={'fname','mname','lname'}) THIS IS THE FORMAT FOR SEARCHING BY NAME PUT FIELDS THAT YOU WANT TO BE PARTIAL SEARCHED INTO THE PARTIAL FIELDS SET
+    print(searchPatientWithName(fixedSalt,fname='A', partial_fields={'fname'}, is_volunteer=True))
+    #searchPatientWithName(fixedSalt, fname=None, lname=None, lname=None, partial_fields={'fname','mname','lname'}, is_volunteer=False) THIS IS THE FORMAT FOR SEARCHING BY NAME PUT FIELDS THAT YOU WANT TO BE PARTIAL SEARCHED INTO THE PARTIAL FIELDS SET
     #for patient in searchPatientWithName("Ashley", None, None, keys[0], keys[1]):
         #print(patient)
     #print(searchBillingWithAdmission('200'))

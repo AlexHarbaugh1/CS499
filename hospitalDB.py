@@ -185,9 +185,9 @@ def run():
       cursor2.execute("CREATE ROLE volunteer_role;")
       print("Created Volunteer Role!")
     else: print('volunteer_role Already Exists!')
-    if not ('medicalpersonel_role' in roles):
-      cursor2.execute("CREATE ROLE medicalpersonel_role;")
-      print("Created Medical Personel Role!")
+    if not ('medicalpersonnel_role' in roles):
+      cursor2.execute("CREATE ROLE medicalpersonnel_role;")
+      print("Created Medical Personnel Role!")
     else: print('medicalpersonel_role Already Exists!')
     if not ('admin_role' in roles):
       cursor2.execute("CREATE ROLE admin_role;")
@@ -221,10 +221,7 @@ def run():
       keys[0]
     )
     cursor2.execute(sql, params)
-    cursor2.execute("GRANT SELECT ON searchview TO volunteer_role;")
-    cursor2.execute("GRANT SELECT ON searchview TO officestaff_role;")
-    cursor2.execute("GRANT SELECT ON searchview TO medicalpersonel_role;")
-    cursor2.execute("GRANT SELECT ON searchview TO physician_role;")
+    cursor2.execute("GRANT SELECT ON searchview TO volunteer_role, officestaff_role, medicalpersonnel_role, physician_role;")
     # volunteerview selects only the patients name and location as per requirements
     sql = """CREATE VIEW volunteerview AS
                     SELECT
@@ -396,27 +393,129 @@ def run():
       FOR EACH ROW
       EXECUTE FUNCTION update_office_staff_all();"""
     cursor2.execute(sql, params)
-  
-    # Medical Personnel View
-    sql = """CREATE VIEW MedicalPersonnelView AS
-          SELECT
+    # Physician and Medical Personnel
+    # Patient Admission View for Physicians and Medical Personnel
+    sql = """CREATE VIEW PatientAdmissionOverview AS
+          SELECT 
             p.patient_id,
             pgp_sym_decrypt(p.first_name, %s) AS first_name,
+            pgp_sym_decrypt(p.middle_name, %s) AS middle_name,
             pgp_sym_decrypt(p.last_name, %s) AS last_name,
-            a.admission_id,
-            pgp_sym_decrypt(a.admittance_datetime, %s) AS admittance_datetime,
-            pgp_sym_decrypt(pn.note_text, %s) AS doctor_note,
-            pgp_sym_decrypt(pn.note_datetime, %s) AS doctor_note_time,
-            pgp_sym_decrypt(pr.medication_name, %s) AS medication_name,
-            pgp_sym_decrypt(pr.dosage, %s) AS dosage,
-            pgp_sym_decrypt(sp.procedure_name, %s) AS procedure_name,
-            pgp_sym_decrypt(sp.scheduled_datetime, %s) AS scheduled_datetime,
-            NULL AS nurse_note_text
-          FROM Patient p JOIN Admission a ON p.patient_id = a.patient_id
-          LEFT JOIN PatientNote pn ON a.admission_id = pn.admission_id AND pn.note_type = 'Doctor'
-          LEFT JOIN Prescription pr ON a.admission_id = pr.admission_id
-          LEFT JOIN ScheduledProcedure sp ON a.admission_id = sp.admission_id;"""
-    
+            jsonb_agg(
+              jsonb_build_object(
+                'admission_id', a.admission_id,
+                'admittance_date', pgp_sym_decrypt(a.admittance_datetime, %s),
+                'admission_reason', pgp_sym_decrypt(a.reason_for_admission, %s),
+                'admittance_discharge', pgp_sym_decrypt(a.discharge_datetime, %s),
+                'details', jsonb_build_object(
+                'notes', (
+                  SELECT jsonb_agg(
+                    jsonb_build_object(
+                    'text', pgp_sym_decrypt(pn.note_text, %s),
+                    'type', pn.note_type,
+                    'author', pgp_sym_decrypt(s.first_name,  %s) || ' ' || pgp_sym_decrypt(s.last_name, %s),
+                    'datetime', pgp_sym_decrypt(pn.note_datetime, %s)
+                  )
+                )
+          FROM PatientNote pn
+            JOIN Staff s ON pn.author_id = s.user_id
+            WHERE pn.admission_id = a.admission_id
+        ),
+                'prescriptions', (
+                  SELECT jsonb_agg(
+                    jsonb_build_object(
+                      'medication', pgp_sym_decrypt(pr.medication_name, %s),
+                      'amount', pgp_sym_decrypt(pr.amount, %s),
+                      'schedule', pgp_sym_decrypt(pr.schedule, %s)
+                    )
+                  )
+                  FROM Prescription pr
+                  WHERE pr.admission_id = a.admission_id
+                ),
+                'procedures', (
+                  SELECT jsonb_agg(
+                    jsonb_build_object(
+                      'name', pgp_sym_decrypt(sp.procedure_name, %s),
+                      'scheduled', pgp_sym_decrypt(sp.scheduled_datetime, %s)
+                    )
+                  )
+                  FROM ScheduledProcedure sp
+                  WHERE sp.admission_id = a.admission_id
+                )
+              )
+            ) ORDER BY a.admittance_datetime DESC
+          ) AS admissions
+        FROM Patient p
+        JOIN Admission a ON p.patient_id = a.patient_id
+        GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name;"""
+    params = (keys[0],)*15
+    cursor2.execute(sql, params)
+    #Smaller Views for updating the data
+    sql = """CREATE VIEW NurseWriteView AS
+          SELECT
+            patient_id,
+            (jsonb_array_elements(admissions) ->> 'admission_id')::INT AS admission_id,
+            'Nurse' AS note_type,
+            NULL::TEXT AS note_text
+          FROM PatientAdmissionOverview;"""
+    cursor2.execute(sql)
+    cursor2.execute("""GRANT INSERT ON PatientNote TO medicalpersonnel_role;""")
+    cursor2.execute("""GRANT SELECT ON NurseWriteView TO medicalpersonnel_role;""")
+    #Functions And Triggers
+    # Helper Function To Unnest Admission ID from JSON Data
+    sql = """CREATE OR REPLACE FUNCTION get_admission_id(patient_id INT, admission_idx INT)
+          RETURNS INT AS $$
+          DECLARE
+            admission_json jsonb;
+          BEGIN
+            SELECT admissions INTO admission_json
+            FROM PatientAdmissionOverview
+            WHERE PatientAdmissionOverview.patient_id = get_admission_id.patient_id;
+
+            RETURN (admission_json -> admission_idx ->> 'admission_id')::INT;
+          END;
+          $$ LANGUAGE plpgsql STABLE;"""
+    cursor2.execute(sql)
+    # Function for Inserting nurse notes into database
+    sql = """CREATE OR REPLACE FUNCTION nurse_write_trigger()
+            RETURNS TRIGGER AS $$
+            DECLARE
+              encryption_key TEXT := %s;
+              valid_admission BOOLEAN;
+            BEGIN
+             SELECT EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(
+                (SELECT admissions FROM PatientAdmissionOverview WHERE patient_id = NEW.patient_id)
+              ) AS admission
+              WHERE (admission ->> 'admission_id')::INT = NEW.admission_id
+            ) INTO valid_admission;
+
+            IF NOT valid_admission THEN
+              RAISE EXCEPTION 'Invalid admission_id %% for patient %%', NEW.admission_id, NEW.patient_id;
+            END IF;
+              INSERT INTO PatientNote (
+                admission_id,
+                note_type,
+                note_text,
+                note_datetime,
+                author_id
+              ) VALUES (
+                NEW.admission_id,
+                'Nurse',
+                pgp_sym_encrypt(NEW.note_text, encryption_key),
+                pgp_sym_encrypt(NOW()::text, encryption_key),
+                current_setting('app.current_user_id')::INT
+              );
+              RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+    params = (keys[0],)
+    cursor2.execute(sql, params)
+    cursor2.execute("""CREATE TRIGGER nurse_write_trigger
+                    INSTEAD OF UPDATE ON NurseWriteView
+                    FOR EACH ROW
+                    EXECUTE FUNCTION nurse_write_trigger();""")
     # Create Trigger to remove unneeded visitor data after admission closes
     sql = """CREATE OR REPLACE FUNCTION delete_approved_visitors_on_discharge()
           RETURNS TRIGGER AS $$
@@ -454,6 +553,41 @@ def run():
   # Close first connections
   cursor.close()
   conn.close()
+def userLogin(username, password, fixedSalt):
+  conn = getConnection()
+  cursor = conn.cursor()
+  sql = """SELECT (password_hash = crypt(%s, password_hash)) AS password_match
+  FROM Staff WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex');"""
+  params = (
+      password,
+      username, fixedSalt
+  )
+  cursor.execute(sql, params)
+  results = cursor.fetchone()
+  print(results)
+  if (not results) or (not results[0]):
+    print("Incorrect Username or Password")
+    cursor.close()
+    conn.close()
+    return False
+  else:
+    sql = """SELECT set_config(
+          'app.current_user_id', 
+          (SELECT user_id::TEXT FROM staff 
+           WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
+           LIMIT 1),
+          false
+        );"""
+    params = (
+      username, fixedSalt
+    )
+    cursor.execute(sql, params)
+    print("Successfully Signed In")
+    cursor.close()
+    conn.close()
+    return True
+    
+  
 def getConnection():
   conn = psycopg2.connect(
       database="huntsvillehospital",
