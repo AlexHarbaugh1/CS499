@@ -330,8 +330,8 @@ login = LoginScreen()
 home = MainScreen()
 widget = QtWidgets.QStackedWidget()
 widget.addWidget(home)
-widget.resize(1200, 800)
-widget.show()
+#widget.resize(1200, 800)
+widget.showMaximized()
 try:
     sys.exit(app.exec())
 except:
