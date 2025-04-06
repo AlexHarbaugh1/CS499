@@ -88,6 +88,11 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>userField</tabstop>
+  <tabstop>passwordField</tabstop>
+  <tabstop>login</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
