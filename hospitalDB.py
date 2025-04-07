@@ -204,10 +204,10 @@ def run():
         cursor2.execute("CREATE ROLE medicalpersonnel_role;")
         print("Created Medical Personnel Role!")
       else: print('medicalpersonel_role Already Exists!')
-      if not ('admin_role' in roles):
-        cursor2.execute("CREATE ROLE admin_role;")
-        print("Created Admin Role!")
-      else: print('admin_role Already Exists!')
+      if not ('administrator_role' in roles):
+        cursor2.execute("CREATE ROLE administrator_role;")
+        print("Created Administrator Role!")
+      else: print('administrator_role Already Exists!')
       if not ('officestaff_role' in roles):
         cursor2.execute("CREATE ROLE officestaff_role;")
         print("Created Office Staff Role!")
@@ -216,11 +216,14 @@ def run():
         cursor2.execute("CREATE ROLE physician_role;")
         print("Created Physician Role!")
       else: print('physician_role Already Exists!')
-      cursor2.execute("""GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin_role;""")
-
+      # Admin gets all privileges
+      cursor2.execute("""GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO administrator_role;""")
+      # Permissions for Inserting a new patient
+      cursor2.execute("GRANT INSERT ON patient TO medicalpersonnel_role, physician_role, officestaff_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patient_patient_id_seq TO medicalpersonnel_role, physician_role, officestaff_role;")
       # Create Views for data security
-      # searchview is the table used for the search screen, accesible to all user roles
-      sql = """CREATE VIEW searchview AS
+      # patientsearchview is the table used for the search screen, accessible to all user roles
+      sql = """CREATE VIEW patientsearchview AS
                       SELECT
                       patient_id,
                       pgp_sym_decrypt(first_name, %s) AS first_name,
@@ -229,14 +232,32 @@ def run():
                       first_name_prefix_trgms,
                       middle_name_prefix_trgms,
                       last_name_prefix_trgms
-                      FROM patient;"""
+                    FROM patient;"""
       params = (
         keys[0],
         keys[0],
         keys[0]
       )
       cursor2.execute(sql, params)
-      cursor2.execute("GRANT SELECT ON searchview TO volunteer_role, officestaff_role, medicalpersonnel_role, physician_role;")
+      cursor2.execute("GRANT SELECT ON patientsearchview TO volunteer_role, officestaff_role, medicalpersonnel_role, physician_role;")
+       # staffsearchview is the table used for the staff search screen, accessible to all admins, office staff, physicians, and medical personnel
+      sql = """CREATE VIEW staffsearchview AS
+                      SELECT
+                      user_id,
+                      pgp_sym_decrypt(username, %s) AS username,
+                      pgp_sym_decrypt(first_name, %s) AS first_name,
+                      pgp_sym_decrypt(last_name, %s) AS last_name,
+                      first_name_prefix_trgms,
+                      last_name_prefix_trgms,
+                      type_name
+                    FROM staff NATURAL JOIN usertype;"""
+      params = (
+        keys[0],
+        keys[0],
+        keys[0]
+      )
+      cursor2.execute(sql, params)
+      cursor2.execute("GRANT SELECT ON staffsearchview TO officestaff_role, medicalpersonnel_role, physician_role;")
       # volunteerview selects only the patients name and location as per requirements
       sql = """CREATE VIEW volunteerview AS
                       SELECT
@@ -258,6 +279,62 @@ def run():
       params = (keys[0],)*4
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON volunteerview TO volunteer_role;")
+      # admissionwriteview allows insertion of admission information
+      sql = """CREATE VIEW patientwriteview AS
+                SELECT
+                  NULL::TEXT AS first_name,
+                  NULL::TEXT AS middle_name,
+                  NULL::TEXT AS last_name,
+                  NULL::TEXT[] AS first_name_prefix_trgms,
+                  NULL::TEXT[] AS middle_name_prefix_trgms,
+                  NULL::TEXT[] AS last_name_prefix_trgms,
+                  NULL::TEXT AS mailing_address,
+                  NULL::INT AS family_doctor_id;"""
+      cursor2.execute(sql)
+      cursor2.execute("GRANT UPDATE ON patientwriteview TO officestaff_role, medicalpersonnel_role, physician_role;")
+      # triggers and functions for adding patient to database
+      sql = """CREATE OR REPLACE FUNCTION patient_write_trigger()
+              RETURNS TRIGGER AS $$
+              DECLARE
+                encryption_key TEXT := %s;
+              BEGIN
+                INSERT INTO Patient (
+                  first_name,
+                  middle_name,
+                  last_name,
+                  first_name_prefix_trgms,
+                  middle_name_prefix_trgms,
+                  last_name_prefix_trgms,
+                  mailing_address,
+                  family_doctor_id
+                ) VALUES (
+                  pgp_sym_encrypt(NEW.first_name, encryption_key),
+                  pgp_sym_encrypt(NEW.middle_name, encryption_key),
+                  pgp_sym_encrypt(NEW.last_name, encryption_key),
+                  NEW.first_name_prefix_trgms,
+                  NEW.middle_name_prefix_trgms,
+                  NEW.last_name_prefix_trgms,
+                  pgp_sym_encrypt(NEW.mailing_address, encryption_key),
+                  NEW.family_doctor_id
+                );
+                RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+      params = (keys[0],)
+      cursor2.execute(sql, params)
+      cursor2.execute("""CREATE TRIGGER patient_write_trigger
+                      INSTEAD OF UPDATE ON patientwriteview
+                      FOR EACH ROW
+                      EXECUTE FUNCTION patient_write_trigger();""")
+      sql = """CREATE VIEW admissionwriteview AS
+                SELECT
+                  patient_id,
+                  NULL::TEXT AS location_id,
+                  NULL::TEXT AS doctor_id,
+                  NULL::TEXT AS admittance_datetime,
+                  NULL::TEXT AS reason_for_admission
+                FROM patient;"""
+      cursor2.execute(sql)
       # Office View Selects all none medical data and uses triggers to update the underlying database.
       sql = """CREATE VIEW officestaffview AS
             SELECT
@@ -285,21 +362,7 @@ def run():
         keys[0],
       ) *14
       cursor2.execute(sql, params)
-      cursor2.execute("""GRANT SELECT, UPDATE (
-                      first_name,
-                      middle_name,
-                      last_name,
-                      mailing_address,
-                      insurance_carrier,
-                      insurance_account,
-                      insurance_group,
-                      home_phone,
-                      work_phone,
-                      mobile_phone,
-                      ec1_name, ec1_phone,
-                      ec2_name,
-                      ec2_phone)
-                      ON officestaffview TO officestaff_role;""")
+      cursor2.execute("""GRANT SELECT, UPDATE ON officestaffview TO officestaff_role;""")
       cursor2.execute("""GRANT SELECT, UPDATE (first_name, last_name, mailing_address) ON Patient TO officestaff_role;""")
       cursor2.execute("""GRANT INSERT, UPDATE ON Insurance TO officestaff_role;""")
       cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON PhoneNumber TO officestaff_role;""")
@@ -358,7 +421,7 @@ def run():
           $$ LANGUAGE plpgsql SECURITY DEFINER;"""
       params = (keys[0],)
       cursor2.execute(sql, params)
-      cursor2.execute("""ALTER FUNCTION update_office_staff_all() OWNER TO admin_role;""")
+      cursor2.execute("""ALTER FUNCTION update_office_staff_all() OWNER TO administrator_role;""")
       sql = """CREATE OR REPLACE FUNCTION update_phone(
             patient_id INT,
             phone_type TEXT, 
@@ -379,7 +442,7 @@ def run():
         $$ LANGUAGE plpgsql;"""
       params = (keys[0],)
       cursor2.execute(sql, params)
-      cursor2.execute("""ALTER FUNCTION update_phone(patient_id INT, phone_type TEXT, new_number TEXT) OWNER TO admin_role;""")
+      cursor2.execute("""ALTER FUNCTION update_phone(patient_id INT, phone_type TEXT, new_number TEXT) OWNER TO administrator_role;""")
       sql = """CREATE OR REPLACE FUNCTION update_emergency_contact(
           patient_id INT,
           contact_order INT, 
@@ -402,7 +465,7 @@ def run():
         $$ LANGUAGE plpgsql;"""
       params = (keys[0],)
       cursor2.execute(sql, params)
-      cursor2.execute("""ALTER FUNCTION update_emergency_contact(patient_id INT, contact_order INT, new_name TEXT, new_phone TEXT) OWNER TO admin_role;""")
+      cursor2.execute("""ALTER FUNCTION update_emergency_contact(patient_id INT, contact_order INT, new_name TEXT, new_phone TEXT) OWNER TO administrator_role;""")
       sql = """CREATE TRIGGER office_staff_view_update
         INSTEAD OF UPDATE ON officestaffview
         FOR EACH ROW
@@ -638,7 +701,7 @@ def run():
         keys[0]
       )
       cursor2.execute(sql, params)
-      cursor2.execute("""ALTER FUNCTION delete_approved_visitors_on_discharge() OWNER TO admin_role;""")
+      cursor2.execute("""ALTER FUNCTION delete_approved_visitors_on_discharge() OWNER TO administrator_role;""")
       cursor2.execute("""CREATE TRIGGER after_discharge_cleanup
                       AFTER UPDATE OF discharge_datetime ON Admission
                       FOR EACH ROW

@@ -55,7 +55,7 @@ def populate_patients(encryptionKey, fixedSalt, n=100):
     insurances = ['Progressive', 'United Healthcare', 'Allstate', 'Local Provider']
     
     for _ in range(n):
-        InsertData.insertPatient(fake.last_name(), fake.first_name(), fake.first_name() if random.random() < 0.3 else None, fake.address(), generate_phone(), generate_phone(), generate_phone(), fake.first_name() + ' ' + fake.last_name(), generate_phone(), fake.first_name() + ' ' + fake.last_name(), generate_phone(), random.choice(doctor_ids), random.choice(insurances), str(fake.random_int(10000, 99999)), str(fake.random_int(10000, 99999)), keys[0], keys[1])
+        InsertData.insertPatients(fake.first_name(), fake.first_name() if random.random() < 0.3 else None, fake.last_name(), fake.address(), generate_phone(), generate_phone(), generate_phone(), fake.first_name() + ' ' + fake.last_name(), generate_phone(), fake.first_name() + ' ' + fake.last_name(), generate_phone(), random.choice(doctor_ids), random.choice(insurances), str(fake.random_int(10000, 99999)), str(fake.random_int(10000, 99999)), keys[0], keys[1])
 
 
 def populate_admissions(encryptionKey, fixedSalt, n=200):

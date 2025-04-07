@@ -48,11 +48,11 @@ def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial
         if (usertype == 'Volunteer'):
             base_sql = """SELECT sv.patient_id, sv.first_name, 
                                 sv.middle_name, sv.last_name
-                        FROM SearchView sv
+                        FROM PatientSearchView sv
                         JOIN (SELECT * FROM admission WHERE discharge_datetime IS NULL) AS a ON sv.patient_id = a.patient_id
                         """
         else:
-            base_sql = "SELECT patient_id, first_name, middle_name, last_name FROM SearchView"
+            base_sql = "SELECT patient_id, first_name, middle_name, last_name FROM PatientSearchView"
 
         # Add conditions if any exist
         if conditions:
@@ -165,6 +165,18 @@ def searchStaffWithName(fname, lname, encryptionKey, fixedSalt, partial = False)
 # searchStaffWithID takes input user_id and returns relevant staff member information
 # Returns tuple of username, first_name, last_name, type
 # USE CASE: after selecting a staff member, return the data necessary to populate the page
+def getDoctors(encryptionKey):
+    with hospitalDB.get_cursor() as cursor:
+        sql = """SELECT user_id, username, first_name, last_name
+                FROM staffsearchview
+                WHERE type_name = 'Physician';"""
+        params = (
+            encryptionKey,
+        )*3
+        cursor.execute(sql, params)
+        doctors = cursor.fetchall()
+        cursor.close()
+    return doctors
 def searchStaffWithID(userID, encryptionKey):
     with hospitalDB.get_cursor() as cursor:
         sql = """SELECT pgp_sym_decrypt(username, %s), pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s), type_name

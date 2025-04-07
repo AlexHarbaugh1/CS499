@@ -36,7 +36,7 @@ def insertStaff(fname , lname, username, password, type, encryptionKey, fixedSal
         cursor.close()
 
 
-def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
+def insertPatients(fname, mname, lname, address, hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
                   insCarrier, insAcc, insGNum, encryptionKey, fixedSalt):
 
     with hospitalDB.get_cursor() as cursor:
@@ -126,6 +126,41 @@ def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, 
         cursor.execute(sql, params)
         cursor.close()
 
+def insertPatient(fname, mname, lname, address, doctorID, fixedSalt):
+    usertype = hospitalDB.getCurrentUserType()
+    fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
+    if mname != None:
+        mnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(mname)]
+    else:
+        mnameHashedPrefixes = None
+    lnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(lname)]
+    if ((usertype == 'Physician') or (usertype == 'Office Staff') or (usertype == 'Medical Personnel') or (usertype == 'Administrator')):
+        sql = """UPDATE patientwriteview
+        SET
+        first_name = %s,
+        middle_name= %s,
+        last_name= %s,
+        first_name_prefix_trgms= %s,
+        middle_name_prefix_trgms= %s,
+        last_name_prefix_trgms= %s,
+        mailing_address= %s,
+        family_doctor_id = %s;"""
+        with  hospitalDB.get_cursor() as cursor:
+            
+            params = (
+                fname,
+                mname,
+                lname,
+                fnameHashedPrefixes,
+                mnameHashedPrefixes,
+                lnameHashedPrefixes,
+                address,
+                doctorID
+            )
+            cursor.execute(sql, params)
+            cursor.close()
+    else: 
+        print("Permission Denied")
 def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTime,
                     hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, doctorID, encryptionKey):
 
@@ -233,7 +268,28 @@ def insertPrescriptions(admissionID, prescriptions, encryptionKey):
         )
         cursor.execute(sql, params)
         cursor.close()
-
+def insertPrescription(patientID, admissionID, name, amount, schedule):
+    usertype = hospitalDB.getCurrentUserType()
+    if (usertype == 'Physician'):
+        sql = """UPDATE PhysicianWriteView
+                SET
+                medication_name = %s,
+                medication_amount = %s,
+                medication_schedule = %s
+                WHERE patient_id = %s AND admission_id = %s;"""
+        with  hospitalDB.get_cursor() as cursor:
+            
+            params = (
+                name,
+                amount,
+                schedule,
+                patientID,
+                admissionID
+            )
+            cursor.execute(sql, params)
+            cursor.close()
+    else: 
+        print("Permission Denied")
 def insertNotes(admissionID, notes, encryptionKey, fixedSalt):
     with  hospitalDB.get_cursor() as cursor:
         sql = """INSERT INTO PatientNote (admission_id, author_id, note_type, note_text, note_datetime)
@@ -256,6 +312,7 @@ def insertNotes(admissionID, notes, encryptionKey, fixedSalt):
         )
         cursor.execute(sql, params)
         cursor.close()
+
 def insertNote(patientID, admissionID, noteText):
     usertype = hospitalDB.getCurrentUserType()
     if (usertype == 'Physician'):
@@ -278,7 +335,21 @@ def insertNote(patientID, admissionID, noteText):
         cursor.execute(sql, params)
         cursor.close()
 
-
+def insertProcedure(patientID, admissionID, procedureName, procedureSchedule):
+    sql = """UPDATE PhysicianWriteView
+                SET
+                procedure_name = %s,
+                procedure_schedule = %s
+                WHERE patient_id = %s AND admission_id = %s;"""
+    params = (
+        procedureName,
+        procedureSchedule,
+        patientID,
+        admissionID
+        )
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute(sql, params)
+        cursor.close()
 def insertProcedures(admissionID, procedures, encryptionKey):
 
     with  hospitalDB.get_cursor() as cursor:
@@ -341,10 +412,10 @@ def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemize
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Physician', keys[0], keys[1])
-    insertStaff('User', 'Two', 'User2', 'poiuytrewq', 'Medical Personnel', keys[0], keys[1])
-    #insertPatient('Logos', 'William', 'Graves', '601 John Wright DR NW', '1111111111', '2222222222', None, 'Mitch', '4444444444', None, None, 'BlairStafford', None, None, None, keys[0], keys[1])
+    #insertStaff('User', 'Two', 'User2', 'poiuytrewq', 'Medical Personnel', keys[0], keys[1])
+    #insertPatient('Elliot', 'P', 'Cyrus', 'The Moon', '732-666-7969', '420-696-6969', '311-107-8008', 'Blair', 'Sexy', None, None, 'BlairStafford', 'Aetna', '69420', '7', keys[0], keys[1])
     #insertPatient('Doe', 'John', None, None, None, None, None, None, None, None, None, 'BlairStafford', None, None, None, keys[0], keys[1])
-    #admissionID = insertAdmission('1', '2025-03-02 11:11:00', 'Fingy Broked', None, 'ER', '1', '123', '1', '1', keys[0])
+    #admissionID = insertAdmission('1', str(datetime.datetime.now()), 'Mental Crises', None, 'Psyche Ward', '7', '3', '27', '1', keys[0])
     #insertVisitors('1', ['Mitch', 'Taylor', 'Josh'], keys[0])
     #insertPrescriptions(admissionID, [{'name': 'Ibuprofen', 'amount': '500mg', 'schedule': 'Once Every Six Hours'}, {'name': 'Morphine', 'amount': 'A lot', 'schedule': 'Once, he would not stop screaming'}, {'name': 'Crystal Meth', 'amount': 'One Teenth', 'schedule': 'Twice Daily'}], keys[0])
     #insertNotes(admissionID, [{'author': 'BlairStafford', 'type': 'Doctor', 'text': 'The Meth really showed results', 'time' : datetime.datetime.now()}, {'author': 'BlairStafford', 'type': 'Nurse', 'text': 'I think Dr. Blair needs to be fired.', 'time' : datetime.datetime.now()}], keys[0], keys[1])
