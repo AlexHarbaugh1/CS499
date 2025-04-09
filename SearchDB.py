@@ -296,7 +296,12 @@ def searchAdmissionWithID(admissionID, encryptionKey):
         notes = cursor.fetchall()
         cursor.close()
     return admissionData, location, doctor, prescriptions, procedures, notes
-     
+
+def getAvailableLocations():
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute("SELECT * FROM availablelocationview;")
+        rooms = cursor.fetchall()
+    return rooms
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     fixedSalt = keys[1]

@@ -228,15 +228,13 @@ def insertAdmission(patientID, locationID, admissionDateTime, admissionReason):
                 SET
                 location_id = %s,
                 admittance_datetime = %s,
-                reason_for_admission = %s,
-                discharge_datetime = %s,
+                reason_for_admission = %s
                 WHERE patient_id = %s;
                 """
         params = (
             locationID,
             admissionDateTime,
             admissionReason,
-            None,
             patientID
         )
         cursor.execute(sql, params)

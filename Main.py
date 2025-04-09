@@ -3,6 +3,7 @@ import SearchDB
 import EncryptionKey
 hospitalDB.run()
 import InsertData
+import datetime
 keys = EncryptionKey.getKeys()
 while True:
     username = input("username: ")
@@ -67,7 +68,17 @@ while True:
                 patientDoctor = input("Family Doctor ID: ")
                 InsertData.insertPatient(patientfname, patientmname, patientlname, patientAddress, patientDoctor, keys[1])
             elif mode == '4':
-                print('To be added')
+                searchName = input("Enter Last Name: ")
+                results = SearchDB.searchPatientWithName(keys[1], fname=None, mname=None, lname=searchName, partial_fields={'lname'})
+                for patient in results:
+                    print(patient)
+                patientID = input("Enter PatientID to Select: ")
+                results = SearchDB.getAvailableLocations()
+                for item in results:
+                    print(item)
+                locationID = input("Select Location ID from Available Locations: ")
+                admissionReason = input("Insert Breif Reason for Admission: ")
+                InsertData.insertAdmission(patientID, locationID, datetime.datetime.now(), admissionReason)
             elif mode == '5':
                 print('To be added')
             elif mode == '6':

@@ -280,6 +280,16 @@ def run():
       params = (keys[0],)*4
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON volunteerview TO volunteer_role;")
+      #Activeadmissionview shows all active admissions
+      cursor2.execute("""CREATE VIEW activeadmissionview AS
+                      SELECT admission_id, location_id FROM admission WHERE discharge_datetime IS NULL;""")
+      #Availablelocationview shows all locations without an active admission
+      cursor2.execute("""CREATE VIEW availablelocationview AS
+                      SELECT l.location_id, l.facility, l.floor, l.room_number, l.bed_number
+                      FROM location l
+                      WHERE NOT EXISTS(
+                      SELECT 1 FROM activeadmissionview a WHERE a.location_ID = l.location_id)
+                      ORDER BY l.location_id ASC;""")
       # Office View Selects all none medical data and uses triggers to update the underlying database.
       sql = """CREATE VIEW officestaffview AS
             SELECT
