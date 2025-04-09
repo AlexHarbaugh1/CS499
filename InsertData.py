@@ -161,7 +161,7 @@ def insertPatient(fname, mname, lname, address, doctorID, fixedSalt):
             cursor.close()
     else: 
         print("Permission Denied")
-def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTime,
+def insertAdmissions(patientID, admissionDateTime, admissionReason, releaseDateTime,
                     hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, doctorID, encryptionKey):
 
     with  hospitalDB.get_cursor() as cursor:
@@ -222,6 +222,45 @@ def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTi
 
     return ID
 
+def insertAdmission(patientID, locationID, admissionDateTime, admissionReason):
+    with hospitalDB.get_cursor() as cursor:
+        sql = """UPDATE admissionwriteview
+                SET
+                location_id = %s,
+                admittance_datetime = %s,
+                reason_for_admission = %s,
+                discharge_datetime = %s,
+                WHERE patient_id = %s;
+                """
+        params = (
+            locationID,
+            admissionDateTime,
+            admissionReason,
+            None,
+            patientID
+        )
+        cursor.execute(sql, params)
+        cursor.close()
+    
+
+def insertLocation(facility, floor, room, bed):
+    with hospitalDB.get_cursor() as cursor:
+            sql = """UPDATE locationwriteview
+                    SET
+                    facility = %s,
+                    floor = %s,
+                    room = %s,
+                    bed = %s;
+                    """
+            params = (
+                facility,
+                floor,
+                room,
+                bed
+            )
+            cursor.execute(sql, params)
+            cursor.close()
+    
 def insertVisitors(admissionID, visitorNames, encryptionKey):
     with  hospitalDB.get_cursor() as cursor:
         sql = """INSERT INTO approvedvisitors(admission_id)
@@ -411,7 +450,11 @@ def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemize
     # Must have ran all functions above it for the next one to work
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
-    insertStaff('Blair', 'Stafford', 'BlairStafford', 'qwertyuiop', 'Physician', keys[0], keys[1])
+    insertStaff('Volunteer', 'One', 'Volunteer1', 'qwertyuiop', 'Volunteer', keys[0], keys[1])
+    insertStaff('MedicalPersonnel', 'One', 'MedicalPersonnel1', 'qwertyuiop', 'Medical Personnel', keys[0], keys[1])
+    insertStaff('Physician', 'One', 'Physician', 'qwertyuiop', 'Physician', keys[0], keys[1])
+    insertStaff('OfficeStaff', 'One', 'OfficeStaff1', 'qwertyuiop', 'Office Staff', keys[0], keys[1])
+    insertStaff('Administrator', 'One', 'Administrator1', 'qwertyuiop', 'Administrator', keys[0], keys[1])
     #insertStaff('User', 'Two', 'User2', 'poiuytrewq', 'Medical Personnel', keys[0], keys[1])
     #insertPatient('Elliot', 'P', 'Cyrus', 'The Moon', '732-666-7969', '420-696-6969', '311-107-8008', 'Blair', 'Sexy', None, None, 'BlairStafford', 'Aetna', '69420', '7', keys[0], keys[1])
     #insertPatient('Doe', 'John', None, None, None, None, None, None, None, None, None, 'BlairStafford', None, None, None, keys[0], keys[1])

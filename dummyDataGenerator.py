@@ -69,7 +69,7 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
         id = random.choice(patient_ids)
         discharge_date = None
         facilities = ["Main Hospital", "North Clinic", "South Clinic"]
-        admissionID = InsertData.insertAdmission(id, str(admit_date), fake.sentence(nb_words=6), discharge_date, random.choice(facilities), random.randint(1, 10), fake.random_int(100, 999), fake.random_int(1, 50), random.choice(doctor_ids), keys[0])
+        admissionID = InsertData.insertAdmissions(id, str(admit_date), fake.sentence(nb_words=6), discharge_date, random.choice(facilities), random.randint(1, 10), fake.random_int(100, 999), fake.random_int(1, 50), random.choice(doctor_ids), keys[0])
         # Add Approved Visitors (0 - 5, Any)
         visitors = []
         for _ in range(random.randint(1, 5)):

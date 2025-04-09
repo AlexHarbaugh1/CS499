@@ -302,7 +302,7 @@ if __name__ == "__main__":
     fixedSalt = keys[1]
     #print(passwordMatch('BlairStafford', 'qwertyuiop', keys[1]))
     print(searchPatientWithName(fixedSalt,fname='A', partial_fields={'fname'}, is_volunteer=True))
-    #searchPatientWithName(fixedSalt, fname=None, lname=None, lname=None, partial_fields={'fname','mname','lname'}, is_volunteer=False) THIS IS THE FORMAT FOR SEARCHING BY NAME PUT FIELDS THAT YOU WANT TO BE PARTIAL SEARCHED INTO THE PARTIAL FIELDS SET
+    #searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial_fields={'fname','mname','lname'}, is_volunteer=False) THIS IS THE FORMAT FOR SEARCHING BY NAME PUT FIELDS THAT YOU WANT TO BE PARTIAL SEARCHED INTO THE PARTIAL FIELDS SET
     #for patient in searchPatientWithName("Ashley", None, None, keys[0], keys[1]):
         #print(patient)
     #print(searchBillingWithAdmission('200'))

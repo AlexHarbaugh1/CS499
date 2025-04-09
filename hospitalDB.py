@@ -65,7 +65,7 @@ def run():
                       last_name BYTEA NOT NULL,
                       first_name_prefix_trgms TEXT[],
                       last_name_prefix_trgms TEXT[],
-                      username_hash TEXT NOT NULL,
+                      username_hash TEXT NOT NULL UNIQUE,
                       username BYTEA NOT NULL,
                       password_hash TEXT NOT NULL);"""
                       )
@@ -217,11 +217,11 @@ def run():
         print("Created Physician Role!")
       else: print('physician_role Already Exists!')
       # Admin gets all privileges
-      cursor2.execute("""GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO administrator_role;""")
+
       # Permissions for Inserting a new patient
       cursor2.execute("GRANT INSERT ON patient TO medicalpersonnel_role, physician_role, officestaff_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patient_patient_id_seq TO medicalpersonnel_role, physician_role, officestaff_role;")
-      # Create Views for data security
+      # Create Views for Accessing Data
       # patientsearchview is the table used for the search screen, accessible to all user roles
       sql = """CREATE VIEW patientsearchview AS
                       SELECT
@@ -240,6 +240,7 @@ def run():
       )
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientsearchview TO volunteer_role, officestaff_role, medicalpersonnel_role, physician_role;")
+      cursor2.execute("GRANT SELECT ON admission TO volunteer_role;")
        # staffsearchview is the table used for the staff search screen, accessible to all admins, office staff, physicians, and medical personnel
       sql = """CREATE VIEW staffsearchview AS
                       SELECT
@@ -279,62 +280,6 @@ def run():
       params = (keys[0],)*4
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON volunteerview TO volunteer_role;")
-      # admissionwriteview allows insertion of admission information
-      sql = """CREATE VIEW patientwriteview AS
-                SELECT
-                  NULL::TEXT AS first_name,
-                  NULL::TEXT AS middle_name,
-                  NULL::TEXT AS last_name,
-                  NULL::TEXT[] AS first_name_prefix_trgms,
-                  NULL::TEXT[] AS middle_name_prefix_trgms,
-                  NULL::TEXT[] AS last_name_prefix_trgms,
-                  NULL::TEXT AS mailing_address,
-                  NULL::INT AS family_doctor_id;"""
-      cursor2.execute(sql)
-      cursor2.execute("GRANT UPDATE ON patientwriteview TO officestaff_role, medicalpersonnel_role, physician_role;")
-      # triggers and functions for adding patient to database
-      sql = """CREATE OR REPLACE FUNCTION patient_write_trigger()
-              RETURNS TRIGGER AS $$
-              DECLARE
-                encryption_key TEXT := %s;
-              BEGIN
-                INSERT INTO Patient (
-                  first_name,
-                  middle_name,
-                  last_name,
-                  first_name_prefix_trgms,
-                  middle_name_prefix_trgms,
-                  last_name_prefix_trgms,
-                  mailing_address,
-                  family_doctor_id
-                ) VALUES (
-                  pgp_sym_encrypt(NEW.first_name, encryption_key),
-                  pgp_sym_encrypt(NEW.middle_name, encryption_key),
-                  pgp_sym_encrypt(NEW.last_name, encryption_key),
-                  NEW.first_name_prefix_trgms,
-                  NEW.middle_name_prefix_trgms,
-                  NEW.last_name_prefix_trgms,
-                  pgp_sym_encrypt(NEW.mailing_address, encryption_key),
-                  NEW.family_doctor_id
-                );
-                RETURN NEW;
-              END;
-              $$ LANGUAGE plpgsql SECURITY DEFINER;"""
-      params = (keys[0],)
-      cursor2.execute(sql, params)
-      cursor2.execute("""CREATE TRIGGER patient_write_trigger
-                      INSTEAD OF UPDATE ON patientwriteview
-                      FOR EACH ROW
-                      EXECUTE FUNCTION patient_write_trigger();""")
-      sql = """CREATE VIEW admissionwriteview AS
-                SELECT
-                  patient_id,
-                  NULL::TEXT AS location_id,
-                  NULL::TEXT AS doctor_id,
-                  NULL::TEXT AS admittance_datetime,
-                  NULL::TEXT AS reason_for_admission
-                FROM patient;"""
-      cursor2.execute(sql)
       # Office View Selects all none medical data and uses triggers to update the underlying database.
       sql = """CREATE VIEW officestaffview AS
             SELECT
@@ -530,7 +475,151 @@ def run():
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")
-      #Smaller Views for updating the data
+      # admissionwriteview allows insertion of admission information
+      sql = """CREATE VIEW patientwriteview AS
+                SELECT
+                  NULL::TEXT AS first_name,
+                  NULL::TEXT AS middle_name,
+                  NULL::TEXT AS last_name,
+                  NULL::TEXT[] AS first_name_prefix_trgms,
+                  NULL::TEXT[] AS middle_name_prefix_trgms,
+                  NULL::TEXT[] AS last_name_prefix_trgms,
+                  NULL::TEXT AS mailing_address,
+                  NULL::INT AS family_doctor_id;"""
+      cursor2.execute(sql)
+      cursor2.execute("GRANT UPDATE ON patientwriteview TO officestaff_role, medicalpersonnel_role, physician_role;")
+      # triggers and functions for adding patient to database
+      sql = """CREATE OR REPLACE FUNCTION patient_write_trigger()
+              RETURNS TRIGGER AS $$
+              DECLARE
+                encryption_key TEXT := %s;
+                new_patient_id INTEGER;
+              BEGIN
+              INSERT INTO Patient (
+                  first_name,
+                  middle_name,
+                  last_name,
+                  first_name_prefix_trgms,
+                  middle_name_prefix_trgms,
+                  last_name_prefix_trgms,
+                  mailing_address,
+                  family_doctor_id
+                ) VALUES (
+                  pgp_sym_encrypt(NEW.first_name, encryption_key),
+                  pgp_sym_encrypt(NEW.middle_name, encryption_key),
+                  pgp_sym_encrypt(NEW.last_name, encryption_key),
+                  NEW.first_name_prefix_trgms,
+                  NEW.middle_name_prefix_trgms,
+                  NEW.last_name_prefix_trgms,
+                  pgp_sym_encrypt(NEW.mailing_address, encryption_key),
+                  NEW.family_doctor_id
+                ) RETURNING patient_id INTO new_patient_id;
+                INSERT INTO phonenumber (
+                patient_id,
+                phone_type,
+                phone_number
+                ) VALUES
+                  (new_patient_id, 'Home', pgp_sym_encrypt(NULL, encryption_key)),
+                  (new_patient_id, 'Mobile', pgp_sym_encrypt(NULL, encryption_key)),
+                  (new_patient_id, 'Work', pgp_sym_encrypt(NULL, encryption_key));
+                INSERT INTO emergencycontact (
+                patient_id,
+                contact_name,
+                contact_phone,
+                contact_order
+                ) VALUES
+                  (new_patient_id, pgp_sym_encrypt(NULL, encryption_key),  pgp_sym_encrypt(NULL, encryption_key), 1),
+                  (new_patient_id, pgp_sym_encrypt(NULL, encryption_key),  pgp_sym_encrypt(NULL, encryption_key), 2);
+                INSERT INTO Insurance (
+                patient_id,
+                carrier_name,
+                account_number,
+                group_number
+                ) VALUES
+                  (new_patient_id, pgp_sym_encrypt(NULL, encryption_key),  pgp_sym_encrypt(NULL, encryption_key), pgp_sym_encrypt(NULL, encryption_key));
+                RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+      params = (keys[0],)
+      cursor2.execute(sql, params)
+      cursor2.execute("""CREATE TRIGGER patient_write_trigger
+                      INSTEAD OF UPDATE ON patientwriteview
+                      FOR EACH ROW
+                      EXECUTE FUNCTION patient_write_trigger();""")
+      # Locationwriteview for adding a location
+      cursor2.execute("""CREATE VIEW locationwriteview AS
+                SELECT
+                  NULL::TEXT AS facility,
+                  NULL::INT AS floor,
+                  NULL::INT AS room,
+                  NULL::INT AS bed;""")
+      # Trigger For inserting Location Data to database
+      sql = """CREATE OR REPLACE FUNCTION location_write_trigger()
+            RETURNS TRIGGER AS $$
+            DECLARE
+              encryption_key TEXT := %s;
+            BEGIN
+              INSERT INTO location (
+                  facility, 
+                  floor,
+                  room_number,
+                  bed_number
+              ) VALUES (
+                NEW.facility,
+                NEW.floor,
+                NEW.room,
+                NEW.bed
+              );
+              RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+      params = (keys[0],)
+      cursor2.execute(sql, params)
+      cursor2.execute("""CREATE TRIGGER location_write_trigger
+                      INSTEAD OF UPDATE ON locationwriteview
+                      FOR EACH ROW
+                      EXECUTE FUNCTION location_write_trigger();""")
+      # Admission Write view for inserting admissions
+      sql = """CREATE VIEW admissionwriteview AS
+                SELECT
+                  patient_id,
+                  NULL::TEXT AS location_id,
+                  NULL::TEXT AS doctor_id,
+                  NULL::TEXT AS admittance_datetime,
+                  NULL::TEXT AS reason_for_admission
+                FROM patient;"""
+      cursor2.execute(sql)
+      # Triggers and Functions for Updating admission in the database
+      sql = """CREATE OR REPLACE FUNCTION admission_write_trigger()
+              RETURNS TRIGGER AS $$
+              DECLARE
+                encryption_key TEXT := %s;
+              BEGIN
+                INSERT INTO admission (
+                    patient_id, 
+                    location_id,
+                    doctor_id,
+                    admittance_datetime,
+                    reason_for_admission,
+                    discharge_datetime
+                ) VALUES (
+                  NEW.patient_id,
+                  NEW.location_id,
+                  NEW.doctor_id,
+                  pgp_sym_encrypt(admittance_datetime, encryption_key),
+                  pgp_sym_encrypt(reason_for_admission, encryption_key),
+                  pgp_sym_encrypt(NULL, encryption_key)
+                );
+                RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+      params = (keys[0],)
+      cursor2.execute(sql, params)
+      cursor2.execute("""CREATE TRIGGER admission_write_trigger
+                      INSTEAD OF UPDATE ON admissionwriteview
+                      FOR EACH ROW
+                      EXECUTE FUNCTION admission_write_trigger();""")
+      #NurseWriteView for adding nurse notes to an admission
       sql = """CREATE VIEW NurseWriteView AS
             SELECT
               patient_id,
@@ -706,7 +795,8 @@ def run():
                       AFTER UPDATE OF discharge_datetime ON Admission
                       FOR EACH ROW
                       EXECUTE FUNCTION delete_approved_visitors_on_discharge();""")
-      
+      # Give admin all roles
+      cursor2.execute("""GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO administrator_role;""")
       # Close second connections
       cursor2.close()
       print("Database Created")
