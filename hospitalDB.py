@@ -485,7 +485,54 @@ def run():
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")
-      # admissionwriteview allows insertion of admission information
+      # staffwriteview allows insertion of staff members information
+      sql = """CREATE VIEW staffwriteview AS
+                SELECT
+                  NULL::TEXT AS first_name,
+                  NULL::TEXT AS last_name,
+                  NULL::TEXT[] AS first_name_prefix_trgms,
+                  NULL::TEXT[] AS last_name_prefix_trgms,
+                  NULL::TEXT AS username,
+                  NULL::TEXT AS password,
+                  NULL::INT AS type_id;"""
+      cursor2.execute(sql)
+      cursor2.execute("GRANT UPDATE ON staffwriteview TO officestaff_role, medicalpersonnel_role, physician_role;")
+      # triggers and functions for adding staff member to database
+      sql = """CREATE OR REPLACE FUNCTION staff_write_trigger()
+              RETURNS TRIGGER AS $$
+              DECLARE
+                encryption_key TEXT := %s;
+                fixed_salt TEXT := %s;
+              BEGIN
+              INSERT INTO staff (
+                  first_name,
+                  last_name,
+                  first_name_prefix_trgms,
+                  last_name_prefix_trgms,
+                  username_hash,
+                  username,
+                  password_hash,
+                  type_id
+                ) VALUES (
+                  pgp_sym_encrypt(NEW.first_name, encryption_key),
+                  pgp_sym_encrypt(NEW.last_name, encryption_key),
+                  NEW.first_name_prefix_trgms,
+                  NEW.last_name_prefix_trgms,
+                  encode(digest(NEW.username || fixed_salt, 'sha256'), 'hex'),
+                  pgp_sym_encrypt(NEW.username, encryption_key),
+                  crypt(NEW.password, gen_salt('bf')),
+                  NEW.type_id
+                );
+                RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+      params = (keys[0], keys[1])
+      cursor2.execute(sql, params)
+      cursor2.execute("""CREATE TRIGGER staff_write_trigger
+                      INSTEAD OF UPDATE ON staffwriteview
+                      FOR EACH ROW
+                      EXECUTE FUNCTION staff_write_trigger();""")
+      # patientwriteview allows insertion of patient information
       sql = """CREATE VIEW patientwriteview AS
                 SELECT
                   NULL::TEXT AS first_name,
@@ -593,8 +640,8 @@ def run():
       sql = """CREATE VIEW admissionwriteview AS
                 SELECT
                   patient_id,
-                  NULL::TEXT AS location_id,
-                  NULL::TEXT AS doctor_id,
+                  NULL::INT AS location_id,
+                  NULL::INT AS doctor_id,
                   NULL::TEXT AS admittance_datetime,
                   NULL::TEXT AS reason_for_admission
                 FROM patient;"""
@@ -616,8 +663,8 @@ def run():
                   NEW.patient_id,
                   NEW.location_id,
                   NEW.doctor_id,
-                  pgp_sym_encrypt(admittance_datetime, encryption_key),
-                  pgp_sym_encrypt(reason_for_admission, encryption_key),
+                  pgp_sym_encrypt(NEW.admittance_datetime, encryption_key),
+                  pgp_sym_encrypt(NEW.reason_for_admission, encryption_key),
                   pgp_sym_encrypt(NULL, encryption_key)
                 );
                 RETURN NEW;
@@ -713,7 +760,7 @@ def run():
       cursor2.execute("""GRANT INSERT ON Prescription TO physician_role;""")
       cursor2.execute("""GRANT INSERT ON ScheduledProcedure TO physician_role;""")
       cursor2.execute("""GRANT SELECT, UPDATE ON PhysicianWriteView TO physician_role;""")
-      # Function for Inserting nurse notes into database
+      # Function for Inserting physician notes, procedures, and prescriptions into database
       sql = """CREATE OR REPLACE FUNCTION physician_write_trigger()
               RETURNS TRIGGER AS $$
               DECLARE
@@ -870,6 +917,25 @@ def userLogin(username, password, fixedSalt):
       print("Successfully Signed In")
       cursor.close()
     return True
+
+def userLogout():
+  with get_cursor() as cursor:
+    sql = """SELECT set_config(
+            'app.current_user_id', 
+            NULL,
+            false
+          );"""
+    cursor.execute(sql)
+    sql = """SELECT set_config(
+            'app.current_user_type', 
+            NULL,
+            false
+          );"""
+    cursor.execute(sql)
+    sql = """SET ROLE administrator_role;"""
+    cursor.execute(sql)
+    cursor.close()
+    print("User Logged Out")
 
 def getCurrentUserType():
   with get_cursor() as cursor:

@@ -1,4 +1,5 @@
 import hospitalDB
+import psycopg2
 import EncryptionKey
 # searchPatientWithName takes the names as input and searches for the patient in the database
 # The function automatically chooses which SQL to execute based on the given parameters
@@ -173,10 +174,16 @@ def getDoctors(encryptionKey):
         params = (
             encryptionKey,
         )*3
-        cursor.execute(sql, params)
-        doctors = cursor.fetchall()
-        cursor.close()
-    return doctors
+        try:
+            cursor.execute(sql, params)
+            doctors = cursor.fetchall()
+            cursor.close()
+            return doctors
+        except psycopg2.ProgrammingError as e:
+            print("Error: Insufficient privileges to execute this operation")
+            return "Error"
+
+
 def searchStaffWithID(userID, encryptionKey):
     with hospitalDB.get_cursor() as cursor:
         sql = """SELECT pgp_sym_decrypt(username, %s), pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s), type_name

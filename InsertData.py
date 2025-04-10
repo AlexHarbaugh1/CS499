@@ -1,4 +1,5 @@
 import hospitalDB
+import psycopg2
 import EncryptionKey
 import hashlib
 import datetime
@@ -7,7 +8,7 @@ def generatePrefixes(text):
 def hashPrefix(prefix, fixedSalt):
     return hashlib.sha256((prefix + fixedSalt).encode()).hexdigest()
 
-def insertStaff(fname , lname, username, password, type, encryptionKey, fixedSalt):
+def insertStaffs(fname , lname, username, password, type, encryptionKey, fixedSalt):
 
     with hospitalDB.get_cursor() as cursor:
         fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
@@ -35,7 +36,34 @@ def insertStaff(fname , lname, username, password, type, encryptionKey, fixedSal
         cursor.execute(sql, params)
         cursor.close()
 
-
+def insertStaff(fname, lname, username, password, type, fixedSalt):
+    with hospitalDB.get_cursor() as cursor:    
+        fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
+        lnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(lname)]
+        sql = """UPDATE staffwriteview
+                    SET
+                    first_name = %s,
+                    last_name = %s,
+                    first_name_prefix_trgms= %s,
+                    last_name_prefix_trgms= %s,
+                    username = %s,
+                    password = %s,
+                    type_id = (SELECT type_id FROM UserType WHERE type_name = %s);"""
+        params = (
+            fname,
+            lname,
+            fnameHashedPrefixes,
+            lnameHashedPrefixes,
+            username,
+            password,
+            type
+        )
+        try:
+            cursor.execute(sql, params)
+        except psycopg2.ProgrammingError as e:
+            print("Error: Insufficient privileges to execute this operation")
+        finally:
+            cursor.close()
 def insertPatients(fname, mname, lname, address, hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
                   insCarrier, insAcc, insGNum, encryptionKey, fixedSalt):
 
@@ -127,14 +155,13 @@ def insertPatients(fname, mname, lname, address, hPhone, mPhone, wPhone, c1Name,
         cursor.close()
 
 def insertPatient(fname, mname, lname, address, doctorID, fixedSalt):
-    usertype = hospitalDB.getCurrentUserType()
     fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
     if mname != None:
         mnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(mname)]
     else:
         mnameHashedPrefixes = None
     lnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(lname)]
-    if ((usertype == 'Physician') or (usertype == 'Office Staff') or (usertype == 'Medical Personnel') or (usertype == 'Administrator')):
+    with  hospitalDB.get_cursor() as cursor:
         sql = """UPDATE patientwriteview
         SET
         first_name = %s,
@@ -145,22 +172,23 @@ def insertPatient(fname, mname, lname, address, doctorID, fixedSalt):
         last_name_prefix_trgms= %s,
         mailing_address= %s,
         family_doctor_id = %s;"""
-        with  hospitalDB.get_cursor() as cursor:
-            
-            params = (
-                fname,
-                mname,
-                lname,
-                fnameHashedPrefixes,
-                mnameHashedPrefixes,
-                lnameHashedPrefixes,
-                address,
-                doctorID
-            )
+ 
+        params = (
+            fname,
+            mname,
+            lname,
+            fnameHashedPrefixes,
+            mnameHashedPrefixes,
+            lnameHashedPrefixes,
+            address,
+            doctorID
+        )
+        try:
             cursor.execute(sql, params)
+        except psycopg2.ProgrammingError as e:
+            print("Error: Insufficient privileges to execute this operation")
+        finally:
             cursor.close()
-    else: 
-        print("Permission Denied")
 def insertAdmissions(patientID, admissionDateTime, admissionReason, releaseDateTime,
                     hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, doctorID, encryptionKey):
 
@@ -222,17 +250,19 @@ def insertAdmissions(patientID, admissionDateTime, admissionReason, releaseDateT
 
     return ID
 
-def insertAdmission(patientID, locationID, admissionDateTime, admissionReason):
+def insertAdmission(patientID, locationID, doctorID, admissionDateTime, admissionReason):
     with hospitalDB.get_cursor() as cursor:
         sql = """UPDATE admissionwriteview
                 SET
                 location_id = %s,
+                doctor_id = %s,
                 admittance_datetime = %s,
                 reason_for_admission = %s
                 WHERE patient_id = %s;
                 """
         params = (
             locationID,
+            doctorID,
             admissionDateTime,
             admissionReason,
             patientID
@@ -448,11 +478,11 @@ def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemize
     # Must have ran all functions above it for the next one to work
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
-    insertStaff('Volunteer', 'One', 'Volunteer1', 'qwertyuiop', 'Volunteer', keys[0], keys[1])
-    insertStaff('MedicalPersonnel', 'One', 'MedicalPersonnel1', 'qwertyuiop', 'Medical Personnel', keys[0], keys[1])
-    insertStaff('Physician', 'One', 'Physician', 'qwertyuiop', 'Physician', keys[0], keys[1])
-    insertStaff('OfficeStaff', 'One', 'OfficeStaff1', 'qwertyuiop', 'Office Staff', keys[0], keys[1])
-    insertStaff('Administrator', 'One', 'Administrator1', 'qwertyuiop', 'Administrator', keys[0], keys[1])
+    insertStaff('Volunteer', 'One', 'Volunteer1', 'qwertyuiop', 'Volunteer', keys[1])
+    insertStaff('MedicalPersonnel', 'One', 'MedicalPersonnel1', 'qwertyuiop', 'Medical Personnel', keys[1])
+    insertStaff('Physician', 'One', 'Physician', 'qwertyuiop', 'Physician', keys[1])
+    insertStaff('OfficeStaff', 'One', 'OfficeStaff1', 'qwertyuiop', 'Office Staff', keys[1])
+    insertStaff('Administrator', 'One', 'Administrator1', 'qwertyuiop', 'Administrator', keys[1])
     #insertStaff('User', 'Two', 'User2', 'poiuytrewq', 'Medical Personnel', keys[0], keys[1])
     #insertPatient('Elliot', 'P', 'Cyrus', 'The Moon', '732-666-7969', '420-696-6969', '311-107-8008', 'Blair', 'Sexy', None, None, 'BlairStafford', 'Aetna', '69420', '7', keys[0], keys[1])
     #insertPatient('Doe', 'John', None, None, None, None, None, None, None, None, None, 'BlairStafford', None, None, None, keys[0], keys[1])

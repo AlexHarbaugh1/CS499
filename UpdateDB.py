@@ -62,14 +62,20 @@ def patientUpdateAddress(patientID, newAddress, encryptionKey):
         cursor.execute(sql, params)
         cursor.close()
 
-def patientUpdatePhone(patientID, phoneType, PhoneNumber, encryptionKey):
+def patientUpdatePhone(patientID, phoneType, PhoneNumber):
     with get_cursor() as cursor:
-        sql = """UPDATE phonenumber
-                SET phone_number = pgp_sym_encrypt(%s, %s)
-                WHERE patient_id = %s AND phone_type = %s;"""
+        pType = phoneType.lower() + "_phone"
+        sql = """UPDATE officestaffview
+                SET home_phone = CASE WHEN %s = 'home_phone' THEN %s ELSE home_phone END,
+                work_phone = CASE WHEN %s = 'work_phone' THEN %s ELSE work_phone END,
+                mobile_phone = CASE WHEN %s = 'mobile_phone' THEN %s ELSE mobile_phone END
+                WHERE patient_id = %s;"""
+        
         params = (
-            PhoneNumber, encryptionKey,
-            patientID, phoneType
+            pType, PhoneNumber,
+            pType, PhoneNumber,
+            pType, PhoneNumber,
+            patientID
         )
         cursor.execute(sql, params)
         cursor.close()
@@ -86,32 +92,36 @@ def patientUpdateFamilyDoctor(patientID, newDoctor):
         cursor.execute(sql, params)
         cursor.close()
 
-def patientUpdateInsurance(patientID, newCarrierName, newAccNum, newGroupNum, encryptionKey):
+def patientUpdateInsurance(patientID, newCarrierName, newAccNum, newGroupNum):
     with get_cursor() as cursor:
-        sql = """Update Insurance
-        SET carrier_name = pgp_sym_encrypt(%s, %s),
-        account_number = pgp_sym_encrypt(%s, %s),
-        group_number = pgp_sym_encrypt(%s, %s)
-        WHERE patient_id = %s;"""
+        sql = """UPDATE officestaffview
+                SET insurance_carrier = %s,
+                insurance_account = %s,
+                insurance_group = %s
+                WHERE patient_id = %s;"""
         params = (
-            newCarrierName, encryptionKey,
-            newAccNum, encryptionKey,
-            newGroupNum, encryptionKey,
+            newCarrierName,
+            newAccNum,
+            newGroupNum,
             patientID
             )
         cursor.execute(sql, params)
         cursor.close()
 
-def patientUpdateContact(patientID, newContactName, newContactNumber, contactOrder, encryptionKey):
+def patientUpdateContact(patientID, newContactName, newContactNumber, contactOrder):
     with get_cursor() as cursor:
-        sql = """UPDATE EmergencyContact
-                SET contact_name = pgp_sym_encrypt(%s, %s),
-                contact_phone = pgp_sym_encrypt(%s, %s)
-                WHERE patient_id = %s AND contact_order = %s;"""
+        sql = """UPDATE officestaffview
+                SET ec1_name = CASE WHEN %s = '1' THEN %s ELSE ec1_name END,
+                ec1_phone = CASE WHEN %s = '1' THEN %s ELSE ec1_phone END,
+                ec2_name = CASE WHEN %s = '2' THEN %s ELSE ec2_name END,
+                ec2_phone = CASE WHEN %s = '2' THEN %s ELSE ec2_phone END
+                WHERE patient_id = %s;"""
         params = (
-            newContactName, encryptionKey,
-            newContactNumber, encryptionKey,
-            patientID, contactOrder
+            contactOrder, newContactName,
+            contactOrder, newContactNumber,
+            contactOrder, newContactName,
+            contactOrder, newContactNumber,
+            patientID
         )
         cursor.execute(sql, params)
         cursor.close()

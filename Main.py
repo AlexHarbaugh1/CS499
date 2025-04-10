@@ -80,7 +80,12 @@ while True:
                 admissionReason = input("Insert Breif Reason for Admission: ")
                 InsertData.insertAdmission(patientID, locationID, datetime.datetime.now(), admissionReason)
             elif mode == '5':
-                print('To be added')
+                staffFname = input("Enter First Name: ")
+                staffLname = input("Enter Last Name: ")
+                staffUsername = input("Enter Username: ")
+                staffPassword = input("Enter Password: ")
+                staffRole = input("Enter Staff Role: ")
+                InsertData.insertStaff(staffFname, staffLname, staffUsername, password, staffRole, keys[1])
             elif mode == '6':
                 facility = input("Facility Name: ")
                 floor = input("Floor: ")
