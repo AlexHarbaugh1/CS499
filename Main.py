@@ -78,7 +78,7 @@ while True:
                     print(item)
                 locationID = input("Select Location ID from Available Locations: ")
                 admissionReason = input("Insert Breif Reason for Admission: ")
-                InsertData.insertAdmission(patientID, locationID, datetime.datetime.now(), admissionReason)
+                InsertData.insertAdmission(patientID, locationID, hospitalDB.getCurrentUserID(), datetime.datetime.now(), admissionReason)
             elif mode == '5':
                 staffFname = input("Enter First Name: ")
                 staffLname = input("Enter Last Name: ")

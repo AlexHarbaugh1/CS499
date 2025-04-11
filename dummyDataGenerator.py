@@ -39,13 +39,12 @@ def generate_procedure():
 
 def populate_users( encryptionKey, fixedSalt, n=50):
     types = ['Administrator', 'Medical Personnel', 'Volunteer', 'Office Staff', 'Physician']
-    hospitalDB.userLogin('Administrator1', 'qwertyuiop', fixedSalt)
     for _ in range(n):
         user_type = random.choice(types)
         username = fake.unique.user_name()
         password = fake.password()
         InsertData.insertStaff(fake.first_name(), fake.last_name(), username, password, user_type, fixedSalt)
-    hospitalDB.userLogout()
+    #hospitalDB.userLogout()
 
 def populate_patients(encryptionKey, fixedSalt, n=100):
     sql = """SELECT user_id FROM Staff WHERE type_id = 5"""
@@ -54,8 +53,8 @@ def populate_patients(encryptionKey, fixedSalt, n=100):
         cursor.execute(sql, params)
         doctor_ids = [row[0] for row in cursor.fetchall()]
     insurances = ['Progressive', 'United Healthcare', 'Allstate', 'Local Provider']
-    hospitalDB.userLogin('OfficeStaff1', 'qwertyuiop', fixedSalt)
-    for _ in range(n):
+    #hospitalDB.userLogin('OfficeStaff1', 'qwertyuiop', fixedSalt)
+    for _ in range(1, n + 1):
         InsertData.insertPatient(fake.first_name(), fake.first_name() if random.random() < 0.3 else None, fake.last_name(), fake.address(), random.choice(doctor_ids), keys[1])
         UpdateDB.patientUpdatePhone(_, 'Home', generate_phone())
         UpdateDB.patientUpdatePhone(_, 'Work', generate_phone())
@@ -63,7 +62,7 @@ def populate_patients(encryptionKey, fixedSalt, n=100):
         UpdateDB.patientUpdateContact(_, fake.first_name() + ' ' + fake.last_name(), generate_phone(), 1)
         UpdateDB.patientUpdateContact(_, fake.first_name() + ' ' + fake.last_name(), generate_phone(), 2)
         UpdateDB.patientUpdateInsurance(_, random.choice(insurances), str(fake.random_int(10000, 99999)), str(fake.random_int(10000, 99999)))
-    hospitalDB.userLogout()
+    #hospitalDB.userLogout()
 
 def populate_admissions(encryptionKey, fixedSalt, n=200):
     with hospitalDB.get_cursor() as cursor:
@@ -77,45 +76,44 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
                 for room in range(floor*100, floor*100 + 100):
                     for bed in range(2):
                         InsertData.insertLocation(facility, floor, room, bed)
-        hospitalDB.userLogin('Physician1', 'qwertyuiop', fixedSalt)
-        for _ in range(n):
+        
+        for admission in range(1, n + 1):
+            #hospitalDB.userLogin('Physician1', 'qwertyuiop', fixedSalt)
             admit_date = fake.date_between(start_date="-2y", end_date="today")
             id = random.choice(patient_ids)
             cursor.execute("SELECT location_id FROM availablelocationview;")
             location_ids = [row[0] for row in cursor.fetchall()]
             InsertData.insertAdmission(id, random.choice(location_ids), random.choice(doctor_ids), str(admit_date), fake.sentence(nb_words=6))
-            hospitalDB.userLogout()
+            #hospitalDB.userLogout()
             # Add Approved Visitors (0 - 5, Any)
             visitors = []
+            #hospitalDB.userLogin('OfficeStaff1', 'qwertyuiop', fixedSalt)
             for _ in range(random.randint(1, 5)):
                 visitors.append(fake.first_name() + ' ' + fake.last_name())
-            InsertData.insertVisitors(_, visitors, encryptionKey)
+            InsertData.insertVisitors(admission, visitors, encryptionKey)
+            #hospitalDB.userLogout()
             # Add prescriptions (1-3 per admission)
-            prescriptions = []
+            #hospitalDB.userLogin('Physician1', 'qwertyuiop', fixedSalt)
             for _ in range(random.randint(1, 3)):
                 rx = generate_prescription()
-                prescriptions.append(rx)
-            InsertData.insertPrescriptions(_, prescriptions, encryptionKey)
+                InsertData.insertPrescription(admission, rx["name"], rx["amount"], rx["schedule"])
 
             # Add notes (2-5 per admission)
-            sql = "SELECT pgp_sym_decrypt(username, %s) FROM Staff WHERE type_id IN (2, 5)"
-            params = (encryptionKey,)
-            with hospitalDB.get_cursor() as cursor:
-                cursor.execute(sql, params)
-                staff_ids = [row[0] for row in cursor.fetchall()]
-            notes = []
+            #hospitalDB.userLogout()
             for _ in range(random.randint(2, 5)):
-                note = {'author': random.choice(staff_ids), 'type': random.choice(["Doctor", "Nurse"]), 'text': fake.paragraph(nb_sentences=3), 'time' : fake.date_time_between(start_date=admit_date, end_date=datetime.now())}
-                notes.append(note)
-            InsertData.insertNotes(_, notes, encryptionKey, fixedSalt)
+                #if random.random() < 0.7:
+                    #hospitalDB.userLogin('Physician1', 'qwertyuiop', fixedSalt)
+                #else:
+                    #hospitalDB.userLogin('MedicalPersonnel1', 'qwertyuiop', fixedSalt)
+                InsertData.insertNote(_, fake.paragraph(nb_sentences=3))
+                #hospitalDB.userLogout()
 
             # Add procedures (0-2 per admission)
-            procedures = []
+            #hospitalDB.userLogin('Physician1', 'qwertyuiop', fixedSalt)
             for _ in range(random.randint(0, 2)):
                 proc = generate_procedure()
-                procedures.append(proc)
-            if len(procedures) > 0:
-                InsertData.insertProcedures(_, procedures, encryptionKey)
+                InsertData.insertProcedure(admission, proc["name"], proc["date"])
+            #hospitalDB.userLogout()
             # Add billing
             total_owed = Decimal(random.randint(1000, 100000))
             total_paid = total_owed * Decimal(random.uniform(0.1, 0.9))
@@ -126,7 +124,7 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
             for _ in range(random.randint(3, 10)):
                 item = {'name': random.choice(items), 'cost': float(random.randint(50, 5000))}
                 itemlist.append(item)
-            InsertData.insertBill(_, total_owed, total_paid, insurance_paid, itemlist)
+            InsertData.insertBill(admission, total_owed, total_paid, insurance_paid, itemlist)
             if random.random() < 0.7:
                 UpdateDB.admissionUpdateDischarge(_, admit_date + timedelta(days=random.randint(1, 30)), encryptionKey)
 
@@ -134,7 +132,8 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
 if __name__ == "__main__":
 
     keys = EncryptionKey.getKeys()
-
+    InsertData.insertStaff('Administrator', 'Admin', 'Administrator1', 'qwertyuiop', 'Administrator', keys[1])
+    hospitalDB.userLogin('Administrator1', 'qwertyuiop', keys[1])
     populate_users(keys[0], keys[1], 50)          # 50 users
     populate_patients(keys[0], keys[1], 200)      # 200 patients
     populate_admissions(keys[0], keys[1], 250)    # 250 admissions

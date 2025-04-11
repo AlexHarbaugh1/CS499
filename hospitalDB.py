@@ -220,7 +220,11 @@ def run():
 
       # Permissions for Inserting a new patient
       cursor2.execute("GRANT INSERT ON patient TO medicalpersonnel_role, physician_role, officestaff_role;")
-      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patient_patient_id_seq TO medicalpersonnel_role, physician_role, officestaff_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patient_patient_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE admission_admission_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billingdetail_billing_detail_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billing_billing_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      
       # Create Views for Accessing Data
       # patientsearchview is the table used for the search screen, accessible to all user roles
       sql = """CREATE VIEW patientsearchview AS
@@ -283,6 +287,7 @@ def run():
       #Activeadmissionview shows all active admissions
       cursor2.execute("""CREATE VIEW activeadmissionview AS
                       SELECT admission_id, location_id FROM admission WHERE discharge_datetime IS NULL;""")
+      cursor2.execute("GRANT SELECT ON activeadmissionview TO officestaff_role, medicalpersonnel_role, physician_role;")
       #Availablelocationview shows all locations without an active admission
       cursor2.execute("""CREATE VIEW availablelocationview AS
                       SELECT l.location_id, l.facility, l.floor, l.room_number, l.bed_number
@@ -290,6 +295,7 @@ def run():
                       WHERE NOT EXISTS(
                       SELECT 1 FROM activeadmissionview a WHERE a.location_ID = l.location_id)
                       ORDER BY l.location_id ASC;""")
+      cursor2.execute("GRANT SELECT ON availablelocationview TO officestaff_role, medicalpersonnel_role, physician_role;")
       # Office View Selects all none medical data and uses triggers to update the underlying database.
       sql = """CREATE VIEW officestaffview AS
             SELECT
@@ -672,10 +678,41 @@ def run():
               $$ LANGUAGE plpgsql SECURITY DEFINER;"""
       params = (keys[0],)
       cursor2.execute(sql, params)
+      cursor2.execute("ALTER FUNCTION admission_write_trigger() OWNER TO administrator_role;")
+
       cursor2.execute("""CREATE TRIGGER admission_write_trigger
                       INSTEAD OF UPDATE ON admissionwriteview
                       FOR EACH ROW
                       EXECUTE FUNCTION admission_write_trigger();""")
+      cursor2.execute("GRANT SELECT, UPDATE ON admissionwriteview TO officestaff_role, medicalpersonnel_role, physician_role;")
+      cursor2.execute("GRANT INSERT ON admission TO physician_role, medicalpersonnel_role, officestaff_role;")
+      #visitorwriteView for addind visitors to an admission
+      sql = """CREATE VIEW visitorwriteview AS
+            SELECT
+              admission_id,
+              NULL::BYTEA[] as visitors
+            FROM activeadmissionview"""
+      cursor2.execute(sql)
+      # Triggers for adding visitor to database
+      sql = """CREATE OR REPLACE FUNCTION visitor_write_trigger()
+              RETURNS TRIGGER AS $$
+              BEGIN
+                INSERT INTO approvedvisitors (
+                    admission_id,
+                    names
+                ) VALUES (
+                  NEW.admission_id,
+                  NEW.visitors
+                );
+                RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+      cursor2.execute(sql)
+      cursor2.execute("""CREATE TRIGGER visitor_write_trigger
+                      INSTEAD OF UPDATE ON visitorwriteview
+                      FOR EACH ROW
+                      EXECUTE FUNCTION visitor_write_trigger();""")
+      cursor2.execute("""GRANT SELECT, UPDATE ON visitorwriteview TO officestaff_role;""")
       #NurseWriteView for adding nurse notes to an admission
       sql = """CREATE VIEW NurseWriteView AS
             SELECT
