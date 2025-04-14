@@ -324,6 +324,7 @@ def run():
       ) *14
       cursor2.execute(sql, params)
       cursor2.execute("""GRANT SELECT, UPDATE ON officestaffview TO officestaff_role;""")
+      cursor2.execute("""GRANT SELECT ON officestaffview TO physician_role, medicalpersonnel_role;""")
       cursor2.execute("""GRANT SELECT, UPDATE (first_name, last_name, mailing_address) ON Patient TO officestaff_role;""")
       cursor2.execute("""GRANT INSERT, UPDATE ON Insurance TO officestaff_role;""")
       cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON PhoneNumber TO officestaff_role;""")
@@ -863,6 +864,74 @@ def run():
                       INSTEAD OF UPDATE ON PhysicianWriteView
                       FOR EACH ROW
                       EXECUTE FUNCTION Physician_write_trigger();""")
+      # billwriteview for inserting data into billing tables
+      cursor2.execute("""CREATE VIEW billwriteview AS
+                    SELECT 
+                        a.admission_id,
+                        NULL::TEXT AS billed_item_name,
+                        NULL::DECIMAL(10,2) AS billed_item_cost
+                    FROM Admission a;
+                    """)
+
+      # functions and triggers for adding data to the database
+      cursor2.execute("""CREATE OR REPLACE FUNCTION bill_item_trigger()
+                  RETURNS TRIGGER AS $$
+                  DECLARE
+                      new_billing_id INT;
+                  BEGIN
+                      SELECT b.billing_id INTO new_billing_id 
+                      FROM Billing b
+                      WHERE b.admission_id = NEW.admission_id;
+
+                      IF NOT FOUND THEN
+                          INSERT INTO Billing (admission_id, total_amount_owed, total_amount_paid, insurance_paid)
+                          VALUES (NEW.admission_id, 0, 0, 0)
+                          RETURNING billing_id INTO new_billing_id;
+                      END IF;
+
+                      INSERT INTO BillingDetail (billing_id, item_description, charge_amount)
+                      VALUES (new_billing_id, NEW.billed_item_name, NEW.billed_item_cost);
+
+                      RETURN NEW;
+                  END;
+                  $$ LANGUAGE plpgsql SECURITY DEFINER;
+                    """)
+
+      cursor2.execute("""ALTER FUNCTION bill_item_trigger() OWNER TO administrator_role;""")
+      # 3. Create trigger for the view
+      cursor2.execute("""CREATE TRIGGER bill_item_trigger
+                      INSTEAD OF UPDATE ON billwriteview
+                      FOR EACH ROW
+                      EXECUTE FUNCTION bill_item_trigger();
+                      """)
+
+      # 4. Create function to update billing totals
+      cursor2.execute("""
+                      CREATE OR REPLACE FUNCTION update_billing_totals()
+                      RETURNS TRIGGER AS $$
+                      BEGIN
+                          UPDATE Billing b
+                          SET total_amount_owed = (
+                              SELECT COALESCE(SUM(charge_amount), 0)
+                              FROM BillingDetail bd
+                              WHERE bd.billing_id = COALESCE(NEW.billing_id, OLD.billing_id)
+                          )
+                          WHERE b.billing_id = COALESCE(NEW.billing_id, OLD.billing_id);
+
+                          RETURN NULL;
+                      END;
+                      $$ LANGUAGE plpgsql;
+                      """)
+      cursor2.execute("""ALTER FUNCTION update_billing_totals() OWNER TO administrator_role;""")
+      # 5. Create triggers for billing detail changes
+      cursor2.execute("""CREATE TRIGGER billing_detail_changes
+                      AFTER INSERT OR UPDATE OR DELETE ON BillingDetail
+                      FOR EACH ROW
+                      EXECUTE FUNCTION update_billing_totals();
+                      """)
+
+      # 6. Grant permissions
+      cursor2.execute("GRANT SELECT, UPDATE ON billwriteview TO physician_role, medicalpersonnel_role, officestaff_role;")
       # Create Trigger to remove unneeded visitor data after admission closes
       sql = """CREATE OR REPLACE FUNCTION delete_approved_visitors_on_discharge()
             RETURNS TRIGGER AS $$

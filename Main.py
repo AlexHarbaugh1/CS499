@@ -13,7 +13,7 @@ while True:
         while(True):
             mode = input("""Select Application:
                         1. Search Patient By Name
-                        2. Search Admissions By Date
+                        2. add bill
                         3. Register Patient
                         4. Register Admission
                         5. Register Staff Member
@@ -57,7 +57,7 @@ while True:
                             else: break
 
             elif mode == '2':
-                print('To Be Added')
+                InsertData.insertBilledItem('1', 'Medicine', '112.13')
             elif mode == '3':
                 patientfname = input("First Name: ")
                 patientmname = input("Middle Name: ")

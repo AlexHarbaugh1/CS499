@@ -188,7 +188,6 @@ def insertProcedure(admissionID, procedureName, procedureSchedule):
         )
     with hospitalDB.get_cursor() as cursor:
         cursor.execute(sql, params)
-        cursor.close()
 
 def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemizedBill):
     with  hospitalDB.get_cursor() as cursor:
@@ -229,17 +228,34 @@ def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemize
     # Test Input data
     # Uncomment desired function to test
     # Must have ran all functions above it for the next one to work
+
+def insertBilledItem(admissionID, itemName, itemCost):
+    with hospitalDB.get_cursor() as cursor:
+        sql = """UPDATE billwriteview
+                SET
+                    billed_item_name = %s,
+                    billed_item_cost = %s
+                WHERE admission_id = %s"""
+        params = (
+                  itemName,
+                  itemCost,
+                  admissionID
+                  )
+        cursor.execute(sql, params)
+        
+
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
+    hospitalDB.run()
     insertStaff('Volunteer', 'One', 'Volunteer1', 'qwertyuiop', 'Volunteer', keys[1])
     insertStaff('MedicalPersonnel', 'One', 'MedicalPersonnel1', 'qwertyuiop', 'Medical Personnel', keys[1])
     insertStaff('Physician', 'One', 'Physician1', 'qwertyuiop', 'Physician', keys[1])
     insertStaff('OfficeStaff', 'One', 'OfficeStaff1', 'qwertyuiop', 'Office Staff', keys[1])
     insertStaff('Administrator', 'One', 'Administrator1', 'qwertyuiop', 'Administrator', keys[1])
-    #insertStaff('User', 'Two', 'User2', 'poiuytrewq', 'Medical Personnel', keys[0], keys[1])
-    #insertPatient('Elliot', 'P', 'Cyrus', 'The Moon', '732-666-7969', '420-696-6969', '311-107-8008', 'Blair', 'Sexy', None, None, 'BlairStafford', 'Aetna', '69420', '7', keys[0], keys[1])
-    #insertPatient('Doe', 'John', None, None, None, None, None, None, None, None, None, 'BlairStafford', None, None, None, keys[0], keys[1])
-    #admissionID = insertAdmission('1', str(datetime.datetime.now()), 'Mental Crises', None, 'Psyche Ward', '7', '3', '27', '1', keys[0])
+    insertPatient('Elliot', 'P', 'Cyrus', 'The Moon', '3', keys[1])
+    insertLocation('Main Ward', '1', '101', '1')
+    insertAdmission('1', '1', '3', datetime.datetime.now(), 'Needs Halp')
+
     #insertVisitors('1', ['Mitch', 'Taylor', 'Josh'], keys[0])
     #insertPrescriptions(admissionID, [{'name': 'Ibuprofen', 'amount': '500mg', 'schedule': 'Once Every Six Hours'}, {'name': 'Morphine', 'amount': 'A lot', 'schedule': 'Once, he would not stop screaming'}, {'name': 'Crystal Meth', 'amount': 'One Teenth', 'schedule': 'Twice Daily'}], keys[0])
     #insertNotes(admissionID, [{'author': 'BlairStafford', 'type': 'Doctor', 'text': 'The Meth really showed results', 'time' : datetime.datetime.now()}, {'author': 'BlairStafford', 'type': 'Nurse', 'text': 'I think Dr. Blair needs to be fired.', 'time' : datetime.datetime.now()}], keys[0], keys[1])
