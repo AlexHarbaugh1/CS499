@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QT
 from PyQt5.QtCore import QTimer, QEvent, QObject
 import string
 import EncryptionKey
+from InactivityTimer import InactivityTimer
 import SearchDB
 
 class MainScreen(QDialog):
@@ -332,6 +333,8 @@ widget = QtWidgets.QStackedWidget()
 widget.addWidget(home)
 #widget.resize(1200, 800)
 widget.showMaximized()
+app.installEventFilter(InactivityTimer(LogOut))
+
 try:
     sys.exit(app.exec())
 except:
