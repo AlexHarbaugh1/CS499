@@ -1,21 +1,31 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jan 29 09:18:06 2025
+
+@author: laure
+"""
 
 import psycopg2
 import sys
+import pandas as pd
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout
+from PyQt5.QtCore import QTimer, QEvent, QObject
 import string
+import EncryptionKey
+import SearchDB
 
 class MainScreen(QDialog):
     def __init__(self):
         super(MainScreen, self).__init__()
-        loadUi("mainscreen.ui", self)
+        loadUi("MainScreen.ui", self)
         self.enterApplication.clicked.connect(self.openLogin)
 
     def openLogin(self):
-        login=LoginScreen()
+        login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class LoginScreen(QDialog):
     def __init__(self):
@@ -23,48 +33,36 @@ class LoginScreen(QDialog):
         loadUi("login1.ui", self)
         self.passwordField.setEchoMode(QtWidgets.QLineEdit.Password)
         self.login.clicked.connect(self.loginfunction)
-       
-    def loginfunction(self):
-           user = self.userField.text()
-           password = self.passwordField.text()
-           
-           if len(user)==0 or len(password)==0:
-               self.errorMsg.setText("Missing field.")
-              
-           else:    
-                conn = psycopg2.connect(
-                database="huntsvillehospital",
-                user='postgres',
-                password='49910',
-                host='localhost',
-                port= '5432'
-                )
-                cur = conn.cursor()
-                # Password is encrytped so crypt() comapares the decrytped password
-                # The result of the query is a boolean that is true if there is a match and false when there is not a match
-                query = "SELECT (password = crypt('{}', password)) AS password_match FROM Users WHERE username = '{}' ;" .format(password, user)
-                cur.execute(query)
-                result_pass = cur.fetchone()[0]
-                if result_pass:
-                    print("Successfully logged in.")
-                    self.errorMsg.setText("")
-                    #store user type here maybe?
-                    if userType == "admin":
-                        self.gotoadmin()
-                    else:
-                        self.gotosearch()
-                else:
-                    self.errorMsg.setText("Invalid username or password")
-    def gotosearch(self):
-        search=SearchScreen()
-        widget.addWidget(search)
-        widget.setCurrentIndex(widget.currentIndex()+1)
 
+    def loginfunction(self):
+        user = self.userField.text()
+        password = self.passwordField.text()
+
+        if len(user) == 0 or len(password) == 0:
+            self.errorMsg.setText("Missing field.")
+        else:
+            keys = EncryptionKey.getKeys()
+            encryption_key = keys[0]
+            fixed_salt = keys[1]
+            result_pass = SearchDB.passwordMatch(user, password, fixed_salt)
+            if result_pass:
+                self.errorMsg.setText("")
+                #store user type here maybe?
+                if userType == "admin":
+                    self.gotoadmin()
+                else:
+                    self.gotosearch()
+            else:
+                self.errorMsg.setText("Invalid username or password")
+
+    def gotosearch(self):
+        search = SearchScreen()
+        widget.addWidget(search)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
     def gotoadmin(self):
         admin=AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex()+1)
-
 class AdminScreen(QDialog):
     def __init__(self):
         super(AdminScreen,self).__init__()
@@ -93,20 +91,12 @@ class AdminScreen(QDialog):
         search=SearchScreen()
         widget.addWidget(search)
         widget.setCurrentIndex(widget.currentIndex()+1)
-               
+
 class InsertStaff(QDialog):
     def __init__(self):
         super(InsertStaff,self).__init__()
         loadUi("insertstaff.ui",self)
         self.backTo.clicked.connect(self.toAdmin)
-        '''
-        for i in range(0,5):
-            firstName=self.tableWidget.item(i, 1)
-            lastName=self.tableWidget.item(i,1)
-            username = self.tableWidget.item(i,1)
-            password = self.tableWidget.item(i,1)
-            staffType = self.tableWidget.item(i,1)
-            '''
         self.addStaff.clicked.connect(self.addStaff)
     def addStaff(self):
         for i in range(0,5):
@@ -127,7 +117,6 @@ class InsertStaff(QDialog):
         admin=AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex()+1)
-
 class InsertPatient(QDialog):
     def __init__(self):
         super(InsertPatient,self).__init__()
@@ -164,13 +153,13 @@ class InsertPatient(QDialog):
         admin=AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex()+1)
-
 class SearchStaff(QDialog):
     def __init__(self):
         super(SearchStaff,self).__init__()
         loadUi("stafflookup.ui",self)
         self.search.clicked.connect(self.searchfunction)
         self.logout.clicked.connect(self.logoutfxn)
+        self.resultsTable.hide()
 
     def logoutfxn(self):
         login=LoginScreen()
@@ -180,203 +169,330 @@ class SearchStaff(QDialog):
     def searchfunction(self):
         lastName = self.lastField.text()
         firstName = self.firstField.text()
-        
-        if len(lastName)==0 and len(firstName)==0:
+
+        if len(lastName) == 0 and len(firstName) == 0:
             self.error.setText("Input at least one field.")
-#do something here with sql
-        self.gotolist()
-    def gotolist(self):
-        plist=ListScreen()
-        widget.addWidget(plist)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+        else:
+            keys = EncryptionKey.getKeys()
+            encryption_key = keys[0]
+            fixed_salt = keys[1]
+            df = None
+            #set a bool value for checkbox and insert checkbox var into SearchDB function params
+            checkbox = False
+            #check whether checkbox for last name or first name is checked, and if so, sets checkbox to true
+            if lastBox.isChecked() or firstBox.isChecked():
+                checkbox = True
+            if firstName and lastName:
+                df = pd.DataFrame(SearchDB.searchStaffWithName(firstName, None, lastName, encryption_key, fixed_salt, checkbox))
+            else:
+                df = pd.DataFrame(SearchDB.searchStaffWithName(firstName, None, None, encryption_key, fixed_salt, checkbox))
+                if df.empty:
+                    df = pd.DataFrame(SearchDB.searchStaffWithName(None, None, lastName, encryption_key, fixed_salt, checkbox))
+
+            if df.empty:
+                self.error.setText("No results found.")
+            else:
+                self.error.setText("")
+                self.resultsTable.show()
+                self.resultsTable.setRowCount(len(df))
+                self.resultsTable.setColumnCount(len(df.columns))
+                self.resultsTable.setHorizontalHeaderLabels(["ID", "First Name", "Middle Name", "Last Name"])
+                for i in range(len(df)):
+                    for j in range(len(df.columns)):
+                        item = QTableWidgetItem(str(df.iat[i, j]))
+                        self.resultsTable.setItem(i, j, item)
+                self.resultsTable.cellDoubleClicked.connect(self.openStaffDetails)
+                self.df = df
+
+    def openStaffDetails(self, row, column):
+        staff_id = str(self.df.iat[row, 0])
+        details = StaffDetailsScreen(staff_id)
+        widget.addWidget(details)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+class StaffDetailsScreen(QDialog):
+    def __init__(self, staff_id):
+        super(PatientDetailsScreen, self).__init__()
+        self.setWindowTitle("Staff Details")
+        self.setGeometry(100, 100, 800, 600)
+
 class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
         loadUi("patientsearch.ui", self)
         self.search.clicked.connect(self.searchfunction)
-        self.logout.clicked.connect(self.logoutfxn)
-        
-    def logoutfxn(self):
-        login=LoginScreen()
-        widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex()+1)
-        
+        self.logout.clicked.connect(LogOut)
+        self.resultsTable.hide()
+
     def searchfunction(self):
         lastName = self.lastField.text()
         firstName = self.firstField.text()
-        
-        if len(lastName)==0 and len(firstName)==0:
+        middleInitial = self.midField.text()
+
+        if len(lastName) == 0 and len(firstName) == 0 and len(middleInitial) == 0:
             self.error.setText("Input at least one field.")
-        
-        if len(lastName) > 0 and len(firstName) > 0:
-            if self.contains_special_char(lastName):
-                lastName = lastName[:-1]
-                self.lastSpecChar(lastName)
+        else:
+            keys = EncryptionKey.getKeys()
+            encryption_key = keys[0]
+            fixed_salt = keys[1]
+            df = None
+            #set a bool value for checkbox and insert checkbox var into SearchDB function params
+            checkbox = False
+            #check whether checkbox for last name or first name is checked, and if so, sets checkbox to true
+            if lastBox.isChecked() or firstBox.isChecked():
+                checkbox = True
+            if firstName and lastName:
+                df = pd.DataFrame(SearchDB.searchPatientWithName(firstName, None, lastName, encryption_key, fixed_salt, checkbox))
             else:
-                self.lastQuery(lastName)
-                
-            if self.contains_special_char(firstName):
-                firstName = firstName[:-1]
-                self.firstSpecChar(firstName)
+                df = pd.DataFrame(SearchDB.searchPatientWithName(firstName, None, None, encryption_key, fixed_salt, checkbox))
+                if df.empty:
+                    df = pd.DataFrame(SearchDB.searchPatientWithName(None, None, lastName, encryption_key, fixed_salt, checkbox))
+
+            if df.empty:
+                self.error.setText("No results found.")
             else:
-                self.firstQuery(firstName)
-            
-            self.combineQuery(lastName,firstName)
-                
-        if len(lastName) > 0:
-            if self.contains_special_char(lastName):
-                lastName = lastName[:-1]
-                self.lastSpecChar(lastName)
+                self.error.setText("")
+                self.resultsTable.show()
+                self.resultsTable.setRowCount(len(df))
+                self.resultsTable.setColumnCount(len(df.columns))
+                self.resultsTable.setHorizontalHeaderLabels(["ID", "First Name", "Middle Name", "Last Name"])
+                for i in range(len(df)):
+                    for j in range(len(df.columns)):
+                        item = QTableWidgetItem(str(df.iat[i, j]))
+                        self.resultsTable.setItem(i, j, item)
+                self.resultsTable.cellDoubleClicked.connect(self.openPatientDetails)
+                self.df = df
+
+    def openPatientDetails(self, row, column):
+        patient_id = str(self.df.iat[row, 0])
+        details = PatientDetailsScreen(patient_id)
+        widget.addWidget(details)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
+
+class PatientDetailsScreen(QDialog):
+    def __init__(self, patient_id):
+        super(PatientDetailsScreen, self).__init__()
+        self.setWindowTitle("Patient Details")
+        self.setGeometry(100, 100, 800, 600)
+
+        layout = QVBoxLayout()
+        self.tabs = QTabWidget()
+
+        self.info_tab = QWidget()
+        self.insurance_tab = QWidget()
+        self.contacts_tab = QWidget()
+        self.notes_tab = QWidget()
+        self.medications_tab = QWidget()
+        self.procedures_tab = QWidget()
+
+        self.tabs.addTab(self.info_tab, "Info")
+        self.tabs.addTab(self.insurance_tab, "Insurance")
+        self.tabs.addTab(self.contacts_tab, "Contacts")
+        self.tabs.addTab(self.notes_tab, "Notes")
+        self.tabs.addTab(self.medications_tab, "Medications")
+        self.tabs.addTab(self.procedures_tab, "Procedures")
+
+        layout.addWidget(self.tabs)
+
+        self.back_button = QPushButton("Back")
+        self.back_button.clicked.connect(self.goBack)
+        layout.addWidget(self.back_button)
+
+        self.print_button = QPushButton("Print to File")
+        self.print_button.clicked.connect(lambda: self.printPatientDetails(patient_id))
+        layout.addWidget(self.print_button)
+
+        self.setLayout(layout)
+
+        self.loadPatientData(patient_id)
+
+    def loadPatientData(self, patient_id):
+        keys = EncryptionKey.getKeys()
+        try:
+            result = SearchDB.searchPatientWithID(patient_id, keys[0])
+            if not result:
+                return
+
+            (patientData, doctorUsername, patientAdmissions, patientInsurance, phoneNumbers, emergencyContacts, locationInfo, doctorNotes, nurseNotes, prescriptions, procedures) = result
+
+            info_layout = QFormLayout()
+            info_layout.setSpacing(10)
+            info_layout.setContentsMargins(20, 20, 20, 20)
+            info_layout.addRow(QLabel("<b>Patient Information</b>"))
+            info_layout.addRow("First Name:", QLabel(patientData[0]))
+            info_layout.addRow("Middle Name:", QLabel(patientData[1]))
+            info_layout.addRow("Last Name:", QLabel(patientData[2]))
+            info_layout.addRow("Mailing Address:", QLabel(patientData[3]))
+            info_layout.addRow(QLabel("<b>Doctor Info</b>"))
+            info_layout.addRow("Doctor Username:", QLabel(doctorUsername[0]))
+            info_layout.addRow("Doctor Name:", QLabel(f"{doctorUsername[1]} {doctorUsername[2]}"))
+            if locationInfo:
+                info_layout.addRow(QLabel("<b>Room Info</b>"))
+                info_layout.addRow("Facility:", QLabel(str(locationInfo[0])))
+                info_layout.addRow("Floor:", QLabel(str(locationInfo[1])))
+                info_layout.addRow("Room Number:", QLabel(str(locationInfo[2])))
+                info_layout.addRow("Bed Number:", QLabel(str(locationInfo[3])))
+            self.info_tab.setLayout(info_layout)
+
+            insurance_layout = QVBoxLayout()
+            if patientInsurance:
+                insurance_fields = [("Carrier", patientInsurance[0]), ("Account #", patientInsurance[1]), ("Group #", patientInsurance[2])]
+                for label, value in insurance_fields:
+                    insurance_layout.addWidget(QLabel(f"{label}: {value}"))
             else:
-                self.lastQuery(lastName)
-                
-        if len(firstName) > 0:
-            if self.contains_special_char(firstName):
-                firstName = firstName[:-1]
-                self.firstSpecChar(firstName)
+                insurance_layout.addWidget(QLabel("No insurance info found."))
+            self.insurance_tab.setLayout(insurance_layout)
+
+            contacts_layout = QVBoxLayout()
+            if phoneNumbers:
+                for phone in phoneNumbers:
+                    contacts_layout.addWidget(QLabel(f"{phone[0].capitalize()} Phone: {phone[1]}"))
             else:
-                self.firstQuery(firstName)
-                
-    
-    def contains_special_char(input_string):
-        for char in input_string:
-            if char in string.punctuation:
-                return True
-            return False
-    
-    # theres probably a better way to implement this, but I couldnt wrap my head around it    
-    def lastSpecChar(input_string):
-        '''
-        I don't know the specific SQL syntax for a partial search, nor do I know if we
-        need to reconnect to the database.
-        conn = sql.connect("database name")
-        cur = conn.cursor()
-        lastquery = 'SELECT lastname FROM patientNames WHERE lastName LIKE =
-        
-            '''
-        
-    def firstSpecChar(input_string):
-        '''
-        conn = sql.connect("database name")
-        cur = conn.cursor()
-        firstquery = 'SELECT lastname FROM patientNames WHERE lastName LIKE =
-            '''
-        
-    def lastQuery(input_string):
-        '''
-        conn = sql.connect("database name")
-        cur = conn.cursor()
-        lastquery = 'SELECT lastname FROM patientNames WHERE lastName LIKE =
-            '''
-    def firstQuery(input_string):
-        '''
-        conn = sql.connect("database name")
-        cur = conn.cursor()
-        firstquery = 'SELECT lastname FROM patientNames WHERE lastName LIKE =
-            '''
-    def combineQuery(input_string1, input_string2):
-        '''
-        conn = sql.connect("database name")
-        cur = conn.cursor()
-        combineQuery = 'SELECT '
-        '''
-        
-    def gotolist(self):
-        plist=ListScreen()
-        widget.addWidget(plist)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+                contacts_layout.addWidget(QLabel("No phone numbers found."))
+            if emergencyContacts:
+                for i, contact in enumerate(emergencyContacts):
+                    label = f"Emergency Contact {i + 1}"
+                    name, phone = contact
+                    contacts_layout.addWidget(QLabel(f"{label}: {name} - {phone}"))
+            else:
+                contacts_layout.addWidget(QLabel("No emergency contacts found."))
+            self.contacts_tab.setLayout(contacts_layout)
+
+            notes_layout = QVBoxLayout()
+            if doctorNotes:
+                for note in doctorNotes:
+                    notes_layout.addWidget(QLabel(f"Doctor Note: {note[0]} (Time: {note[1]})"))
+            if nurseNotes:
+                for note in nurseNotes:
+                    notes_layout.addWidget(QLabel(f"Nurse Note: {note[0]} (Time: {note[1]})"))
+            if not doctorNotes and not nurseNotes:
+                notes_layout.addWidget(QLabel("No notes found."))
+            self.notes_tab.setLayout(notes_layout)
+
+            meds_layout = QVBoxLayout()
+            if prescriptions:
+                for prescription in prescriptions:
+                    meds_layout.addWidget(QLabel(f"Medication: {prescription[0]}, Amount: {prescription[1]}, Schedule: {prescription[2]}"))
+            else:
+                meds_layout.addWidget(QLabel("No prescriptions found."))
+            self.medications_tab.setLayout(meds_layout)
+
+            procedures_layout = QVBoxLayout()
+            if procedures:
+                for procedure in procedures:
+                    procedures_layout.addWidget(QLabel(f"Procedure: {procedure[0]} at {procedure[1]}"))
+            else:
+                procedures_layout.addWidget(QLabel("No procedures found."))
+            self.procedures_tab.setLayout(procedures_layout)
+
+        except Exception as e:
+            print(f"Error loading patient data: {e}")
+
+    def printPatientDetails(self, patient_id):
+        keys = EncryptionKey.getKeys()
+        result = SearchDB.searchPatientWithID(patient_id, keys[0])
+        if not result:
+            return
+
+        (patientData, doctorUsername, patientAdmissions, patientInsurance, phoneNumbers, emergencyContacts, locationInfo, doctorNotes, nurseNotes, prescriptions, procedures) = result
+
+        lines = []
+        lines.append("Patient Details")
+        lines.append(f"Name: {patientData[0]} {patientData[1]} {patientData[2]}")
+        lines.append(f"Address: {patientData[3]}")
+        lines.append(f"Doctor: {doctorUsername[1]} {doctorUsername[2]} ({doctorUsername[0]})")
+        if locationInfo:
+            lines.append(f"Location: {locationInfo[0]}, Floor {locationInfo[1]}, Room {locationInfo[2]}, Bed {locationInfo[3]}")
+        if patientInsurance:
+            lines.append(f"Insurance: {patientInsurance[0]}, Account #: {patientInsurance[1]}, Group #: {patientInsurance[2]}")
+        if phoneNumbers:
+            for phone in phoneNumbers:
+                lines.append(f"{phone[0]} Phone: {phone[1]}")
+        if emergencyContacts:
+            for contact in emergencyContacts:
+                lines.append(f"Emergency Contact: {contact[0]} - {contact[1]}")
+        if doctorNotes:
+            for note in doctorNotes:
+                lines.append(f"Doctor Note: {note[0]} (Time: {note[1]})")
+        if nurseNotes:
+            for note in nurseNotes:
+                lines.append(f"Nurse Note: {note[0]} (Time: {note[1]})")
+        if prescriptions:
+            for med in prescriptions:
+                lines.append(f"Medication: {med[0]} {med[1]} ({med[2]})")
+        if procedures:
+            for proc in procedures:
+                lines.append(f"Procedure: {proc[0]} at {proc[1]}")
+
+        filename = f"patient_details_{patient_id}.txt"
+        with open(filename, "w") as f:
+            f.write("\n".join(lines))
+        print(f"Patient details written to {filename}\n")
+
+    def goBack(self):
+        current_index = widget.currentIndex()
+        current_widget = widget.widget(current_index)
+        widget.removeWidget(current_widget)
+        current_widget.deleteLater()
+        search_screen = SearchScreen()
+        widget.addWidget(search_screen)
+        widget.setCurrentIndex(widget.count() - 1)
 
 class ListScreen(QDialog):
     def __init__(self):
         super(ListScreen, self).__init__()
         loadUi("list.ui", self)
-        self.tableWidget.itemSelectionChanged.connect(self.row_selected)
-        self.tableWidget.setColumnWidth(0,150)
-        self.tableWidget.setColumnWidth(1,150)
-        self.tableWidget.setColumnWidth(2,150)
-        self.tableWidget.setHorizontalHeaderLabels(["Last Name", "First Name", "MI"])
-        self.loadData()
-        self.nextButton.clicked.connect(self.selectedfunction)
-        self.logoutButton.clicked.connect(self.lgout)
-        self.backSearchButton.clicked.connect(self.back)
-        #self.tableWidget.cellClicked.connect(self.cell_was_clicked)
-        
-    def back(self):
-        search=SearchScreen()
-        widget.addWidget(search)
-        widget.setCurrentIndex(widget.currentIndex()+1)
-    def lgout(self):
-        login=LoginScreen()
-        widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex()+1)
-    def row_selected(self):
-        selected_items = self.tableWidget.selectedItems()
-        if selected_items:
-            row = selected_items[0].row()
-            col_count = self.tableWidget.columnCount()
-            row_data = [self.tableWidget.item(row, col).text() for col in range(col_count)]
-            selectedLName, selectedFName, selectedMI = row_data
-
-        
-    def loadData(self):
-        # another query is needed here, or if we can use the one from the search here
-        self.tableWidget.setRowCount(50)
-        # or self.tableWidget.setRowCount(len(sqlquery))
-        tableRow = 0
-        # you can change the placeholder var name sqlquery to whatever you like
-        for row in cur.execute(sqlquery):
-            self.tableWidget.setItem(tableRow, 0, QtWidgets.QTableWidgetItem(row[0]))
-            self.tableWidget.setItem(tableRow, 1, QtWidgets.QTableWidgetItem(row[1]))
-            self.tableWidget.setItem(tableRow, 2, QtWidgets.QTableWidgetItem(row[2]))
-            tableRow+=1
-            
-    def selectedfunction(self):
-        #do something here with the variables selected:LName/FName/MI from row_selected fxn
-        #another query to pull up all patient data to display on the next screen
-        self.gotodata()
-    
-    def gotodata(self):
-        data=DataScreen()
-        widget.addWidget(data)
-        widget.setCurrentIndex(widget.currentIndex()+1)
-    
-class DataScreen(QDialog):
-    def __init__(self):
-        super(DataScreen, self).__init__()
-        loadUi("data2.ui", self)
-        
-    def checkCreds(self):
-        #somehow test credentials of staff probably with query, put their position in a variable, test variable against different staff types
-        if staffType == "Office Staff":
-            patInfo = QtWidgets.QWidget()
-            tableView = QtWidgets.QTableView(patInfo)
-            layout = QtWidgets.QVBoxLayout(patInfo)
-            layout.addWidget(tableView)
-            patInfo.setLayout(layout)
-            self.tabWidget.addTab(patInfo, "Patient Information")
-            insuranceTab = QtWidgets.QWidget()
-            tableInsurance = QtWidgets.QTableView(insuranceTab)
-            layoutIns = QtWidgets.QVBoxLayout(insuranceTab)
-            layout.addWidget(tableInsurance)
-            insuranceTab.setLayout(layoutIns)
-            self.tabWidget.addTab(insuranceTab, "Insurance")
-
-        #elif staffType == "Medical Personnel":
-            #
 
 
-            
-    
+def LogOut():
+    home = MainScreen()
+    widget.addWidget(home)
+    widget.setCurrentIndex(widget.currentIndex() + 1)
 
-
-# main
 app = QApplication(sys.argv)
-mainscreen = MainScreen()
+app.setStyleSheet("""
+    QWidget {
+        font-size: 16px;
+        font-family: Arial, sans-serif;
+    }
+    QLabel {
+        padding: 2px;
+    }
+    QPushButton {
+        padding: 6px 12px;
+        font-weight: bold;
+        background-color: #e0e0e0;
+        border: 1px solid #aaa;
+        border-radius: 4px;
+    }
+    QPushButton:hover {
+        background-color: #d6d6d6;
+    }
+    QTableWidget {
+        gridline-color: #ccc;
+        font-size: 15px;
+    }
+    QTabWidget::pane {
+        border: 1px solid #ccc;
+    }
+    QTabBar::tab {
+        padding: 6px;
+        margin: 2px;
+        border: 1px solid #aaa;
+        border-radius: 4px;
+        background: #f0f0f0;
+    }
+    QTabBar::tab:selected {
+        background: #dcdcdc;
+        font-weight: bold;
+    }
+""")
+login = LoginScreen()
+home = MainScreen()
 widget = QtWidgets.QStackedWidget()
-widget.addWidget(mainscreen)
-widget.setFixedHeight(881)
-widget.setFixedWidth(801)
-widget.show()
+widget.addWidget(home)
+#widget.resize(1200, 800)
+widget.showMaximized()
 try:
     sys.exit(app.exec())
 except:

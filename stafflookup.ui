@@ -17,7 +17,7 @@
    <property name="geometry">
     <rect>
      <x>0</x>
-     <y>-60</y>
+     <y>-20</y>
      <width>800</width>
      <height>1200</height>
     </rect>
@@ -55,63 +55,11 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <string>Logout</string>
     </property>
    </widget>
-   <widget class="QLabel" name="labelLastName">
-    <property name="geometry">
-     <rect>
-      <x>160</x>
-      <y>320</y>
-      <width>121</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
-    </property>
-    <property name="text">
-     <string>Last Name:</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="labelFirstName">
-    <property name="geometry">
-     <rect>
-      <x>160</x>
-      <y>400</y>
-      <width>121</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
-    </property>
-    <property name="text">
-     <string>First Name:</string>
-    </property>
-   </widget>
-   <widget class="QLineEdit" name="lastField">
-    <property name="geometry">
-     <rect>
-      <x>280</x>
-      <y>320</y>
-      <width>151</width>
-      <height>22</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QLineEdit" name="firstField">
-    <property name="geometry">
-     <rect>
-      <x>290</x>
-      <y>401</y>
-      <width>151</width>
-      <height>21</height>
-     </rect>
-    </property>
-   </widget>
    <widget class="QPushButton" name="search">
     <property name="geometry">
      <rect>
-      <x>302</x>
-      <y>530</y>
+      <x>300</x>
+      <y>490</y>
       <width>151</width>
       <height>28</height>
      </rect>
@@ -124,7 +72,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
     <property name="geometry">
      <rect>
       <x>230</x>
-      <y>490</y>
+      <y>450</y>
       <width>291</width>
       <height>31</height>
      </rect>
@@ -137,18 +85,57 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <string/>
     </property>
    </widget>
-   <widget class="QCheckBox" name="partSearch">
+   <widget class="QWidget" name="gridLayoutWidget">
     <property name="geometry">
      <rect>
-      <x>310</x>
-      <y>450</y>
-      <width>111</width>
-      <height>20</height>
+      <x>180</x>
+      <y>290</y>
+      <width>401</width>
+      <height>151</height>
      </rect>
     </property>
-    <property name="text">
-     <string>Partial Search</string>
-    </property>
+    <layout class="QGridLayout" name="gridLayout">
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="lastField"/>
+     </item>
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="firstField"/>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="labelFirstName">
+       <property name="styleSheet">
+        <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
+       </property>
+       <property name="text">
+        <string>First Name:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="labelLastName">
+       <property name="styleSheet">
+        <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
+       </property>
+       <property name="text">
+        <string>Last Name:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QCheckBox" name="lastBox">
+       <property name="text">
+        <string>Partial Search</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="2">
+      <widget class="QCheckBox" name="firstBox">
+       <property name="text">
+        <string>Partial Search</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </widget>
   </widget>
  </widget>
