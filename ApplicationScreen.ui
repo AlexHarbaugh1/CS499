@@ -13,120 +13,76 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <widget class="QWidget" name="widget" native="true">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1200</width>
-     <height>800</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">QWidget#widget{
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
+    <widget class="QWidget" name="widget" native="true">
+     <property name="styleSheet">
+      <string notr="true">QWidget#widget{
 background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop:0 rgba(0, 170, 255, 255), stop:1 rgba(255, 255, 255, 255))}</string>
-   </property>
-   <widget class="QLabel" name="label">
-    <property name="geometry">
-     <rect>
-      <x>425</x>
-      <y>20</y>
-      <width>350</width>
-      <height>100</height>
-     </rect>
-    </property>
-    <property name="minimumSize">
-     <size>
-      <width>100</width>
-      <height>0</height>
-     </size>
-    </property>
-    <property name="text">
-     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:36pt;&quot;&gt;PIMS Applications&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignCenter</set>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="PatientSearch">
-    <property name="geometry">
-     <rect>
-      <x>340</x>
-      <y>280</y>
-      <width>120</width>
-      <height>19</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Patient Search</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="StaffSearch">
-    <property name="geometry">
-     <rect>
-      <x>540</x>
-      <y>280</y>
-      <width>120</width>
-      <height>19</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Staff Search</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="RegisterStaffMember">
-    <property name="geometry">
-     <rect>
-      <x>740</x>
-      <y>280</y>
-      <width>120</width>
-      <height>19</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Register Staff Member</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="RegisterLocation">
-    <property name="geometry">
-     <rect>
-      <x>340</x>
-      <y>340</y>
-      <width>120</width>
-      <height>19</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Register Location</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="InsertPatient">
-    <property name="geometry">
-     <rect>
-      <x>540</x>
-      <y>340</y>
-      <width>120</width>
-      <height>19</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Insert Patient</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="RegisterAdmission">
-    <property name="geometry">
-     <rect>
-      <x>740</x>
-      <y>340</y>
-      <width>120</width>
-      <height>19</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Register Admission</string>
-    </property>
-   </widget>
-  </widget>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="0" column="0" colspan="3">
+       <widget class="QLabel" name="label">
+        <property name="minimumSize">
+         <size>
+          <width>100</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:36pt;&quot;&gt;PIMS Applications&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QPushButton" name="PatientSearch">
+        <property name="text">
+         <string>Patient Search</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QPushButton" name="StaffSearch">
+        <property name="text">
+         <string>Staff Search</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="2">
+       <widget class="QPushButton" name="RegisterStaffMember">
+        <property name="text">
+         <string>Register Staff Member</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QPushButton" name="RegisterLocation">
+        <property name="text">
+         <string>Register Location</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QPushButton" name="InsertPatient">
+        <property name="text">
+         <string>Insert Patient</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <widget class="QPushButton" name="RegisterAdmission">
+        <property name="text">
+         <string>Register Admission</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections/>

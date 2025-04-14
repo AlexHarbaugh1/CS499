@@ -59,12 +59,23 @@ class LoginScreen(QDialog):
             fixed_salt = keys[1]
             result_pass = SearchDB.passwordMatch(user, password, fixed_salt)
             if result_pass:
-                current_user_id = SearchDB.getUserID(user)
-                print("Logged in user ID:", current_user_id)
+                #current_user_id = SearchDB.getUserID(user)
+               # print("Logged in user ID:", current_user_id)
                 self.errorMsg.setText("")
-                self.gotosearch()
+                self.gotoapplication()
             else:
                 self.errorMsg.setText("Invalid username or password")
+
+    def gotoapplication(self):
+        application = ApplicationScreen()
+        widget.addWidget(application)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
+class ApplicationScreen(QDialog):
+    def __init__(self):
+        super(ApplicationScreen, self).__init__()
+        loadUi("ApplicationScreen.ui", self)
+        self.PatientSearch.clicked.connect(self.gotosearch)
 
     def gotosearch(self):
         search = SearchScreen()
