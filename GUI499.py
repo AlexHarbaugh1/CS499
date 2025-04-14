@@ -10,8 +10,8 @@ import sys
 import pandas as pd
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout
-from PyQt5.QtCore import QTimer, QEvent, QObject
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy
+from PyQt5.QtCore import QTimer, QEvent, QObject, QRect
 import string
 import EncryptionKey
 import SearchDB
@@ -163,6 +163,7 @@ class SearchStaff(QDialog):
         self.resultsTable.hide()
 
     def logoutfxn(self):
+        hospitalDB.userLogout()
         login=LoginScreen()
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex()+1)
@@ -224,9 +225,46 @@ class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
         loadUi("patientsearch.ui", self)
+        self.showMaximized()
+        screen_size = QApplication.desktop()
+        screen_width = screen_size.width()  
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+
+        self.label.setGeometry((screen_width - self.label.width()) // 2,
+                               170, self.label.width(), self.label.height())
+        
+        grid_width = 500  
+        grid_height = 200
+        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2,
+                                          270, grid_width, grid_height)
+
+        self.search.setGeometry((screen_width - self.search.width()) // 2,
+                                510, 116, 40)
+        
+        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+
+        self.resultsTable.hide()
+        self.resultsTable.setGeometry(50, 550, screen_width - 100, screen_height - 650)
+
+        self.search.clicked.connect(self.searchfunction)
+        self.logout.clicked.connect(LogOut)
+        
+
+        self.error.setGeometry((screen_width - 300) // 2, 470, 300, 31)
+        
+        for field in [self.lastField, self.firstField, self.midField]:
+            field.setMinimumHeight(35)
+            field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+            
+        for checkbox in [self.lastBox, self.firstBox]:
+            checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
+    
         self.search.clicked.connect(self.searchfunction)
         self.logout.clicked.connect(LogOut)
         self.resultsTable.hide()
+        self.resultsTable.setGeometry(QRect(50, 550, 700, 500))  # x, y, width, height
+        self.resultsTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     def searchfunction(self):
         lastName = self.lastField.text()
@@ -235,6 +273,7 @@ class SearchScreen(QDialog):
         lastBox = self.lastBox.isChecked()
         firstBox = self.firstBox.isChecked()
         partials = set()
+        
         if len(lastName) == 0 and len(firstName) == 0 and len(middleInitial) == 0:
             self.error.setText("Input at least one field.")
         else:
@@ -451,6 +490,7 @@ class ListScreen(QDialog):
 
 
 def LogOut():
+    hospitalDB.userLogout()
     home = MainScreen()
     widget.addWidget(home)
     widget.setCurrentIndex(widget.currentIndex() + 1)
