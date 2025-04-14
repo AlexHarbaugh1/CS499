@@ -170,8 +170,8 @@ class SearchStaff(QDialog):
     def searchfunction(self):
         lastName = self.lastField.text()
         firstName = self.firstField.text()
-        firstBox = self.firstBox.text()
-        lastBox = self.lastBox.text()
+        firstBox = self.firstBox.isChecked()
+        lastBox = self.lastBox.isChecked()
         partials = {}
         if len(lastName) == 0 and len(firstName) == 0:
             self.error.setText("Input at least one field.")
@@ -183,10 +183,9 @@ class SearchStaff(QDialog):
             #set a bool value for checkbox and insert checkbox var into SearchDB function params
             checkbox = False
             #check whether checkbox for last name or first name is checked, and if so, sets checkbox to true
-            if lastBox.isChecked():
+            if lastBox:
                 partials.append('lname')
-                print('LastBoxChecked')
-            if firstBox.isChecked():
+            if firstBox:
                 partials.append('fname')
             if firstName and lastName:
                 df = pd.DataFrame(SearchDB.searchStaffWithName(firstName, None, lastName, encryption_key, fixed_salt, checkbox))
@@ -233,9 +232,9 @@ class SearchScreen(QDialog):
         lastName = self.lastField.text()
         firstName = self.firstField.text()
         middleInitial = self.midField.text()
-        lastBox = self.lastBox.text()
-        firstBox = self.firstBox.text()
-
+        lastBox = self.lastBox.isChecked()
+        firstBox = self.firstBox.isChecked()
+        partials = set()
         if len(lastName) == 0 and len(firstName) == 0 and len(middleInitial) == 0:
             self.error.setText("Input at least one field.")
         else:
@@ -244,17 +243,16 @@ class SearchScreen(QDialog):
             fixed_salt = keys[1]
             df = None
             #set a bool value for checkbox and insert checkbox var into SearchDB function params
-            checkbox = False
             #check whether checkbox for last name or first name is checked, and if so, sets checkbox to true
-            if lastBox.isChecked() or firstBox.isChecked():
-                checkbox = True
-            if firstName and lastName:
-                df = pd.DataFrame(SearchDB.searchPatientWithName(firstName, None, lastName, encryption_key, fixed_salt, checkbox))
-            else:
-                df = pd.DataFrame(SearchDB.searchPatientWithName(firstName, None, None, encryption_key, fixed_salt, checkbox))
-                if df.empty:
-                    df = pd.DataFrame(SearchDB.searchPatientWithName(None, None, lastName, encryption_key, fixed_salt, checkbox))
-
+            if firstBox:
+                partials.add('fname')
+            if lastBox:
+                partials.add('lname')
+            df = pd.DataFrame(SearchDB.searchPatientWithName(fixed_salt, 
+                                                            fname=firstName if firstName else None,
+                                                            mname=middleInitial if middleInitial else None,
+                                                            lname=lastName if lastName else None,
+                                                            partial_fields=partials))
             if df.empty:
                 self.error.setText("No results found.")
             else:
