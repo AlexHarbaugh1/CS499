@@ -18,6 +18,7 @@ from PyQt5.QtCore import QTimer, QEvent, QObject
 import EncryptionKey
 from InactivityTimer import InactivityTimer
 import SearchDB
+from LockScreen import LockScreen
 
 current_user_id = None
 
@@ -60,14 +61,15 @@ class LoginScreen(QDialog):
             fixed_salt = keys[1]
             result_pass = SearchDB.passwordMatch(user, password, fixed_salt)
             if result_pass:
-                current_user_id = SearchDB.getUserID(user)
-                print("Logged in user ID:", current_user_id)
+                # current_user_id = SearchDB.getUserID(user)
+                # print("Logged in user ID:", current_user_id)
                 self.errorMsg.setText("")
                 self.gotosearch()
             else:
                 self.errorMsg.setText("Invalid username or password")
 
     def gotosearch(self):
+        eventFilter.enabled = True
         search = SearchScreen()
         widget.addWidget(search)
         widget.setCurrentIndex(widget.currentIndex() + 1)
@@ -78,6 +80,7 @@ class SearchScreen(QDialog):
         loadUi("patientsearch.ui", self)
         self.search.clicked.connect(self.searchfunction)
         self.logout.clicked.connect(LogOut)
+        self.lockButton.clicked.connect(lockScreen)
         self.resultsTable.hide()
 
     def searchfunction(self):
@@ -382,6 +385,13 @@ def LogOut():
     widget.addWidget(home)
     widget.setCurrentIndex(widget.currentIndex() + 1)
 
+def lockScreen():
+    print("here")
+    eventFilter.enabled = False
+    lock = LockScreen(LogOut, EncryptionKey.getKeys(), widget, eventFilter, current_user_id)
+    widget.addWidget(lock)
+    widget.setCurrentIndex(widget.currentIndex() + 1)
+
 app = QApplication(sys.argv)
 app.setStyleSheet("""
     QWidget {
@@ -424,7 +434,8 @@ home = MainScreen()
 widget = QtWidgets.QStackedWidget()
 widget.addWidget(home)
 widget.showMaximized()
-app.installEventFilter(InactivityTimer(LogOut))
+eventFilter = InactivityTimer(lockScreen)
+app.installEventFilter(eventFilter)
 
 try:
     sys.exit(app.exec())

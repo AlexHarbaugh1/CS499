@@ -1,5 +1,5 @@
 #   Inactivity timeout using event filter to reset timer when certian events are triggered. 
-#   Set time delay by changing inactivityTime (initially set to 600000 ms or 10 mins).
+#   Set time delay by changing inactivityTime (initially set to 300000 ms or 5 mins).
 #   Connect to window or app with .installEventFilter(InactivityTimer(*action*)) where *action* is the function that occurs when timer ends.
 
 from PyQt5.QtCore import QTimer, QObject, QEvent
@@ -10,7 +10,8 @@ class InactivityTimer(QObject):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.inactivityAction)
         self.action = action
-        self.inactivityTime = 600000
+        self.enabled = False
+        self.inactivityTime = 300000
 
     def eventFilter(self, obj, event):
         if event.type() in [QEvent.KeyPress, QEvent.MouseButtonPress, QEvent.MouseButtonDblClick, QEvent.Wheel, QEvent.Move, QEvent.MouseMove]:
@@ -19,8 +20,10 @@ class InactivityTimer(QObject):
         return super().eventFilter(obj, event)
     
     def resetTimer(self):
-        self.timer.stop()
-        self.timer.start(self.inactivityTime)
+        if self.enabled:
+            self.timer.stop()
+            # print("timer reset")
+            self.timer.start(self.inactivityTime)
 
     def inactivityAction(self):
         self.timer.stop()
