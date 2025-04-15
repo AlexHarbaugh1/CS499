@@ -5,21 +5,27 @@ Created on Wed Jan 29 09:18:06 2025
 @author: laure
 """
 import hospitalDB
+import InsertData
 import psycopg2
 import sys
 import pandas as pd
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
-from PyQt5.QtCore import QTimer, QEvent, QObject, QRect
+from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt
 import string
 import EncryptionKey
 import SearchDB
-
+keys = EncryptionKey.getKeys()
+encryption_key = keys[0]
+fixed_salt = keys[1]
 class MainScreen(QDialog):
     def __init__(self):
         super(MainScreen, self).__init__()
         loadUi("MainScreen.ui", self)
+        
+        self.showMaximized()
+
         self.enterApplication.clicked.connect(self.openLogin)
 
     def openLogin(self):
@@ -31,6 +37,9 @@ class LoginScreen(QDialog):
     def __init__(self):
         super(LoginScreen, self).__init__()
         loadUi("login1.ui", self)
+        
+        self.showMaximized()
+
         self.passwordField.setEchoMode(QtWidgets.QLineEdit.Password)
         self.login.clicked.connect(self.loginfunction)
 
@@ -41,9 +50,6 @@ class LoginScreen(QDialog):
         if len(user) == 0 or len(password) == 0:
             self.errorMsg.setText("Missing field.")
         else:
-            keys = EncryptionKey.getKeys()
-            encryption_key = keys[0]
-            fixed_salt = keys[1]
             result_pass = hospitalDB.userLogin(user, password, fixed_salt)
             if result_pass:
                 self.errorMsg.setText("")
@@ -64,66 +70,214 @@ class LoginScreen(QDialog):
         admin=AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex()+1)
+
 class AdminScreen(QDialog):
     def __init__(self):
-        super(AdminScreen,self).__init__()
-        loadUi("admin.ui",self)
+        super(AdminScreen, self).__init__()
+        loadUi("admin.ui", self)
+
+        self.showMaximized()
+        # Get screen dimensions
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()  
+        screen_height = screen_size.height()
+        
+        # Set main widget to fill the entire screen
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        
+        # Center the UI elements
+        self.centerUI(screen_width, screen_height)
+        
+        # Connect buttons
         self.insStaff.clicked.connect(self.insertStaffFunction)
         self.insPat.clicked.connect(self.insertPatientFunction)
         self.searchStaff.clicked.connect(self.searchStaffFunction)
         self.searchPatient.clicked.connect(self.searchPatFunction)
+        self.logout.clicked.connect(self.logoutFunction)
+        
+        # Apply button styling
+        self.styleButtons()
+
+    def centerUI(self, screen_width, screen_height):
+        """Center all UI elements properly"""
+        # Center the title and subtitle
+        title_width = 600
+        self.label.setGeometry((screen_width - title_width) // 2, 120, title_width, 61)
+        self.label_2.setGeometry((screen_width - title_width) // 2, 200, title_width, 41)
+        
+        # Position logout button in top right
+        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        
+        # Center the gridLayoutWidget
+        grid_width = 700
+        grid_height = 400
+        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 260, grid_width, grid_height)
+    
+    def styleButtons(self):
+        """Apply consistent styling to all buttons"""
+        button_style = """
+            QPushButton {
+                background-color: #e0e0e0;
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 10px;
+                font-size: 14pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d6d6d6;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+        """
+        
+        # Apply style to all operation buttons
+        for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient]:
+            button.setStyleSheet(button_style)
+            button.setMinimumHeight(60)
+            
+        # Style for logout button - same as other buttons now
+        self.logout.setStyleSheet(button_style)
 
     def insertStaffFunction(self):
-        insertStaff=InsertStaff()
+        insertStaff = InsertStaff()
         widget.addWidget(insertStaff)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
     
     def insertPatientFunction(self):
-        insertPatient=InsertPatient()
+        insertPatient = InsertPatient()
         widget.addWidget(insertPatient)
-        widget.setCurrentIndex(widget.currentIndex()+1)
-
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+    
     def searchStaffFunction(self):
-        searchStaff=SearchStaff()
+        searchStaff = SearchStaff()
         widget.addWidget(searchStaff)
-        widget.setCurrentIndex(widget.currentIndex()+1)
-
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+    
     def searchPatFunction(self):
-        search=SearchScreen()
+        search = SearchScreen()
         widget.addWidget(search)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+        
+    def logoutFunction(self):
+        hospitalDB.userLogout()
+        login = LoginScreen()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class InsertStaff(QDialog):
     def __init__(self):
-        super(InsertStaff,self).__init__()
-        loadUi("insertstaff.ui",self)
+        super(InsertStaff, self).__init__()
+        loadUi("insertstaff.ui", self)
+
+        self.showMaximized()
+        # Get screen dimensions
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()  
+        screen_height = screen_size.height()
+        
+        # Set main widget to fill the entire screen
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        
+        # Center the UI elements
+        self.centerUI(screen_width, screen_height)
+        
+        # Set up the combo box for staff type
+        self.staffTypeCombo.addItems(["", "Administrator", "Medical Personnel", "Physician", "Volunteer", "Office Staff"])
+        
+        # Connect buttons
         self.backTo.clicked.connect(self.toAdmin)
-        self.addStaff.clicked.connect(self.addStaff)
-    def addStaff(self):
-        for i in range(0,5):
-            firstName=self.tableWidget.item(i, 0)
-            lastName=self.tableWidget.item(i,0)
-            username = self.tableWidget.item(i,0)
-            password = self.tableWidget.item(i,0)
-            staffType = self.tableWidget.item(i,0)
-            #do sql stuff here
-            self.insertStaffFunction()
-    #takes you back to add staff screen where user can go back to admin/add more staff if they choose
-    def insertStaffFunction(self):
-        insertStaff=InsertStaff()
-        widget.addWidget(insertStaff)
-        widget.setCurrentIndex(widget.currentIndex()+1)            
+        self.addStaff.clicked.connect(self.addStaffMember)
+        
+        # Style form fields
+        for field in [self.firstNameField, self.lastNameField, self.usernameField, self.passwordField]:
+            field.setMinimumHeight(35)
+            field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        
+        # Style combo box
+        self.staffTypeCombo.setMinimumHeight(35)
+        self.staffTypeCombo.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+
+    def centerUI(self, screen_width, screen_height):
+        """Center all UI elements properly"""
+        # Center the title
+        title_width = 401  # From original UI
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        
+        # Position back button in top left
+        self.backTo.setGeometry(50, 70, 120, 40)
+        
+        # Center the form layout
+        form_width = 600  # Increased width for better alignment
+        form_height = 350  # Increased height for the form
+        self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 180, form_width, form_height)
+        
+        # Center the add staff button
+        button_width = 200
+        button_height = 50
+        self.addStaff.setGeometry((screen_width - button_width) // 2, 550, button_width, button_height)
+        
+        # Center and resize the error message to be wider
+        error_width = 600  # Increased from 400
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, 610, error_width, 40)  # Increased height from 31 to 40
+        
+        # Configure the error message to wrap text
+        self.errorMsg.setWordWrap(True)
+    
+    def addStaffMember(self):
+        firstName = self.firstNameField.text()
+        lastName = self.lastNameField.text()
+        username = self.usernameField.text()
+        password = self.passwordField.text()
+        staffType = self.staffTypeCombo.currentText()
+        # Check if all fields are filled
+        if not firstName or not lastName or not username or not password or not staffType:
+            self.errorMsg.setText("All fields are required.")
+            return
+        else:
+            try:
+                InsertData.insertStaff(firstName, lastName, username, password, staffType, fixed_salt)
+
+                self.errorMsg.setStyleSheet("color: green;")
+                self.errorMsg.setText(f"Staff member {firstName} {lastName} added successfully!")
+                # Clear the form fields
+                self.firstNameField.clear()
+                self.lastNameField.clear()
+                self.usernameField.clear()
+                self.passwordField.clear()
+                self.staffTypeCombo.setCurrentIndex(0)
+            except psycopg2.errors.UniqueViolation:
+                self.errorMsg.setStyleSheet("color: red;")
+                self.errorMsg.setText("Username already exists. Please choose a different username.")
+            except psycopg2.errors.NotNullViolation:
+                self.errorMsg.setStyleSheet("color: red;")
+                self.errorMsg.setText("Missing required information. Please fill all fields.")
+            except psycopg2.errors.ForeignKeyViolation:
+                self.errorMsg.setStyleSheet("color: red;")
+                self.errorMsg.setText("Invalid staff type selected.")
+            except psycopg2.OperationalError:
+                self.errorMsg.setStyleSheet("color: red;")
+                self.errorMsg.setText("Connection to database failed. Please try again later.")
+            except ValueError as e:
+                self.errorMsg.setStyleSheet("color: red;")
+                if "Invalid staff type" in str(e):
+                    self.errorMsg.setText("Please select a valid staff type.")
+                else:
+                    self.errorMsg.setText("Invalid input data. Please check your entries.")
 
     def toAdmin(self):
-        admin=AdminScreen()
+        admin = AdminScreen()
         widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
 class InsertPatient(QDialog):
     def __init__(self):
         super(InsertPatient,self).__init__()
         loadUi("insertpat.ui",self)
+
         self.back.clicked.connect(self.toAdmin)
-        self.addPatient.clicked.connect(self.addPatient)
+        self.insertPatient.clicked.connect(self.addPatient)
 
     def addPatient(self):
         for i in range(0,15):
@@ -154,10 +308,14 @@ class InsertPatient(QDialog):
         admin=AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex()+1)
+
 class SearchStaff(QDialog):
     def __init__(self):
         super(SearchStaff,self).__init__()
         loadUi("stafflookup.ui",self)
+
+        self.showMaximized()
+
         self.search.clicked.connect(self.searchfunction)
         self.logout.clicked.connect(self.logoutfxn)
         self.resultsTable.hide()
@@ -177,9 +335,6 @@ class SearchStaff(QDialog):
         if len(lastName) == 0 and len(firstName) == 0:
             self.error.setText("Input at least one field.")
         else:
-            keys = EncryptionKey.getKeys()
-            encryption_key = keys[0]
-            fixed_salt = keys[1]
             df = None
             #set a bool value for checkbox and insert checkbox var into SearchDB function params
             checkbox = False
@@ -215,6 +370,7 @@ class SearchStaff(QDialog):
         details = StaffDetailsScreen(staff_id)
         widget.addWidget(details)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+
 class StaffDetailsScreen(QDialog):
     def __init__(self, staff_id):
         super(PatientDetailsScreen, self).__init__()
@@ -225,6 +381,7 @@ class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
         loadUi("patientsearch.ui", self)
+        
         self.showMaximized()
         
         # Get screen dimensions
@@ -293,9 +450,6 @@ class SearchScreen(QDialog):
         if len(lastName) == 0 and len(firstName) == 0 and len(middleInitial) == 0:
             self.error.setText("Input at least one field.")
         else:
-            keys = EncryptionKey.getKeys()
-            encryption_key = keys[0]
-            fixed_salt = keys[1]
             df = None
             #set a bool value for checkbox and insert checkbox var into SearchDB function params
             #check whether checkbox for last name or first name is checked, and if so, sets checkbox to true
@@ -830,7 +984,7 @@ app.setStyleSheet("""
         font-weight: bold;
     }
 """)
-login = LoginScreen()
+
 home = MainScreen()
 widget = QtWidgets.QStackedWidget()
 widget.addWidget(home)

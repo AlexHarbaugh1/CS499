@@ -104,7 +104,7 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
             for _ in range(random.randint(2, 5)):
                 hospitalDB.userLogin('Physician1', 'qwertyuiop', fixedSalt)
 
-                InsertData.insertNote(_, fake.paragraph(nb_sentences=3))
+                InsertData.insertNote(admission, fake.paragraph(nb_sentences=3))
                 hospitalDB.userLogout()
 
             # Add procedures (0-2 per admission)

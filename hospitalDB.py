@@ -307,7 +307,9 @@ def run():
                       FROM 
                         Billing b
                       JOIN Admission a ON b.admission_id = a.admission_id;""")
-      cursor2.execute("GRANT SELECT ON billinginformationview TO physician_role, medicalpersonnel_role")
+      cursor2.execute("GRANT SELECT ON billinginformationview TO physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT SELECT ON billing TO physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT SELECT ON billingdetail TO physician_role, medicalpersonnel_role;")
       #Activeadmissionview shows all active admissions
       cursor2.execute("""CREATE VIEW activeadmissionview AS
                       SELECT admission_id, location_id FROM admission WHERE discharge_datetime IS NULL;""")

@@ -10,6 +10,15 @@ def hashPrefix(prefix, fixedSalt):
     return hashlib.sha256((prefix + fixedSalt).encode()).hexdigest()
 
 def insertStaff(fname, lname, username, password, type, fixedSalt):
+    type_map = {
+        "Administrator": 1,
+        "Medical Personnel": 2, 
+        "Office Staff": 3,
+        "Volunteer": 4,
+        "Physician": 5
+    }
+    typeID = type_map.get(type)
+
     with hospitalDB.get_cursor() as cursor:    
         fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
         lnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(lname)]
@@ -21,7 +30,7 @@ def insertStaff(fname, lname, username, password, type, fixedSalt):
                     last_name_prefix_trgms= %s,
                     username = %s,
                     password = %s,
-                    type_id = (SELECT type_id FROM UserType WHERE type_name = %s);"""
+                    type_id = %s;"""
         params = (
             fname,
             lname,
@@ -29,7 +38,7 @@ def insertStaff(fname, lname, username, password, type, fixedSalt):
             lnameHashedPrefixes,
             username,
             password,
-            type
+            typeID
         )
         try:
             cursor.execute(sql, params)
@@ -247,17 +256,16 @@ def insertBilledItem(admissionID, itemName, itemCost):
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     hospitalDB.run()
-    hospitalDB.userLogin('Physician1', 'qwertyuiop', keys[1])
-    #insertStaff('Volunteer', 'One', 'Volunteer1', 'qwertyuiop', 'Volunteer', keys[1])
-    #insertStaff('MedicalPersonnel', 'One', 'MedicalPersonnel1', 'qwertyuiop', 'Medical Personnel', keys[1])
-    #insertStaff('Physician', 'One', 'Physician1', 'qwertyuiop', 'Physician', keys[1])
-    #insertStaff('OfficeStaff', 'One', 'OfficeStaff1', 'qwertyuiop', 'Office Staff', keys[1])
-    #insertStaff('Administrator', 'One', 'Administrator1', 'qwertyuiop', 'Administrator', keys[1])
+    #hospitalDB.userLogin('Physician1', 'qwertyuiop', keys[1])
+    insertStaff('Volunteer', 'One', 'Volunteer1', 'qwertyuiop', 'Volunteer', keys[1])
+    insertStaff('MedicalPersonnel', 'One', 'MedicalPersonnel1', 'qwertyuiop', 'Medical Personnel', keys[1])
+    insertStaff('Physician', 'One', 'Physician1', 'qwertyuiop', 'Physician', keys[1])
+    insertStaff('OfficeStaff', 'One', 'OfficeStaff1', 'qwertyuiop', 'Office Staff', keys[1])
+    insertStaff('Administrator', 'One', 'Administrator1', 'qwertyuiop', 'Administrator', keys[1])
     #insertPatient('Elliot', 'P', 'Cyrus', 'The Moon', '3', keys[1])
     #insertLocation('Main Ward', '1', '101', '1')
-    #insertAdmission('1', '1', '3', datetime.datetime.now(), 'Needs Halp')
-    #insertVisitors('1', ['Mitch', 'Taylor', 'Josh'], keys[0])
-    insertPrescription('1','Ibuprofen','500mg', 'Once Every Six Hours')
-    insertNote('1', 'The Meth really showed results')
-    insertProcedure('1', 'Finger Surgery', '2025-03-15 12:00:00')
+    #insertAdmission('201', '1', '3', datetime.datetime.now(), 'Needs Halp')
+    #insertVisitors('16', ['Mitch', 'Taylor', 'Josh'], keys[0])
+    #insertNote('16', 'The Meth really showed results')
+    #insertProcedure('16', 'Finger Surgery', '2025-03-15 12:00:00')
     #insertBill(admissionID, '200000', '170000', '30000', [{'name': 'ER Visit', 'cost': float('75.27')}, {'name': 'X-Ray', 'cost': float('4000')}, {'name': 'Ibuprofen', 'cost': float('5.73')}, {'name': 'Morphine', 'cost': float('70919')}, {'name': 'Meth', 'cost': float('100000')}, {'name': 'Finger Surgery', 'cost': float('25000')}])
