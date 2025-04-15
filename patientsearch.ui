@@ -107,9 +107,6 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <item row="1" column="1">
       <widget class="QLineEdit" name="firstField"/>
      </item>
-     <item row="0" column="0" rowspan="8" colspan="5">
-       <widget class="QTableWidget" name="resultsTable"/>
-      </item>
      <item row="2" column="0">
       <widget class="QLabel" name="label_2">
        <property name="styleSheet">
@@ -150,6 +147,16 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
     </property>
     <property name="text">
      <string>Search</string>
+    </property>
+   </widget>
+   <widget class="QTableWidget" name="resultsTable">
+    <property name="geometry">
+     <rect>
+      <x>50</x>
+      <y>550</y>
+      <width>700</width>
+      <height>500</height>
+     </rect>
     </property>
    </widget>
   </widget>

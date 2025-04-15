@@ -226,44 +226,60 @@ class SearchScreen(QDialog):
         super(SearchScreen, self).__init__()
         loadUi("patientsearch.ui", self)
         self.showMaximized()
+        
+        # Get screen dimensions
         screen_size = QApplication.desktop()
         screen_width = screen_size.width()  
         screen_height = screen_size.height()
+        
+        # Set main widget to fill the entire screen
         self.widget.setGeometry(0, 0, screen_width, screen_height)
 
-        self.label.setGeometry((screen_width - self.label.width()) // 2,
-                               170, self.label.width(), self.label.height())
+        # Center the form elements
+        self.centerUI(screen_width, screen_height)
         
-        grid_width = 500  
-        grid_height = 200
-        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2,
-                                          270, grid_width, grid_height)
-
-        self.search.setGeometry((screen_width - self.search.width()) // 2,
-                                510, 116, 40)
-        
-        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
-
-        self.resultsTable.hide()
-        self.resultsTable.setGeometry(50, 550, screen_width - 100, screen_height - 650)
-
-        self.search.clicked.connect(self.searchfunction)
-        self.logout.clicked.connect(LogOut)
-        
-
-        self.error.setGeometry((screen_width - 300) // 2, 470, 300, 31)
-        
+        # Style form fields
         for field in [self.lastField, self.firstField, self.midField]:
             field.setMinimumHeight(35)
             field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
             
+        # Style checkboxes
         for checkbox in [self.lastBox, self.firstBox]:
             checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
     
+        # Connect event handlers
         self.search.clicked.connect(self.searchfunction)
         self.logout.clicked.connect(LogOut)
         self.resultsTable.hide()
-        self.resultsTable.setGeometry(QRect(50, 550, 700, 500))  # x, y, width, height
+
+    def centerUI(self, screen_width, screen_height):
+        """Center all UI elements properly"""
+        # Center the title
+        title_width = 401  # From original UI
+        self.label.setGeometry((screen_width - title_width) // 2, 170, title_width, 61)
+        
+        # Position logout button in top right
+        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        
+        # Center the form grid
+        form_width = 600  # Increased width for better alignment
+        form_height = 200
+        self.gridLayoutWidget.setGeometry((screen_width - form_width) // 2, 270, form_width, form_height)
+        
+        # Center the error message
+        error_width = 300
+        self.error.setGeometry((screen_width - error_width) // 2, 470, error_width, 31)
+        
+        # Center search button
+        search_width = 116
+        search_height = 40
+        self.search.setGeometry((screen_width - search_width) // 2, 510, search_width, search_height)
+        
+        # Center the results table
+        table_width = min(screen_width - 100, 1000)  # Limit width with padding
+        table_height = min(screen_height - 600, 400)  # Limit height with padding
+        table_x = (screen_width - table_width) // 2  # Center horizontally
+        self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
         self.resultsTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     def searchfunction(self):
