@@ -10,7 +10,7 @@ import sys
 import pandas as pd
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect
 import string
 import EncryptionKey
@@ -228,7 +228,7 @@ class SearchScreen(QDialog):
         self.showMaximized()
         
         # Get screen dimensions
-        screen_size = QApplication.desktop()
+        screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
         screen_height = screen_size.height()
         
@@ -334,163 +334,398 @@ class PatientDetailsScreen(QDialog):
     def __init__(self, patient_id):
         super(PatientDetailsScreen, self).__init__()
         self.setWindowTitle("Patient Details")
-        self.setGeometry(100, 100, 800, 600)
-
+        self.setGeometry(100, 100, 900, 700)
+        self.patient_id = patient_id
+        self.usertype = hospitalDB.getCurrentUserType()
+        
         layout = QVBoxLayout()
+        
+        # Create a header with patient info
+        self.header_frame = QFrame()
+        self.header_layout = QHBoxLayout()
+        self.patient_info_label = QLabel()
+        self.patient_info_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.header_layout.addWidget(self.patient_info_label)
+        self.header_frame.setLayout(self.header_layout)
+        layout.addWidget(self.header_frame)
+        
+        # Create tabs - different tabs will be shown based on user type
         self.tabs = QTabWidget()
-
-        self.info_tab = QWidget()
+        
+        # Create tabs for different user types
+        self.basic_info_tab = QWidget()
         self.insurance_tab = QWidget()
         self.contacts_tab = QWidget()
         self.notes_tab = QWidget()
         self.medications_tab = QWidget()
         self.procedures_tab = QWidget()
-
-        self.tabs.addTab(self.info_tab, "Info")
-        self.tabs.addTab(self.insurance_tab, "Insurance")
-        self.tabs.addTab(self.contacts_tab, "Contacts")
-        self.tabs.addTab(self.notes_tab, "Notes")
-        self.tabs.addTab(self.medications_tab, "Medications")
-        self.tabs.addTab(self.procedures_tab, "Procedures")
-
+        self.location_tab = QWidget()
+        self.admissions_tab = QWidget()
+        self.visitors_tab = QWidget()
+        
+        # Only add the relevant tabs based on user type
+        self.setupTabs()
+        
         layout.addWidget(self.tabs)
-
+        
+        # Buttons at the bottom
+        button_layout = QHBoxLayout()
+        
         self.back_button = QPushButton("Back")
         self.back_button.clicked.connect(self.goBack)
-        layout.addWidget(self.back_button)
-
+        button_layout.addWidget(self.back_button)
+        
         self.print_button = QPushButton("Print to File")
-        self.print_button.clicked.connect(lambda: self.printPatientDetails(patient_id))
-        layout.addWidget(self.print_button)
-
+        self.print_button.clicked.connect(self.printPatientDetails)
+        button_layout.addWidget(self.print_button)
+        
+        layout.addLayout(button_layout)
+        
         self.setLayout(layout)
-
-        self.loadPatientData(patient_id)
-
-    def loadPatientData(self, patient_id):
-        keys = EncryptionKey.getKeys()
+        
+        # Load the patient data
+        self.loadPatientData()
+    
+    def setupTabs(self):
+        """Configure tabs based on user type"""
+        if self.usertype == "Volunteer":
+            self.tabs.addTab(self.basic_info_tab, "Patient Info")
+            self.tabs.addTab(self.location_tab, "Location")
+            self.tabs.addTab(self.visitors_tab, "Approved Visitors")
+            
+        elif self.usertype == "Office Staff":
+            self.tabs.addTab(self.basic_info_tab, "Basic Info")
+            self.tabs.addTab(self.insurance_tab, "Insurance")
+            self.tabs.addTab(self.contacts_tab, "Contacts")
+            
+        elif self.usertype in ["Medical Personnel", "Physician"]:
+            self.tabs.addTab(self.basic_info_tab, "Basic Info")
+            self.tabs.addTab(self.admissions_tab, "Admissions")
+            self.tabs.addTab(self.notes_tab, "Notes")
+            self.tabs.addTab(self.medications_tab, "Medications")
+            self.tabs.addTab(self.procedures_tab, "Procedures")
+            
+    def loadPatientData(self):
         try:
-            result = SearchDB.searchPatientWithID(patient_id, keys[0])
-            if not result:
+            # Get data using the new search function
+            patient_data = SearchDB.searchPatientWithID(self.patient_id)
+            
+            if not patient_data or len(patient_data) == 0:
+                QMessageBox.warning(self, "No Data", "No patient data found.")
                 return
-
-            (patientData, doctorUsername, patientAdmissions, patientInsurance, phoneNumbers, emergencyContacts, locationInfo, doctorNotes, nurseNotes, prescriptions, procedures) = result
-
-            info_layout = QFormLayout()
-            info_layout.setSpacing(10)
-            info_layout.setContentsMargins(20, 20, 20, 20)
-            info_layout.addRow(QLabel("<b>Patient Information</b>"))
-            info_layout.addRow("First Name:", QLabel(patientData[0]))
-            info_layout.addRow("Middle Name:", QLabel(patientData[1]))
-            info_layout.addRow("Last Name:", QLabel(patientData[2]))
-            info_layout.addRow("Mailing Address:", QLabel(patientData[3]))
-            info_layout.addRow(QLabel("<b>Doctor Info</b>"))
-            info_layout.addRow("Doctor Username:", QLabel(doctorUsername[0]))
-            info_layout.addRow("Doctor Name:", QLabel(f"{doctorUsername[1]} {doctorUsername[2]}"))
-            if locationInfo:
-                info_layout.addRow(QLabel("<b>Room Info</b>"))
-                info_layout.addRow("Facility:", QLabel(str(locationInfo[0])))
-                info_layout.addRow("Floor:", QLabel(str(locationInfo[1])))
-                info_layout.addRow("Room Number:", QLabel(str(locationInfo[2])))
-                info_layout.addRow("Bed Number:", QLabel(str(locationInfo[3])))
-            self.info_tab.setLayout(info_layout)
-
-            insurance_layout = QVBoxLayout()
-            if patientInsurance:
-                insurance_fields = [("Carrier", patientInsurance[0]), ("Account #", patientInsurance[1]), ("Group #", patientInsurance[2])]
-                for label, value in insurance_fields:
-                    insurance_layout.addWidget(QLabel(f"{label}: {value}"))
-            else:
-                insurance_layout.addWidget(QLabel("No insurance info found."))
-            self.insurance_tab.setLayout(insurance_layout)
-
-            contacts_layout = QVBoxLayout()
-            if phoneNumbers:
-                for phone in phoneNumbers:
-                    contacts_layout.addWidget(QLabel(f"{phone[0].capitalize()} Phone: {phone[1]}"))
-            else:
-                contacts_layout.addWidget(QLabel("No phone numbers found."))
-            if emergencyContacts:
-                for i, contact in enumerate(emergencyContacts):
-                    label = f"Emergency Contact {i + 1}"
-                    name, phone = contact
-                    contacts_layout.addWidget(QLabel(f"{label}: {name} - {phone}"))
-            else:
-                contacts_layout.addWidget(QLabel("No emergency contacts found."))
-            self.contacts_tab.setLayout(contacts_layout)
-
-            notes_layout = QVBoxLayout()
-            if doctorNotes:
-                for note in doctorNotes:
-                    notes_layout.addWidget(QLabel(f"Doctor Note: {note[0]} (Time: {note[1]})"))
-            if nurseNotes:
-                for note in nurseNotes:
-                    notes_layout.addWidget(QLabel(f"Nurse Note: {note[0]} (Time: {note[1]})"))
-            if not doctorNotes and not nurseNotes:
-                notes_layout.addWidget(QLabel("No notes found."))
-            self.notes_tab.setLayout(notes_layout)
-
-            meds_layout = QVBoxLayout()
-            if prescriptions:
-                for prescription in prescriptions:
-                    meds_layout.addWidget(QLabel(f"Medication: {prescription[0]}, Amount: {prescription[1]}, Schedule: {prescription[2]}"))
-            else:
-                meds_layout.addWidget(QLabel("No prescriptions found."))
-            self.medications_tab.setLayout(meds_layout)
-
-            procedures_layout = QVBoxLayout()
-            if procedures:
-                for procedure in procedures:
-                    procedures_layout.addWidget(QLabel(f"Procedure: {procedure[0]} at {procedure[1]}"))
-            else:
-                procedures_layout.addWidget(QLabel("No procedures found."))
-            self.procedures_tab.setLayout(procedures_layout)
-
+                
+            # Process data based on user type
+            if self.usertype == "Volunteer":
+                self.loadVolunteerData(patient_data[0])
+            elif self.usertype == "Office Staff":
+                self.loadOfficeStaffData(patient_data[0])
+            elif self.usertype in ["Medical Personnel", "Physician"]:
+                self.loadMedicalData(patient_data[0])
+                
         except Exception as e:
-            print(f"Error loading patient data: {e}")
-
-    def printPatientDetails(self, patient_id):
-        keys = EncryptionKey.getKeys()
-        result = SearchDB.searchPatientWithID(patient_id, keys[0])
-        if not result:
-            return
-
-        (patientData, doctorUsername, patientAdmissions, patientInsurance, phoneNumbers, emergencyContacts, locationInfo, doctorNotes, nurseNotes, prescriptions, procedures) = result
-
-        lines = []
-        lines.append("Patient Details")
-        lines.append(f"Name: {patientData[0]} {patientData[1]} {patientData[2]}")
-        lines.append(f"Address: {patientData[3]}")
-        lines.append(f"Doctor: {doctorUsername[1]} {doctorUsername[2]} ({doctorUsername[0]})")
-        if locationInfo:
-            lines.append(f"Location: {locationInfo[0]}, Floor {locationInfo[1]}, Room {locationInfo[2]}, Bed {locationInfo[3]}")
-        if patientInsurance:
-            lines.append(f"Insurance: {patientInsurance[0]}, Account #: {patientInsurance[1]}, Group #: {patientInsurance[2]}")
-        if phoneNumbers:
-            for phone in phoneNumbers:
-                lines.append(f"{phone[0]} Phone: {phone[1]}")
-        if emergencyContacts:
-            for contact in emergencyContacts:
-                lines.append(f"Emergency Contact: {contact[0]} - {contact[1]}")
-        if doctorNotes:
-            for note in doctorNotes:
-                lines.append(f"Doctor Note: {note[0]} (Time: {note[1]})")
-        if nurseNotes:
-            for note in nurseNotes:
-                lines.append(f"Nurse Note: {note[0]} (Time: {note[1]})")
-        if prescriptions:
-            for med in prescriptions:
-                lines.append(f"Medication: {med[0]} {med[1]} ({med[2]})")
-        if procedures:
-            for proc in procedures:
-                lines.append(f"Procedure: {proc[0]} at {proc[1]}")
-
-        filename = f"patient_details_{patient_id}.txt"
-        with open(filename, "w") as f:
-            f.write("\n".join(lines))
-        print(f"Patient details written to {filename}\n")
-
+            QMessageBox.critical(self, "Error", f"Error loading patient data: {str(e)}")
+            print(f"Error: {e}")
+    
+    def loadVolunteerData(self, data):
+        """Load data for Volunteer view"""
+        # Volunteer view has: patient_id, first_name, middle_name, last_name, 
+        # facility, floor, room_number, bed_number, visitors
+        
+        # Set header
+        name = f"{data[1]} {data[2] or ''} {data[3]}"
+        self.patient_info_label.setText(f"Patient: {name}")
+        
+        # Basic Info Tab
+        basic_layout = QFormLayout()
+        basic_layout.addRow("First Name:", QLabel(data[1] or ""))
+        basic_layout.addRow("Middle Name:", QLabel(data[2] or ""))
+        basic_layout.addRow("Last Name:", QLabel(data[3] or ""))
+        self.basic_info_tab.setLayout(basic_layout)
+        
+        # Location Tab
+        location_layout = QFormLayout()
+        location_layout.addRow("Facility:", QLabel(data[4] or ""))
+        location_layout.addRow("Floor:", QLabel(str(data[5] or "")))
+        location_layout.addRow("Room Number:", QLabel(str(data[6] or "")))
+        location_layout.addRow("Bed Number:", QLabel(str(data[7] or "")))
+        self.location_tab.setLayout(location_layout)
+        
+        # Visitors Tab
+        visitors_layout = QVBoxLayout()
+        if data[8] and len(data[8]) > 0:
+            visitors_list = QListWidget()
+            for visitor in data[8]:
+                visitors_list.addItem(visitor)
+            visitors_layout.addWidget(visitors_list)
+        else:
+            visitors_layout.addWidget(QLabel("No approved visitors"))
+        self.visitors_tab.setLayout(visitors_layout)
+    
+    def loadOfficeStaffData(self, data):
+        """Load data for Office Staff view"""
+        # Office staff view has: patient_id, first_name, middle_name, last_name, 
+        # mailing_address, insurance, phones, emergency contacts
+        
+        # Set header
+        name = f"{data[1]} {data[2] or ''} {data[3]}"
+        self.patient_info_label.setText(f"Patient: {name}")
+        
+        # Basic Info Tab
+        basic_layout = QFormLayout()
+        basic_layout.addRow("First Name:", QLabel(data[1] or ""))
+        basic_layout.addRow("Middle Name:", QLabel(data[2] or ""))
+        basic_layout.addRow("Last Name:", QLabel(data[3] or ""))
+        basic_layout.addRow("Mailing Address:", QLabel(data[4] or ""))
+        self.basic_info_tab.setLayout(basic_layout)
+        
+        # Insurance Tab
+        insurance_layout = QFormLayout()
+        insurance_layout.addRow("Insurance Carrier:", QLabel(data[5] or ""))
+        insurance_layout.addRow("Account Number:", QLabel(data[6] or ""))
+        insurance_layout.addRow("Group Number:", QLabel(data[7] or ""))
+        self.insurance_tab.setLayout(insurance_layout)
+        
+        # Contacts Tab
+        contacts_layout = QVBoxLayout()
+        
+        # Phone numbers
+        phone_group = QGroupBox("Phone Numbers")
+        phone_layout = QFormLayout()
+        phone_layout.addRow("Home Phone:", QLabel(data[8] or ""))
+        phone_layout.addRow("Work Phone:", QLabel(data[9] or ""))
+        phone_layout.addRow("Mobile Phone:", QLabel(data[10] or ""))
+        phone_group.setLayout(phone_layout)
+        contacts_layout.addWidget(phone_group)
+        
+        # Emergency contacts
+        ec_group = QGroupBox("Emergency Contacts")
+        ec_layout = QFormLayout()
+        ec_layout.addRow("Contact 1 Name:", QLabel(data[11] or ""))
+        ec_layout.addRow("Contact 1 Phone:", QLabel(data[12] or ""))
+        ec_layout.addRow("Contact 2 Name:", QLabel(data[13] or ""))
+        ec_layout.addRow("Contact 2 Phone:", QLabel(data[14] or ""))
+        ec_group.setLayout(ec_layout)
+        contacts_layout.addWidget(ec_group)
+        
+        self.contacts_tab.setLayout(contacts_layout)
+    
+    def loadMedicalData(self, data):
+        """Load data for Medical Personnel and Physician view"""
+        # Medical view has: patient_id, first_name, middle_name, last_name, admissions
+        # where admissions is a JSON array containing all admissions with notes, prescriptions, procedures
+        
+        # Set header
+        name = f"{data[1]} {data[2] or ''} {data[3]}"
+        self.patient_info_label.setText(f"Patient: {name}")
+        
+        # Basic Info Tab
+        basic_layout = QFormLayout()
+        basic_layout.addRow("First Name:", QLabel(data[1] or ""))
+        basic_layout.addRow("Middle Name:", QLabel(data[2] or ""))
+        basic_layout.addRow("Last Name:", QLabel(data[3] or ""))
+        self.basic_info_tab.setLayout(basic_layout)
+        
+        # Process admissions data which is in position 4
+        admissions = data[4] if len(data) > 4 else []
+        
+        # Admissions Tab - List of admissions
+        admissions_layout = QVBoxLayout()
+        if admissions and len(admissions) > 0:
+            admissions_list = QListWidget()
+            for admission in admissions:
+                admission_id = admission.get('admission_id', '')
+                admit_date = admission.get('admittance_date', '')
+                reason = admission.get('admission_reason', '')
+                discharge = admission.get('admittance_discharge', '')
+                
+                display_text = f"Admission #{admission_id}: {admit_date} - Reason: {reason}"
+                if discharge:
+                    display_text += f" (Discharged: {discharge})"
+                
+                admissions_list.addItem(display_text)
+            
+            admissions_layout.addWidget(admissions_list)
+        else:
+            admissions_layout.addWidget(QLabel("No admissions found"))
+        self.admissions_tab.setLayout(admissions_layout)
+        
+        # Notes Tab
+        notes_layout = QVBoxLayout()
+        all_notes = []
+        
+        for admission in admissions:
+            if 'details' in admission and 'notes' in admission['details']:
+                for note in admission['details']['notes']:
+                    note_text = note.get('text', '')
+                    note_type = note.get('type', '')
+                    note_author = note.get('author', '')
+                    note_datetime = note.get('datetime', '')
+                    
+                    all_notes.append((note_datetime, f"{note_type} note by {note_author}: {note_text}"))
+        
+        # Sort notes by datetime
+        all_notes.sort(key=lambda x: x[0])
+        
+        if all_notes:
+            notes_list = QListWidget()
+            for _, note_text in all_notes:
+                notes_list.addItem(note_text)
+            notes_layout.addWidget(notes_list)
+        else:
+            notes_layout.addWidget(QLabel("No notes found"))
+        
+        self.notes_tab.setLayout(notes_layout)
+        
+        # Medications Tab
+        medications_layout = QVBoxLayout()
+        all_meds = []
+        
+        for admission in admissions:
+            if 'details' in admission and 'prescriptions' in admission['details']:
+                for med in admission['details']['prescriptions']:
+                    medication = med.get('medication', '')
+                    amount = med.get('amount', '')
+                    schedule = med.get('schedule', '')
+                    
+                    all_meds.append(f"Medication: {medication}, Amount: {amount}, Schedule: {schedule}")
+        
+        if all_meds:
+            meds_list = QListWidget()
+            for med in all_meds:
+                meds_list.addItem(med)
+            medications_layout.addWidget(meds_list)
+        else:
+            medications_layout.addWidget(QLabel("No medications found"))
+        
+        self.medications_tab.setLayout(medications_layout)
+        
+        # Procedures Tab
+        procedures_layout = QVBoxLayout()
+        all_procedures = []
+        
+        for admission in admissions:
+            if 'details' in admission and 'procedures' in admission['details']:
+                for proc in admission['details']['procedures']:
+                    name = proc.get('name', '')
+                    scheduled = proc.get('scheduled', '')
+                    
+                    all_procedures.append(f"Procedure: {name}, Scheduled: {scheduled}")
+        
+        if all_procedures:
+            proc_list = QListWidget()
+            for proc in all_procedures:
+                proc_list.addItem(proc)
+            procedures_layout.addWidget(proc_list)
+        else:
+            procedures_layout.addWidget(QLabel("No procedures found"))
+        
+        self.procedures_tab.setLayout(procedures_layout)
+    
+    def printPatientDetails(self):
+        """Print patient details to a file"""
+        try:
+            # Get the patient data again
+            patient_data = SearchDB.searchPatientWithID(self.patient_id)
+            
+            if not patient_data or len(patient_data) == 0:
+                QMessageBox.warning(self, "No Data", "No patient data to print.")
+                return
+            
+            data = patient_data[0]
+            lines = []
+            lines.append("PATIENT DETAILS REPORT")
+            lines.append("=" * 50)
+            
+            # Format based on user type
+            if self.usertype == "Volunteer":
+                name = f"{data[1]} {data[2] or ''} {data[3]}"
+                lines.append(f"Patient: {name}")
+                lines.append(f"Location: {data[4]}, Floor {data[5]}, Room {data[6]}, Bed {data[7]}")
+                lines.append("\nApproved Visitors:")
+                if data[8] and len(data[8]) > 0:
+                    for visitor in data[8]:
+                        lines.append(f"- {visitor}")
+                else:
+                    lines.append("No approved visitors")
+                    
+            elif self.usertype == "Office Staff":
+                name = f"{data[1]} {data[2] or ''} {data[3]}"
+                lines.append(f"Patient: {name}")
+                lines.append(f"Mailing Address: {data[4] or 'Not provided'}")
+                lines.append("\nInsurance Information:")
+                lines.append(f"Carrier: {data[5] or 'Not provided'}")
+                lines.append(f"Account #: {data[6] or 'Not provided'}")
+                lines.append(f"Group #: {data[7] or 'Not provided'}")
+                lines.append("\nPhone Numbers:")
+                lines.append(f"Home: {data[8] or 'Not provided'}")
+                lines.append(f"Work: {data[9] or 'Not provided'}")
+                lines.append(f"Mobile: {data[10] or 'Not provided'}")
+                lines.append("\nEmergency Contacts:")
+                lines.append(f"Contact 1: {data[11] or 'Not provided'} - {data[12] or 'Not provided'}")
+                lines.append(f"Contact 2: {data[13] or 'Not provided'} - {data[14] or 'Not provided'}")
+                
+            elif self.usertype in ["Medical Personnel", "Physician"]:
+                name = f"{data[1]} {data[2] or ''} {data[3]}"
+                lines.append(f"Patient: {name}")
+                
+                admissions = data[4] if len(data) > 4 else []
+                lines.append("\nAdmissions:")
+                
+                if admissions and len(admissions) > 0:
+                    for admission in admissions:
+                        admission_id = admission.get('admission_id', '')
+                        admit_date = admission.get('admittance_date', '')
+                        reason = admission.get('admission_reason', '')
+                        discharge = admission.get('admittance_discharge', '')
+                        
+                        lines.append(f"\nAdmission #{admission_id}")
+                        lines.append(f"Date: {admit_date}")
+                        lines.append(f"Reason: {reason}")
+                        if discharge:
+                            lines.append(f"Discharged: {discharge}")
+                        
+                        # Notes
+                        if 'details' in admission and 'notes' in admission['details'] and admission['details']['notes']:
+                            lines.append("\n  Notes:")
+                            for note in admission['details']['notes']:
+                                note_text = note.get('text', '')
+                                note_type = note.get('type', '')
+                                note_author = note.get('author', '')
+                                note_datetime = note.get('datetime', '')
+                                lines.append(f"  - {note_datetime} {note_type} by {note_author}: {note_text}")
+                        
+                        # Medications
+                        if 'details' in admission and 'prescriptions' in admission['details'] and admission['details']['prescriptions']:
+                            lines.append("\n  Medications:")
+                            for med in admission['details']['prescriptions']:
+                                medication = med.get('medication', '')
+                                amount = med.get('amount', '')
+                                schedule = med.get('schedule', '')
+                                lines.append(f"  - {medication}, {amount}, {schedule}")
+                        
+                        # Procedures
+                        if 'details' in admission and 'procedures' in admission['details'] and admission['details']['procedures']:
+                            lines.append("\n  Procedures:")
+                            for proc in admission['details']['procedures']:
+                                name = proc.get('name', '')
+                                scheduled = proc.get('scheduled', '')
+                                lines.append(f"  - {name}, Scheduled for {scheduled}")
+                else:
+                    lines.append("No admissions found")
+            
+            # Write to file
+            filename = f"patient_{self.patient_id}_details.txt"
+            with open(filename, 'w') as f:
+                f.write("\n".join(lines))
+            
+            QMessageBox.information(self, "Success", f"Patient details saved to {filename}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error printing patient data: {str(e)}")
+            print(f"Error: {e}")
+    
     def goBack(self):
+        # Navigate back to the search screen
         current_index = widget.currentIndex()
         current_widget = widget.widget(current_index)
         widget.removeWidget(current_widget)
