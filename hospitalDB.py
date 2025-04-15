@@ -284,6 +284,30 @@ def run():
       params = (keys[0],)*4
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON volunteerview TO volunteer_role;")
+      # BillingInformationView for accessing billing information
+      cursor2.execute("""CREATE VIEW BillingInformationView AS
+                      SELECT 
+                        b.billing_id,
+                        b.admission_id,
+                        b.total_amount_owed::DECIMAL(10,2) AS amount_owed,
+                        b.total_amount_paid::DECIMAL(10,2) AS amount_paid,
+                        b.insurance_paid::DECIMAL(10,2) AS insurance_paid,
+                        (b.total_amount_owed - b.total_amount_paid - b.insurance_paid)::DECIMAL(10,2) AS balance_due,
+                        (
+                          SELECT jsonb_agg(
+                            jsonb_build_object(
+                              'item_id', bd.billing_detail_id,
+                              'description', bd.item_description,
+                              'charge', bd.charge_amount::DECIMAL(10,2)
+                            ) ORDER BY bd.billing_detail_id ASC
+                          )
+                          FROM BillingDetail bd
+                          WHERE bd.billing_id = b.billing_id
+                        ) AS billing_items
+                      FROM 
+                        Billing b
+                      JOIN Admission a ON b.admission_id = a.admission_id;""")
+      cursor2.execute("GRANT SELECT ON billinginformationview TO physician_role, medicalpersonnel_role")
       #Activeadmissionview shows all active admissions
       cursor2.execute("""CREATE VIEW activeadmissionview AS
                       SELECT admission_id, location_id FROM admission WHERE discharge_datetime IS NULL;""")
@@ -435,60 +459,83 @@ def run():
       cursor2.execute(sql, params)
       # Physician and Medical Personnel
       # Patient Admission View for Physicians and Medical Personnel
-      sql = """CREATE VIEW PatientAdmissionOverview AS
-            SELECT 
-              p.patient_id,
-              pgp_sym_decrypt(p.first_name, %s) AS first_name,
-              pgp_sym_decrypt(p.middle_name, %s) AS middle_name,
-              pgp_sym_decrypt(p.last_name, %s) AS last_name,
-              jsonb_agg(
-                jsonb_build_object(
-                  'admission_id', a.admission_id,
-                  'admittance_date', pgp_sym_decrypt(a.admittance_datetime, %s),
-                  'admission_reason', pgp_sym_decrypt(a.reason_for_admission, %s),
-                  'admittance_discharge', pgp_sym_decrypt(a.discharge_datetime, %s),
-                  'details', jsonb_build_object(
-                  'notes', (
-                    SELECT jsonb_agg(
-                      jsonb_build_object(
-                      'text', pgp_sym_decrypt(pn.note_text, %s),
-                      'type', pn.note_type,
-                      'author', pgp_sym_decrypt(s.first_name,  %s) || ' ' || pgp_sym_decrypt(s.last_name, %s),
-                      'datetime', pgp_sym_decrypt(pn.note_datetime, %s)
-                    )
-                  )
+      sql = """CREATE OR REPLACE VIEW PatientAdmissionOverview AS
+SELECT 
+  p.patient_id,
+  pgp_sym_decrypt(p.first_name, %s) AS first_name,
+  pgp_sym_decrypt(p.middle_name, %s) AS middle_name,
+  pgp_sym_decrypt(p.last_name, %s) AS last_name,
+  pgp_sym_decrypt(p.mailing_address, %s) AS mailing_address,
+  pgp_sym_decrypt(i.carrier_name, %s) AS insurance_carrier,
+  pgp_sym_decrypt(i.account_number, %s) AS insurance_account,
+  pgp_sym_decrypt(i.group_number, %s) AS insurance_group,
+  (SELECT pgp_sym_decrypt(pn.phone_number, %s) FROM PhoneNumber pn 
+   WHERE pn.patient_id = p.patient_id AND pn.phone_type = 'Home' LIMIT 1) AS home_phone,
+  (SELECT pgp_sym_decrypt(pn.phone_number, %s) FROM PhoneNumber pn 
+   WHERE pn.patient_id = p.patient_id AND pn.phone_type = 'Work' LIMIT 1) AS work_phone,
+  (SELECT pgp_sym_decrypt(pn.phone_number, %s) FROM PhoneNumber pn 
+   WHERE pn.patient_id = p.patient_id AND pn.phone_type = 'Mobile' LIMIT 1) AS mobile_phone,
+  (SELECT pgp_sym_decrypt(ec.contact_name, %s) FROM EmergencyContact ec 
+   WHERE ec.patient_id = p.patient_id AND ec.contact_order = 1 LIMIT 1) AS ec1_name,
+  (SELECT pgp_sym_decrypt(ec.contact_phone, %s) FROM EmergencyContact ec 
+   WHERE ec.patient_id = p.patient_id AND ec.contact_order = 1 LIMIT 1) AS ec1_phone,
+  (SELECT pgp_sym_decrypt(ec.contact_name, %s) FROM EmergencyContact ec 
+   WHERE ec.patient_id = p.patient_id AND ec.contact_order = 2 LIMIT 1) AS ec2_name,
+  (SELECT pgp_sym_decrypt(ec.contact_phone, %s) FROM EmergencyContact ec 
+   WHERE ec.patient_id = p.patient_id AND ec.contact_order = 2 LIMIT 1) AS ec2_phone,
+  (
+    SELECT jsonb_agg(
+      jsonb_build_object(
+        'admission_id', a.admission_id,
+        'admittance_date', pgp_sym_decrypt(a.admittance_datetime, %s),
+        'admission_reason', pgp_sym_decrypt(a.reason_for_admission, %s),
+        'admittance_discharge', pgp_sym_decrypt(a.discharge_datetime, %s),
+        'details', jsonb_build_object(
+          'notes', (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'text', pgp_sym_decrypt(pn.note_text, %s),
+                'type', pn.note_type,
+                'author', pgp_sym_decrypt(s.first_name, %s) || ' ' || pgp_sym_decrypt(s.last_name, %s),
+                'datetime', pgp_sym_decrypt(pn.note_datetime, %s)
+              )
+            )
             FROM PatientNote pn
-              JOIN Staff s ON pn.author_id = s.user_id
-              WHERE pn.admission_id = a.admission_id
+            JOIN Staff s ON pn.author_id = s.user_id
+            WHERE pn.admission_id = a.admission_id
           ),
-                  'prescriptions', (
-                    SELECT jsonb_agg(
-                      jsonb_build_object(
-                        'medication', pgp_sym_decrypt(pr.medication_name, %s),
-                        'amount', pgp_sym_decrypt(pr.amount, %s),
-                        'schedule', pgp_sym_decrypt(pr.schedule, %s)
-                      )
-                    )
-                    FROM Prescription pr
-                    WHERE pr.admission_id = a.admission_id
-                  ),
-                  'procedures', (
-                    SELECT jsonb_agg(
-                      jsonb_build_object(
-                        'name', pgp_sym_decrypt(sp.procedure_name, %s),
-                        'scheduled', pgp_sym_decrypt(sp.scheduled_datetime, %s)
-                      )
-                    )
-                    FROM ScheduledProcedure sp
-                    WHERE sp.admission_id = a.admission_id
-                  )
-                )
-              ) ORDER BY a.admittance_datetime DESC
-            ) AS admissions
-          FROM Patient p
-          JOIN Admission a ON p.patient_id = a.patient_id
-          GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name;"""
-      params = (keys[0],)*15
+          'prescriptions', (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'medication', pgp_sym_decrypt(pr.medication_name, %s),
+                'amount', pgp_sym_decrypt(pr.amount, %s),
+                'schedule', pgp_sym_decrypt(pr.schedule, %s)
+              )
+            )
+            FROM Prescription pr
+            WHERE pr.admission_id = a.admission_id
+          ),
+          'procedures', (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'name', pgp_sym_decrypt(sp.procedure_name, %s),
+                'scheduled', pgp_sym_decrypt(sp.scheduled_datetime, %s)
+              )
+            )
+            FROM ScheduledProcedure sp
+            WHERE sp.admission_id = a.admission_id
+          )
+        )
+      ) ORDER BY a.admittance_datetime DESC
+    )
+    FROM Admission a
+    WHERE a.patient_id = p.patient_id
+  ) AS admissions
+FROM Patient p
+LEFT JOIN Insurance i ON p.patient_id = i.patient_id
+GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name, p.mailing_address, 
+         i.carrier_name, i.account_number, i.group_number;"""
+      params = (keys[0],)*26
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")

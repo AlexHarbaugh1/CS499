@@ -75,7 +75,6 @@ def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial
 # USE CASE: Retrieve a patient's information for populating their related page in the GUI
 def searchPatientWithID(patientID):
     usertype = hospitalDB.getCurrentUserType()
-    print(usertype)
     sql = {'Volunteer': "SELECT * FROM VolunteerView WHERE patient_ID = %s",
            'Office Staff': "SELECT * FROM officestaffview WHERE patient_ID = %s;",
            'Medical Personnel': "SELECT * FROM patientadmissionoverview WHERE patient_ID = %s;",
@@ -206,26 +205,16 @@ def searchStaffWithID(userID, encryptionKey):
 # USE CASE: Find all billing information for printing reports
 def searchBillingWithAdmission(admissionID):
     with hospitalDB.get_cursor() as cursor:
-        sql = """SELECT billing_id, total_amount_owed::FLOAT, total_amount_paid::FLOAT, insurance_paid::FLOAT
-            FROM Billing
+        sql = """SELECT *
+            FROM BillingInformationView
             WHERE admission_id = %s;"""
         params = (
             admissionID,
         )
         cursor.execute(sql, params)
-        results = cursor.fetchone()
-        billing = results[1:]
-        billingID = str(results[0])
-        sql = """SELECT item_description, charge_amount::FLOAT
-            FROM billingdetail
-            WHERE billing_id = %s;"""
-        params = (
-            billingID,
-        )
-        cursor.execute(sql, params)
-        billingDetails = cursor.fetchall()
-        cursor.close()
-    return billing, billingDetails
+        billDetails = cursor.fetchone()
+
+    return billDetails
 # searchAdmissionWithID takes the admission ID and returns all associated admissionData
 # Returns tuple with tuple of admittance date, release date, reason for admission
 # tuple of facility, floor, room number, bed number

@@ -400,11 +400,12 @@ class PatientDetailsScreen(QDialog):
             
         elif self.usertype in ["Medical Personnel", "Physician"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
+            self.tabs.addTab(self.insurance_tab, "Insurance")
+            self.tabs.addTab(self.contacts_tab, "Contacts")
             self.tabs.addTab(self.admissions_tab, "Admissions")
             self.tabs.addTab(self.notes_tab, "Notes")
             self.tabs.addTab(self.medications_tab, "Medications")
             self.tabs.addTab(self.procedures_tab, "Procedures")
-            
     def loadPatientData(self):
         try:
             # Get data using the new search function
@@ -508,11 +509,10 @@ class PatientDetailsScreen(QDialog):
         contacts_layout.addWidget(ec_group)
         
         self.contacts_tab.setLayout(contacts_layout)
-    
+
     def loadMedicalData(self, data):
         """Load data for Medical Personnel and Physician view"""
-        # Medical view has: patient_id, first_name, middle_name, last_name, admissions
-        # where admissions is a JSON array containing all admissions with notes, prescriptions, procedures
+        # Medical view has: patient_id, first_name, middle_name, last_name, address, insurance, phones, emergency contacts, admissions
         
         # Set header
         name = f"{data[1]} {data[2] or ''} {data[3]}"
@@ -523,10 +523,42 @@ class PatientDetailsScreen(QDialog):
         basic_layout.addRow("First Name:", QLabel(data[1] or ""))
         basic_layout.addRow("Middle Name:", QLabel(data[2] or ""))
         basic_layout.addRow("Last Name:", QLabel(data[3] or ""))
+        basic_layout.addRow("Mailing Address:", QLabel(data[4] or ""))
         self.basic_info_tab.setLayout(basic_layout)
         
-        # Process admissions data which is in position 4
-        admissions = data[4] if len(data) > 4 else []
+        # Insurance Tab
+        insurance_layout = QFormLayout()
+        insurance_layout.addRow("Insurance Carrier:", QLabel(data[5] or ""))
+        insurance_layout.addRow("Account Number:", QLabel(data[6] or ""))
+        insurance_layout.addRow("Group Number:", QLabel(data[7] or ""))
+        self.insurance_tab.setLayout(insurance_layout)
+        
+        # Contacts Tab
+        contacts_layout = QVBoxLayout()
+        
+        # Phone numbers
+        phone_group = QGroupBox("Phone Numbers")
+        phone_layout = QFormLayout()
+        phone_layout.addRow("Home Phone:", QLabel(data[8] or ""))
+        phone_layout.addRow("Work Phone:", QLabel(data[9] or ""))
+        phone_layout.addRow("Mobile Phone:", QLabel(data[10] or ""))
+        phone_group.setLayout(phone_layout)
+        contacts_layout.addWidget(phone_group)
+        
+        # Emergency contacts
+        ec_group = QGroupBox("Emergency Contacts")
+        ec_layout = QFormLayout()
+        ec_layout.addRow("Contact 1 Name:", QLabel(data[11] or ""))
+        ec_layout.addRow("Contact 1 Phone:", QLabel(data[12] or ""))
+        ec_layout.addRow("Contact 2 Name:", QLabel(data[13] or ""))
+        ec_layout.addRow("Contact 2 Phone:", QLabel(data[14] or ""))
+        ec_group.setLayout(ec_layout)
+        contacts_layout.addWidget(ec_group)
+        
+        self.contacts_tab.setLayout(contacts_layout)
+        
+        # Process admissions data which is in position 15
+        admissions = data[15] if len(data) > 15 else []
         
         # Admissions Tab - List of admissions
         admissions_layout = QVBoxLayout()
@@ -539,7 +571,7 @@ class PatientDetailsScreen(QDialog):
                 discharge = admission.get('admittance_discharge', '')
                 
                 display_text = f"Admission #{admission_id}: {admit_date} - Reason: {reason}"
-                if discharge:
+                if discharge and discharge.lower() != 'none':
                     display_text += f" (Discharged: {discharge})"
                 
                 admissions_list.addItem(display_text)
@@ -555,7 +587,7 @@ class PatientDetailsScreen(QDialog):
         
         for admission in admissions:
             if 'details' in admission and 'notes' in admission['details']:
-                for note in admission['details']['notes']:
+                for note in admission['details']['notes'] or []:
                     note_text = note.get('text', '')
                     note_type = note.get('type', '')
                     note_author = note.get('author', '')
@@ -582,7 +614,7 @@ class PatientDetailsScreen(QDialog):
         
         for admission in admissions:
             if 'details' in admission and 'prescriptions' in admission['details']:
-                for med in admission['details']['prescriptions']:
+                for med in admission['details']['prescriptions'] or []:
                     medication = med.get('medication', '')
                     amount = med.get('amount', '')
                     schedule = med.get('schedule', '')
@@ -605,7 +637,7 @@ class PatientDetailsScreen(QDialog):
         
         for admission in admissions:
             if 'details' in admission and 'procedures' in admission['details']:
-                for proc in admission['details']['procedures']:
+                for proc in admission['details']['procedures'] or []:
                     name = proc.get('name', '')
                     scheduled = proc.get('scheduled', '')
                     
@@ -667,8 +699,23 @@ class PatientDetailsScreen(QDialog):
             elif self.usertype in ["Medical Personnel", "Physician"]:
                 name = f"{data[1]} {data[2] or ''} {data[3]}"
                 lines.append(f"Patient: {name}")
+                lines.append(f"Mailing Address: {data[4] or 'Not provided'}")
                 
-                admissions = data[4] if len(data) > 4 else []
+                lines.append("\nInsurance Information:")
+                lines.append(f"Carrier: {data[5] or 'Not provided'}")
+                lines.append(f"Account #: {data[6] or 'Not provided'}")
+                lines.append(f"Group #: {data[7] or 'Not provided'}")
+                
+                lines.append("\nPhone Numbers:")
+                lines.append(f"Home: {data[8] or 'Not provided'}")
+                lines.append(f"Work: {data[9] or 'Not provided'}")
+                lines.append(f"Mobile: {data[10] or 'Not provided'}")
+                
+                lines.append("\nEmergency Contacts:")
+                lines.append(f"Contact 1: {data[11] or 'Not provided'} - {data[12] or 'Not provided'}")
+                lines.append(f"Contact 2: {data[13] or 'Not provided'} - {data[14] or 'Not provided'}")
+                
+                admissions = data[15] if len(data) > 15 else []
                 lines.append("\nAdmissions:")
                 
                 if admissions and len(admissions) > 0:
@@ -681,7 +728,7 @@ class PatientDetailsScreen(QDialog):
                         lines.append(f"\nAdmission #{admission_id}")
                         lines.append(f"Date: {admit_date}")
                         lines.append(f"Reason: {reason}")
-                        if discharge:
+                        if discharge and discharge.lower() != 'none':
                             lines.append(f"Discharged: {discharge}")
                         
                         # Notes
@@ -723,7 +770,6 @@ class PatientDetailsScreen(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error printing patient data: {str(e)}")
             print(f"Error: {e}")
-    
     def goBack(self):
         # Navigate back to the search screen
         current_index = widget.currentIndex()
