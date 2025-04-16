@@ -311,44 +311,95 @@ class InsertPatient(QDialog):
 
 class SearchStaff(QDialog):
     def __init__(self):
-        super(SearchStaff,self).__init__()
-        loadUi("stafflookup.ui",self)
-
+        super(SearchStaff, self).__init__()
+        loadUi("stafflookup.ui", self)
+        
         self.showMaximized()
+        
+        # Get screen dimensions
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()  
+        screen_height = screen_size.height()
+        
+        # Set main widget to fill the entire screen
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
 
+        # Center the form elements
+        self.centerUI(screen_width, screen_height)
+        
+        # Style form fields
+        for field in [self.lastField, self.firstField]:
+            field.setMinimumHeight(35)
+            field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+            
+        # Style checkboxes
+        for checkbox in [self.lastBox, self.firstBox]:
+            checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
+    
+        # Connect event handlers
         self.search.clicked.connect(self.searchfunction)
         self.logout.clicked.connect(self.logoutfxn)
         self.resultsTable.hide()
 
+    def centerUI(self, screen_width, screen_height):
+        """Center all UI elements properly"""
+        # Center the title
+        title_width = 401  # From original UI
+        self.label.setGeometry((screen_width - title_width) // 2, 200, title_width, 71)
+        
+        # Position logout button in top right
+        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        
+        # Center the form grid
+        form_width = 600  # Increased width for better alignment
+        form_height = 151
+        self.gridLayoutWidget.setGeometry((screen_width - form_width) // 2, 290, form_width, form_height)
+        
+        # Center the error message
+        error_width = 300
+        self.error.setGeometry((screen_width - error_width) // 2, 450, error_width, 31)
+        
+        # Center search button
+        search_width = 151
+        search_height = 40
+        self.search.setGeometry((screen_width - search_width) // 2, 490, search_width, search_height)
+        
+        # Add a results table with proper positioning
+        table_width = min(screen_width - 100, 1000)  # Limit width with padding
+        table_height = min(screen_height - 600, 400)  # Limit height with padding
+        table_x = (screen_width - table_width) // 2  # Center horizontally
+        
+        self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
+        self.resultsTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
     def logoutfxn(self):
         hospitalDB.userLogout()
-        login=LoginScreen()
+        login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def searchfunction(self):
         lastName = self.lastField.text()
         firstName = self.firstField.text()
         firstBox = self.firstBox.isChecked()
         lastBox = self.lastBox.isChecked()
-        partials = {}
+        partials = set()
+        
         if len(lastName) == 0 and len(firstName) == 0:
             self.error.setText("Input at least one field.")
         else:
             df = None
-            #set a bool value for checkbox and insert checkbox var into SearchDB function params
-            checkbox = False
-            #check whether checkbox for last name or first name is checked, and if so, sets checkbox to true
+
+            # Check whether checkbox for last name or first name is checked
             if lastBox:
-                partials.append('lname')
+                partials.add('lname')
             if firstBox:
-                partials.append('fname')
-            if firstName and lastName:
-                df = pd.DataFrame(SearchDB.searchStaffWithName(firstName, None, lastName, encryption_key, fixed_salt, checkbox))
-            else:
-                df = pd.DataFrame(SearchDB.searchStaffWithName(firstName, None, None, encryption_key, fixed_salt, checkbox))
-                if df.empty:
-                    df = pd.DataFrame(SearchDB.searchStaffWithName(None, None, lastName, encryption_key, fixed_salt, checkbox))
+                partials.add('fname')
+
+            df = pd.DataFrame(SearchDB.searchStaffWithName(fixed_salt,
+                                                          firstName if firstName else None,
+                                                          lastName if lastName else None,
+                                                          partials))
 
             if df.empty:
                 self.error.setText("No results found.")
@@ -357,7 +408,7 @@ class SearchStaff(QDialog):
                 self.resultsTable.show()
                 self.resultsTable.setRowCount(len(df))
                 self.resultsTable.setColumnCount(len(df.columns))
-                self.resultsTable.setHorizontalHeaderLabels(["ID", "First Name", "Middle Name", "Last Name"])
+                self.resultsTable.setHorizontalHeaderLabels(["ID", "Username", "First Name", "Last Name", "Role"])
                 for i in range(len(df)):
                     for j in range(len(df.columns)):
                         item = QTableWidgetItem(str(df.iat[i, j]))
@@ -442,12 +493,12 @@ class SearchScreen(QDialog):
     def searchfunction(self):
         lastName = self.lastField.text()
         firstName = self.firstField.text()
-        middleInitial = self.midField.text()
+        middleName = self.midField.text()
         lastBox = self.lastBox.isChecked()
         firstBox = self.firstBox.isChecked()
         partials = set()
         
-        if len(lastName) == 0 and len(firstName) == 0 and len(middleInitial) == 0:
+        if len(lastName) == 0 and len(firstName) == 0 and len(middleName) == 0:
             self.error.setText("Input at least one field.")
         else:
             df = None
@@ -459,7 +510,7 @@ class SearchScreen(QDialog):
                 partials.add('lname')
             df = pd.DataFrame(SearchDB.searchPatientWithName(fixed_salt, 
                                                             fname=firstName if firstName else None,
-                                                            mname=middleInitial if middleInitial else None,
+                                                            mname=middleName if middleName else None,
                                                             lname=lastName if lastName else None,
                                                             partial_fields=partials))
             if df.empty:
@@ -948,6 +999,12 @@ def LogOut():
 
 app = QApplication(sys.argv)
 app.setStyleSheet("""
+    QPushButton {
+        outline: none;
+    }
+    QPushButton:focus {
+        outline: none;
+    }
     QWidget {
         font-size: 16px;
         font-family: Arial, sans-serif;

@@ -87,81 +87,43 @@ def searchPatientWithID(patientID):
 # searchStaffWithName uses same logic as searchPatientWithName to find and list Staff members
 # Returns list of tuples with user_id, first_name, last_name
 # USE CASE: search for staff members on the search screen    
-def searchStaffWithName(fname, lname, encryptionKey, fixedSalt, partial = False):
+def searchStaffWithName(fixed_salt, fname=None, lname=None, partial_fields=set()):
     with hospitalDB.get_cursor() as cursor:
-        if (not partial):
-            if(fname != None):
-                if(lname != None): 
-                    sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
-                        FROM staff
-                        WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        AND last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY decrypted_last_name ASC;"""
-                    params = (
-                        encryptionKey,
-                        encryptionKey,
-                        fname, fixedSalt,
-                        lname, fixedSalt
-                    )
+        conditions = []
+        params = []
+        name_parts = [
+            (fname, 'first_name_prefix_trgms', 'fname'),
+            (lname, 'last_name_prefix_trgms', 'lname'),
+        ]
+
+        for value, column, field in name_parts:
+            if value:
+                hashed = "encode(digest(%s || %s, 'sha256'), 'hex')"
+                
+                # Choose operator based on whether field is in partial_fields
+                if field in partial_fields:
+                    condition = f"{column} && ARRAY[{hashed}]"  # Partial match
                 else:
-                    sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
-                        FROM staff
-                        WHERE first_name_prefix_trgms[array_upper(first_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                        ORDER BY decrypted_last_name ASC;"""
-                    params = (
-                        encryptionKey,
-                        encryptionKey,
-                        fname, fixedSalt
-                        )
-            else:
-                sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
-                        FROM staff
-                            WHERE last_name_prefix_trgms[array_upper(last_name_prefix_trgms, 1)] = encode(digest(%s || %s, 'sha256'), 'hex')
-                            ORDER BY decrypted_last_name ASC;"""
-                params = (
-                            encryptionKey,
-                            encryptionKey,
-                            lname, fixedSalt,
-                        )
+                    condition = f"{column}[array_upper({column}, 1)] = {hashed}"  # Exact match
+                    
+                conditions.append(condition)
+                params.extend([value, fixed_salt])
+
+        # Base query
+        base_sql = """SELECT user_id, username, first_name, last_name, type_name 
+                      FROM staffsearchview"""
+
+        # Add conditions if any exist
+        if conditions:
+            sql = f"{base_sql} WHERE {' AND '.join(conditions)}"
         else:
-            if(fname != None):
-                if(lname != None): 
-                    sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
-                        FROM staff
-                        WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        AND last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY decrypted_last_name ASC;"""
-                    params = (
-                        encryptionKey,
-                        encryptionKey,
-                        fname, fixedSalt,
-                        lname, fixedSalt
-                    )
-                else:
-                        sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
-                        FROM staff
-                        WHERE first_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY decrypted_last_name ASC;"""
-                        params = (
-                        encryptionKey,
-                        encryptionKey,
-                        fname, fixedSalt
-                    )
-            else:
-                    sql = """SELECT user_id, pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s) AS decrypted_last_name
-                        FROM staff
-                        WHERE last_name_prefix_trgms && ARRAY[encode(digest(%s || %s, 'sha256'), 'hex')]
-                        ORDER BY decrypted_last_name ASC;"""
-                    params = (
-                                encryptionKey,
-                                encryptionKey,
-                                lname, fixedSalt
-                            )
-        
-        cursor.execute(sql,params)
+            sql = base_sql
+
+        sql += " ORDER BY last_name ASC;"
+        cursor.execute(sql, params)
         staff = cursor.fetchall()
         cursor.close()
-    return(staff)
+    return staff
 # searchStaffWithID takes input user_id and returns relevant staff member information
 # Returns tuple of username, first_name, last_name, type
 # USE CASE: after selecting a staff member, return the data necessary to populate the page

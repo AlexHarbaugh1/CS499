@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>diaPtntLookup</class>
- <widget class="QDialog" name="diaPtntLookup">
+ <class>diaStaffLookup</class>
+ <widget class="QDialog" name="diaStaffLookup">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -29,7 +29,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
-      <x>190</x>
+      <x>210</x>
       <y>170</y>
       <width>401</width>
       <height>61</height>
@@ -39,7 +39,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <string notr="true">font: 36pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>Patient Lookup</string>
+     <string>Staff Lookup</string>
     </property>
    </widget>
    <widget class="QPushButton" name="logout">
@@ -74,10 +74,10 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
    <widget class="QWidget" name="gridLayoutWidget">
     <property name="geometry">
      <rect>
-      <x>170</x>
+      <x>180</x>
       <y>270</y>
       <width>441</width>
-      <height>191</height>
+      <height>151</height>
      </rect>
     </property>
     <layout class="QGridLayout" name="gridLayout">
@@ -106,19 +106,6 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      </item>
      <item row="1" column="1">
       <widget class="QLineEdit" name="firstField"/>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="label_2">
-       <property name="styleSheet">
-        <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
-       </property>
-       <property name="text">
-        <string>Middle Name:</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QLineEdit" name="midField"/>
      </item>
      <item row="0" column="2">
       <widget class="QCheckBox" name="lastBox">
