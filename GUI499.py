@@ -58,18 +58,129 @@ class LoginScreen(QDialog):
                 if userType == "Administrator":
                     self.gotoadmin()
                 else:
-                    self.gotosearch()
+                    self.gotoapplication()
             else:
                 self.errorMsg.setText("Invalid username or password")
 
-    def gotosearch(self):
-        search = SearchScreen()
-        widget.addWidget(search)
+    def gotoapplication(self):
+        application = ApplicationScreen()
+        widget.addWidget(application)
         widget.setCurrentIndex(widget.currentIndex() + 1)
     def gotoadmin(self):
         admin=AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex()+1)
+
+class ApplicationScreen(QDialog):
+    def __init__(self):
+        super(ApplicationScreen, self).__init__()
+        loadUi("ApplicationScreen.ui", self)
+
+        # Get screen dimensions
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        
+        # Set main widget to fill the entire screen
+        self.showMaximized()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        
+        # Center the UI elements
+        self.centerUI(screen_width, screen_height)
+        
+        # Get current user role to determine button visibility
+        self.usertype = hospitalDB.getCurrentUserType()
+        
+        # Show/hide buttons based on user role
+        self.configureButtonVisibility()
+        
+        # Connect button signals to slots
+        self.connectButtons()
+        
+        # Apply button styling
+        self.styleButtons()
+
+    def centerUI(self, screen_width, screen_height):
+        """Center all UI elements properly"""
+        # Center the title and subtitle
+        title_width = 600
+        self.label.setGeometry((screen_width - title_width) // 2, 120, title_width, 61)
+        
+        # Position logout button in top right
+        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        
+        # Center the gridLayoutWidget
+        grid_width = 700
+        grid_height = 400
+        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 260, grid_width, grid_height)
+
+    def configureButtonVisibility(self):
+        """Show/hide buttons based on user role"""
+        # Search Patient - Volunteer, Physician, Office Staff, Medical Personnel (all roles)
+        self.PatientSearch.setVisible(True)
+        
+        # Register Patient - Medical Personnel, Physician, Office Staff
+        if self.usertype in ["Medical Personnel", "Physician", "Office Staff"]:
+            self.RegisterPatient.setVisible(True)
+        else:
+            self.RegisterPatient.setVisible(False)
+        
+        # Register Admission - Medical Personnel, Physician
+        if self.usertype in ["Medical Personnel", "Physician"]:
+            self.RegisterAdmission.setVisible(True)
+        else:
+            self.RegisterAdmission.setVisible(False)
+
+    def connectButtons(self):
+        """Connect button signals to slots"""
+        self.PatientSearch.clicked.connect(self.goToPatientSearch)
+        self.RegisterPatient.clicked.connect(self.goToRegisterPatient)
+        self.RegisterAdmission.clicked.connect(self.goToRegisterAdmission)
+        self.logout.clicked.connect(self.logoutFunction)
+
+    def styleButtons(self):
+        """Apply consistent styling to all buttons"""
+        button_style = """
+            QPushButton {
+                background-color: #e0e0e0;
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 10px;
+                font-size: 14pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d6d6d6;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+        """
+        
+        # Apply style to all operation buttons
+        for button in [self.PatientSearch, self.RegisterPatient, self.RegisterAdmission]:
+            button.setStyleSheet(button_style)
+            button.setMinimumHeight(60)
+            
+        # Style for logout button
+        self.logout.setStyleSheet(button_style)
+
+    def goToPatientSearch(self):
+        search = SearchScreen()
+        widget.addWidget(search)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+        
+    def goToRegisterPatient(self):
+        print("placeholder")
+        
+    def goToRegisterAdmission(self):
+        print("placeholder")
+        
+    def logoutFunction(self):
+        hospitalDB.userLogout()
+        login = LoginScreen()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class AdminScreen(QDialog):
     def __init__(self):
@@ -187,7 +298,7 @@ class InsertStaff(QDialog):
         self.staffTypeCombo.addItems(["", "Administrator", "Medical Personnel", "Physician", "Volunteer", "Office Staff"])
         
         # Connect buttons
-        self.backTo.clicked.connect(self.toAdmin)
+        self.backTo.clicked.connect(self.goBack)
         self.addStaff.clicked.connect(self.addStaffMember)
         
         # Style form fields
@@ -226,11 +337,14 @@ class InsertStaff(QDialog):
         self.errorMsg.setWordWrap(True)
     
     def addStaffMember(self):
+        keys = EncryptionKey.getKeys()
+        fixed_salt = keys[1]
         firstName = self.firstNameField.text()
         lastName = self.lastNameField.text()
         username = self.usernameField.text()
         password = self.passwordField.text()
         staffType = self.staffTypeCombo.currentText()
+        
         # Check if all fields are filled
         if not firstName or not lastName or not username or not password or not staffType:
             self.errorMsg.setText("All fields are required.")
@@ -266,7 +380,8 @@ class InsertStaff(QDialog):
                 else:
                     self.errorMsg.setText("Invalid input data. Please check your entries.")
 
-    def toAdmin(self):
+    def goBack(self):
+        # Navigate back to the admin screen
         admin = AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex() + 1)
@@ -276,7 +391,7 @@ class InsertPatient(QDialog):
         super(InsertPatient,self).__init__()
         loadUi("insertpat.ui",self)
 
-        self.back.clicked.connect(self.toAdmin)
+        self.back.clicked.connect(self.goBack)
         self.insertPatient.clicked.connect(self.addPatient)
 
     def addPatient(self):
@@ -304,10 +419,19 @@ class InsertPatient(QDialog):
         widget.addWidget(insertPatient)
         widget.setCurrentIndex(widget.currentIndex()+1)
 
-    def toAdmin(self):
-        admin=AdminScreen()
-        widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+    def goBack(self):
+        # Get the current user type
+        usertype = hospitalDB.getCurrentUserType()
+        
+        # Navigate based on user type
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
+        else:
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class SearchStaff(QDialog):
     def __init__(self):
@@ -337,8 +461,9 @@ class SearchStaff(QDialog):
             checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
     
         # Connect event handlers
-        self.search.clicked.connect(self.searchfunction)
-        self.logout.clicked.connect(self.logoutfxn)
+        self.search.clicked.connect(self.searchFunction)
+        self.logout.clicked.connect(self.logoutFunction)
+        self.backButton.clicked.connect(self.goBack)  # Add back button functionality
         self.resultsTable.hide()
 
     def centerUI(self, screen_width, screen_height):
@@ -349,6 +474,9 @@ class SearchStaff(QDialog):
         
         # Position logout button in top right
         self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        
+        # Position back button in top left
+        self.backButton.setGeometry(50, 70, 120, 50)
         
         # Center the form grid
         form_width = 600  # Increased width for better alignment
@@ -364,7 +492,7 @@ class SearchStaff(QDialog):
         search_height = 40
         self.search.setGeometry((screen_width - search_width) // 2, 490, search_width, search_height)
         
-        # Add a results table with proper positioning
+        # Center the results table
         table_width = min(screen_width - 100, 1000)  # Limit width with padding
         table_height = min(screen_height - 600, 400)  # Limit height with padding
         table_x = (screen_width - table_width) // 2  # Center horizontally
@@ -372,13 +500,15 @@ class SearchStaff(QDialog):
         self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
         self.resultsTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-    def logoutfxn(self):
+    def logoutFunction(self):
         hospitalDB.userLogout()
         login = LoginScreen()
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
-    def searchfunction(self):
+    def searchFunction(self):
+        keys = EncryptionKey.getKeys()
+        fixed_salt = keys[1]
         lastName = self.lastField.text()
         firstName = self.firstField.text()
         firstBox = self.firstBox.isChecked()
@@ -422,11 +552,31 @@ class SearchStaff(QDialog):
         widget.addWidget(details)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
+    def goBack(self):
+        # Get the current user type
+        usertype = hospitalDB.getCurrentUserType()
+        
+        # For InsertStaff, we might always want to go back to the admin screen
+        # since only administrators can access this screen, but let's check anyway
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
+        else:
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
 class StaffDetailsScreen(QDialog):
     def __init__(self, staff_id):
         super(PatientDetailsScreen, self).__init__()
         self.setWindowTitle("Staff Details")
         self.setGeometry(100, 100, 800, 600)
+
+    def goBack(self):
+        search_staff = SearchStaff()
+        widget.addWidget(search_staff)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class SearchScreen(QDialog):
     def __init__(self):
@@ -456,21 +606,25 @@ class SearchScreen(QDialog):
             checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
     
         # Connect event handlers
-        self.search.clicked.connect(self.searchfunction)
-        self.logout.clicked.connect(LogOut)
+        self.search.clicked.connect(self.searchFunction)
+        self.logout.clicked.connect(self.logoutFunction)
+        self.backButton.clicked.connect(self.goBack)  # Add back button functionality
         self.resultsTable.hide()
 
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title
-        title_width = 401  # From original UI
+        title_width = 401
         self.label.setGeometry((screen_width - title_width) // 2, 170, title_width, 61)
         
         # Position logout button in top right
         self.logout.setGeometry(screen_width - 150, 70, 120, 50)
         
+        # Position back button in top left
+        self.backButton.setGeometry(50, 70, 120, 50)
+        
         # Center the form grid
-        form_width = 600  # Increased width for better alignment
+        form_width = 600
         form_height = 200
         self.gridLayoutWidget.setGeometry((screen_width - form_width) // 2, 270, form_width, form_height)
         
@@ -484,13 +638,14 @@ class SearchScreen(QDialog):
         self.search.setGeometry((screen_width - search_width) // 2, 510, search_width, search_height)
         
         # Center the results table
-        table_width = min(screen_width - 100, 1000)  # Limit width with padding
-        table_height = min(screen_height - 600, 400)  # Limit height with padding
-        table_x = (screen_width - table_width) // 2  # Center horizontally
+        table_width = min(screen_width - 100, 1000)
+        table_height = min(screen_height - 600, 400)
+        table_x = (screen_width - table_width) // 2
         self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
-        self.resultsTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-    def searchfunction(self):
+    def searchFunction(self):
+        keys = hospitalDB.EncryptionKey.getKeys()
+        fixed_salt = keys[1]
         lastName = self.lastField.text()
         firstName = self.firstField.text()
         middleName = self.midField.text()
@@ -502,8 +657,6 @@ class SearchScreen(QDialog):
             self.error.setText("Input at least one field.")
         else:
             df = None
-            #set a bool value for checkbox and insert checkbox var into SearchDB function params
-            #check whether checkbox for last name or first name is checked, and if so, sets checkbox to true
             if firstBox:
                 partials.add('fname')
             if lastBox:
@@ -534,6 +687,24 @@ class SearchScreen(QDialog):
         widget.addWidget(details)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
+    def logoutFunction(self):
+        hospitalDB.userLogout()
+        login = LoginScreen()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
+    def goBack(self):
+        # Get the current user type
+        usertype = hospitalDB.getCurrentUserType()
+        
+        # Navigate based on user type
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
+        else:
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class PatientDetailsScreen(QDialog):
     def __init__(self, patient_id):
@@ -546,7 +717,7 @@ class PatientDetailsScreen(QDialog):
         layout = QVBoxLayout()
         
         # Create a header with patient info
-        self.header_frame = QFrame()
+        self.header_frame = QWidget()
         self.header_layout = QHBoxLayout()
         self.patient_info_label = QLabel()
         self.patient_info_label.setStyleSheet("font-weight: bold; font-size: 16px;")
@@ -611,9 +782,10 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.notes_tab, "Notes")
             self.tabs.addTab(self.medications_tab, "Medications")
             self.tabs.addTab(self.procedures_tab, "Procedures")
+    
     def loadPatientData(self):
         try:
-            # Get data using the new search function
+            # Get data using the search function
             patient_data = SearchDB.searchPatientWithID(self.patient_id)
             
             if not patient_data or len(patient_data) == 0:
@@ -975,15 +1147,11 @@ class PatientDetailsScreen(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error printing patient data: {str(e)}")
             print(f"Error: {e}")
+    
     def goBack(self):
-        # Navigate back to the search screen
-        current_index = widget.currentIndex()
-        current_widget = widget.widget(current_index)
-        widget.removeWidget(current_widget)
-        current_widget.deleteLater()
         search_screen = SearchScreen()
         widget.addWidget(search_screen)
-        widget.setCurrentIndex(widget.count() - 1)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class ListScreen(QDialog):
     def __init__(self):
