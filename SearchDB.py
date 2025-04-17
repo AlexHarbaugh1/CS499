@@ -75,14 +75,15 @@ def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial
 # USE CASE: Retrieve a patient's information for populating their related page in the GUI
 def searchPatientWithID(patientID):
     usertype = hospitalDB.getCurrentUserType()
-    sql = {'Volunteer': "SELECT * FROM VolunteerView WHERE patient_ID = %s",
-           'Office Staff': "SELECT * FROM officestaffview WHERE patient_ID = %s;",
-           'Medical Personnel': "SELECT * FROM patientadmissionoverview WHERE patient_ID = %s;",
-           'Physician' : "SELECT * FROM patientadmissionoverview WHERE patient_ID = %s;"}
+    sql = {'Volunteer': "SELECT * FROM VolunteerView WHERE patient_id = %s",
+           'Office Staff': "SELECT * FROM officestaffview WHERE patient_id = %s;",
+           'Medical Personnel': "SELECT * FROM patientadmissionoverview WHERE patient_id = %s;",
+           'Physician' : "SELECT * FROM patientadmissionoverview WHERE patient_id = %s;",
+           'Administrator' : "SELECT * FROM patientadmissionoverview WHERE patient_id = %s;"}
     with hospitalDB.get_cursor() as cursor:
         params = (patientID, )
         cursor.execute(sql[usertype], params)
-        patientData = cursor.fetchall()
+        patientData = cursor.fetchone()
     return patientData
 # searchStaffWithName uses same logic as searchPatientWithName to find and list Staff members
 # Returns list of tuples with user_id, first_name, last_name
@@ -158,7 +159,6 @@ def searchStaffWithID(userID, encryptionKey):
         )
         cursor.execute(sql, params)
         staffData = cursor.fetchone()
-        cursor.close()
 
     return staffData
 # searchBillingWithAdmission takes the admissionID and returns all billing information and Itemized Bill
@@ -263,8 +263,10 @@ def getAvailableLocations():
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     fixedSalt = keys[1]
+    hospitalDB.userLogin('Volunteer1', 'qwertyuiop', fixedSalt)
+    print(searchPatientWithID('2'))
     #print(passwordMatch('BlairStafford', 'qwertyuiop', keys[1]))
-    print(searchPatientWithName(fixedSalt,fname='A', partial_fields={'fname'}, is_volunteer=True))
+    #print(searchPatientWithName(fixedSalt,fname='A', partial_fields={'fname'}, is_volunteer=True))
     #searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial_fields={'fname','mname','lname'}, is_volunteer=False) THIS IS THE FORMAT FOR SEARCHING BY NAME PUT FIELDS THAT YOU WANT TO BE PARTIAL SEARCHED INTO THE PARTIAL FIELDS SET
     #for patient in searchPatientWithName("Ashley", None, None, keys[0], keys[1]):
         #print(patient)
