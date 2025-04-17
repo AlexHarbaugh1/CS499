@@ -349,12 +349,12 @@ def run():
         keys[0],
       ) *14
       cursor2.execute(sql, params)
-      cursor2.execute("""GRANT SELECT, UPDATE ON officestaffview TO officestaff_role;""")
+      cursor2.execute("""GRANT SELECT, UPDATE ON officestaffview TO officestaff_role, physician_role, medicalpersonnel_role;""")
       cursor2.execute("""GRANT SELECT ON officestaffview TO physician_role, medicalpersonnel_role;""")
-      cursor2.execute("""GRANT SELECT, UPDATE (first_name, last_name, mailing_address) ON Patient TO officestaff_role;""")
-      cursor2.execute("""GRANT INSERT, UPDATE ON Insurance TO officestaff_role;""")
-      cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON PhoneNumber TO officestaff_role;""")
-      cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON EmergencyContact TO officestaff_role;""")
+      cursor2.execute("""GRANT SELECT, UPDATE (first_name, last_name, mailing_address) ON Patient TO officestaff_role, physician_role, medicalpersonnel_role;""")
+      cursor2.execute("""GRANT INSERT, UPDATE ON Insurance TO officestaff_role, physician_role, medicalpersonnel_role;""")
+      cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON PhoneNumber TO officestaff_role, physician_role, medicalpersonnel_role;""")
+      cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON EmergencyContact TO officestaff_role, physician_role, medicalpersonnel_role;""")
       # Functions For Updating Patient Data
       # Name and Address
       sql = """CREATE OR REPLACE FUNCTION update_office_staff_all()

@@ -6,12 +6,13 @@ Created on Wed Jan 29 09:18:06 2025
 """
 import hospitalDB
 import InsertData
+import UpdateDB
 import psycopg2
 import sys
 import pandas as pd
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QLineEdit, QComboBox, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt
 import string
 import EncryptionKey
@@ -171,7 +172,9 @@ class ApplicationScreen(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
         
     def goToRegisterPatient(self):
-        print("placeholder")
+        insertPatient = InsertPatient()
+        widget.addWidget(insertPatient)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
         
     def goToRegisterAdmission(self):
         print("placeholder")
@@ -396,37 +399,177 @@ class InsertStaff(QDialog):
 
 class InsertPatient(QDialog):
     def __init__(self):
-        super(InsertPatient,self).__init__()
-        loadUi("insertpat.ui",self)
-
+        super(InsertPatient, self).__init__()
+        loadUi("insertpat.ui", self)  # Load the new UI file
+        
+        
+        # Get screen dimensions
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()  
+        screen_height = screen_size.height()
+        
+        # Set main widget to fill the entire screen
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        
+        # Center the UI elements
+        self.centerUI(screen_width, screen_height)
+        
+        # Populate the doctor dropdown
+        self.populateDoctors()
+        
+        # Connect buttons
         self.back.clicked.connect(self.goBack)
-        self.insertPatient.clicked.connect(self.addPatient)
+        self.addPatient.clicked.connect(self.addPatientData)
 
-    def addPatient(self):
-        for i in range(0,15):
-            lastName=self.tableWidget.item(i,0)
-            firstName=self.tableWidget.item(i,0)
-            midInit=self.tableWidget.item(i,0)
-            address=self.tableWidget.item(i,0)
-            hPhone=self.tableWidget.item(i,0)
-            cPhone=self.tableWidget.item(i,0)
-            wPhone=self.tableWidget.item(i,0)
-            c1Name=self.tableWidget.item(i,0)
-            c1Phone=self.tableWidget.item(i,0)
-            c2Name=self.tableWidget.item(i,0)
-            c2Phone=self.tableWidget.item(i,0)
-            doctor=self.tableWidget.item(i,0)
-            insurance=self.tableWidget.item(i,0)
-            insAcct=self.tableWidget.item(i,0)
-            insGNum=self.tableWidget.item(i,0)
-            #do sql here
-            self.insertPatientFunction()
-        #takes you back to insert patient screen where user can add more/go back to admin space    
-    def insertPatientFunction(self):
-        insertPatient=InsertPatient()
-        widget.addWidget(insertPatient)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+    def centerUI(self, screen_width, screen_height):
+        """Center all UI elements properly"""
+        # Center the title
+        title_width = 401
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        
+        # Position back button in top left
+        self.back.setGeometry(50, 70, 120, 40)
+        
+        # Center the grid layout with adequate size
+        grid_width = min(900, screen_width - 100)  # Allow for margins
+        grid_height = min(550, screen_height - 250)  # Allow for header and footer
+        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 150, grid_width, grid_height)
+        
+        # Center the add patient button
+        button_width = 200
+        button_height = 50
+        button_y = 150 + grid_height + 20  # Position below the grid
+        self.addPatient.setGeometry((screen_width - button_width) // 2, button_y, button_width, button_height)
+        
+        # Center the error message label
+        error_width = 600
+        error_y = button_y + button_height + 10
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, error_y, error_width, 40)
+        self.errorMsg.setWordWrap(True)
 
+    def populateDoctors(self):
+        """Populate the doctor dropdown with physicians from the database"""
+        try:
+            keys = EncryptionKey.getKeys()
+            doctors = SearchDB.getDoctors(keys[0])
+            
+            # Add empty first item
+            self.doctorCombo.addItem("", "")
+            
+            # Add doctors to combo box
+            if doctors and doctors != "Error":
+                for doctor in doctors:
+                    # Format: ID - Last Name, First Name
+                    display_text = f"{doctor[0]} - {doctor[3]}, {doctor[2]}"
+                    self.doctorCombo.addItem(display_text, doctor[0])
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading doctors: {str(e)}")
+    
+    def addPatientData(self):
+        """Add a new patient to the database"""
+        keys = EncryptionKey.getKeys()
+        fixed_salt = keys[1]
+        
+        # Get values from form fields
+        firstName = self.firstNameField.text()
+        middleInit = self.middleInitField.text()
+        lastName = self.lastNameField.text()
+        address = self.addressField.text()
+        
+        # Get doctor ID from combo box
+        doctorIndex = self.doctorCombo.currentIndex()
+        doctorID = self.doctorCombo.itemData(doctorIndex) if doctorIndex > 0 else None
+        
+        # Validate required fields
+        if not firstName or not lastName:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("First name and last name are required.")
+            return
+        
+        try:
+            # Insert the patient
+            InsertData.insertPatient(firstName, middleInit, lastName, address, doctorID, fixed_salt)
+            
+            # Get the newly inserted patient ID (most recent patient)
+            with hospitalDB.get_cursor() as cursor:
+                cursor.execute("SELECT MAX(patient_id) FROM patient;")
+                patientID = cursor.fetchone()[0]
+            
+            # Insert phone numbers if provided
+            homePhone = self.homePhoneField.text()
+            cellPhone = self.cellPhoneField.text()
+            workPhone = self.workPhoneField.text()
+            
+            if homePhone:
+                UpdateDB.patientUpdatePhone(patientID, "Home", homePhone)
+            
+            if cellPhone:
+                UpdateDB.patientUpdatePhone(patientID, "Mobile", cellPhone)
+            
+            if workPhone:
+                UpdateDB.patientUpdatePhone(patientID, "Work", workPhone)
+            
+            # Insert emergency contacts if provided
+            contact1Name = self.contact1NameField.text()
+            contact1Phone = self.contact1PhoneField.text()
+            contact2Name = self.contact2NameField.text()
+            contact2Phone = self.contact2PhoneField.text()
+            
+            if contact1Name and contact1Phone:
+                UpdateDB.patientUpdateContact(patientID, contact1Name, contact1Phone, "1")
+            
+            if contact2Name and contact2Phone:
+                UpdateDB.patientUpdateContact(patientID, contact2Name, contact2Phone, "2")
+            
+            # Insert insurance information if provided
+            insurance = self.insuranceField.text()
+            accountNumber = self.accountNumberField.text()
+            groupNumber = self.groupNumberField.text()
+            
+            if insurance or accountNumber or groupNumber:
+                UpdateDB.patientUpdateInsurance(patientID, insurance, accountNumber, groupNumber)
+            
+            # Display success message
+            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setText(f"Patient {firstName} {lastName} added successfully!")
+            
+            # Clear the form fields
+            self.clearFields()
+            
+        except psycopg2.errors.UniqueViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("A database constraint was violated. Please check your data.")
+        except psycopg2.errors.NotNullViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Missing required information. Please check all required fields.")
+        except psycopg2.errors.ForeignKeyViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Invalid doctor selection.")
+        except psycopg2.OperationalError:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Connection to database failed. Please try again later.")
+        except Exception as e:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText(f"Error: {str(e)}")
+    
+    def clearFields(self):
+        """Clear all form fields"""
+        self.firstNameField.clear()
+        self.middleInitField.clear()
+        self.lastNameField.clear()
+        self.addressField.clear()
+        self.homePhoneField.clear()
+        self.cellPhoneField.clear()
+        self.workPhoneField.clear()
+        self.contact1NameField.clear()
+        self.contact1PhoneField.clear()
+        self.contact2NameField.clear()
+        self.contact2PhoneField.clear()
+        self.insuranceField.clear()
+        self.accountNumberField.clear()
+        self.groupNumberField.clear()
+        self.doctorCombo.setCurrentIndex(0)
+    
     def goBack(self):
         # Get the current user type
         usertype = hospitalDB.getCurrentUserType()
