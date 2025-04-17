@@ -26,7 +26,6 @@ class MainScreen(QDialog):
         super(MainScreen, self).__init__()
         loadUi("MainScreen.ui", self)
         
-        self.showMaximized()
 
         self.enterApplication.clicked.connect(self.openLogin)
 
@@ -40,7 +39,6 @@ class LoginScreen(QDialog):
         super(LoginScreen, self).__init__()
         loadUi("login1.ui", self)
         
-        self.showMaximized()
 
         self.passwordField.setEchoMode(QtWidgets.QLineEdit.Password)
         self.login.clicked.connect(self.loginfunction)
@@ -83,8 +81,6 @@ class ApplicationScreen(QDialog):
         screen_width = screen_size.width()
         screen_height = screen_size.height()
         
-        # Set main widget to fill the entire screen
-        self.showMaximized()
         self.widget.setGeometry(0, 0, screen_width, screen_height)
         
         # Center the UI elements
@@ -178,7 +174,9 @@ class ApplicationScreen(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
         
     def goToRegisterAdmission(self):
-        print("placeholder")
+        registerAdmission = RegisterAdmission()
+        widget.addWidget(registerAdmission)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
         
     def logoutFunction(self):
         hospitalDB.userLogout()
@@ -191,7 +189,6 @@ class AdminScreen(QDialog):
         super(AdminScreen, self).__init__()
         loadUi("admin.ui", self)
 
-        self.showMaximized()
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -299,7 +296,6 @@ class InsertStaff(QDialog):
         super(InsertStaff, self).__init__()
         loadUi("insertstaff.ui", self)
 
-        self.showMaximized()
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -407,7 +403,6 @@ class InsertPatient(QDialog):
         super(InsertPatient, self).__init__()
         loadUi("insertpat.ui", self)  # Load the new UI file
         
-        self.showMaximized()
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -618,7 +613,6 @@ class RegisterLocation(QDialog):
         super(RegisterLocation, self).__init__()
         loadUi("registerlocation.ui", self)
 
-        self.showMaximized()
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -735,7 +729,6 @@ class RegisterAdmission(QDialog):
         super(RegisterAdmission, self).__init__()
         loadUi("registeradmission.ui", self)
 
-        self.showMaximized()
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -925,9 +918,17 @@ class RegisterAdmission(QDialog):
             self.errorMsg.setText(f"Error: {str(e)}")
 
     def goBack(self):
-        # Navigate back to the admin screen
-        admin = AdminScreen()
-        widget.addWidget(admin)
+        # Get the current user type
+        usertype = hospitalDB.getCurrentUserType()
+        
+        # Navigate based on user type
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
+        else:
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class SearchStaff(QDialog):
@@ -935,7 +936,6 @@ class SearchStaff(QDialog):
         super(SearchStaff, self).__init__()
         loadUi("stafflookup.ui", self)
         
-        self.showMaximized()
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -1078,7 +1078,6 @@ class SearchScreen(QDialog):
         super(SearchScreen, self).__init__()
         loadUi("patientsearch.ui", self)
         
-        self.showMaximized()
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
