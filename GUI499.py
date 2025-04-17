@@ -204,6 +204,8 @@ class AdminScreen(QDialog):
         self.insPat.clicked.connect(self.insertPatientFunction)
         self.searchStaff.clicked.connect(self.searchStaffFunction)
         self.searchPatient.clicked.connect(self.searchPatFunction)
+        self.regLocation.clicked.connect(self.registerLocationFunction)  # New button
+        self.regAdmission.clicked.connect(self.registerAdmissionFunction)  # New button
         self.logout.clicked.connect(self.logoutFunction)
         
         # Apply button styling
@@ -244,7 +246,8 @@ class AdminScreen(QDialog):
         """
         
         # Apply style to all operation buttons
-        for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient]:
+        for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
+                      self.regLocation, self.regAdmission]:  # Added new buttons here
             button.setStyleSheet(button_style)
             button.setMinimumHeight(60)
             
@@ -270,6 +273,12 @@ class AdminScreen(QDialog):
         search = SearchScreen()
         widget.addWidget(search)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+    
+    def registerLocationFunction(self):  # New function for registering locations
+        print('Not Ready')
+    
+    def registerAdmissionFunction(self):  # New function for registering admissions
+        print('Not Ready')
         
     def logoutFunction(self):
         hospitalDB.userLogout()
@@ -337,8 +346,7 @@ class InsertStaff(QDialog):
         self.errorMsg.setWordWrap(True)
     
     def addStaffMember(self):
-        keys = EncryptionKey.getKeys()
-        fixed_salt = keys[1]
+    
         firstName = self.firstNameField.text()
         lastName = self.lastNameField.text()
         username = self.usernameField.text()
@@ -507,8 +515,6 @@ class SearchStaff(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def searchFunction(self):
-        keys = EncryptionKey.getKeys()
-        fixed_salt = keys[1]
         lastName = self.lastField.text()
         firstName = self.firstField.text()
         firstBox = self.firstBox.isChecked()
@@ -644,8 +650,6 @@ class SearchScreen(QDialog):
         self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
 
     def searchFunction(self):
-        keys = hospitalDB.EncryptionKey.getKeys()
-        fixed_salt = keys[1]
         lastName = self.lastField.text()
         firstName = self.firstField.text()
         middleName = self.midField.text()
