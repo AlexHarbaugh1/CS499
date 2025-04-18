@@ -20,7 +20,10 @@ def passwordMatch(staffID, password):
         )
         cursor.execute(sql, params)
         match = cursor.fetchone()[0]
-        cursor.execute(f"SET ROLE {current_role.lower()}" + "_role;")
+        role = current_role.lower().replace(" ", "") + "_role"
+        sql = """SET ROLE %s;"""
+        params = (role,)
+        cursor.execute(sql, params)
         cursor.close()
         return(match)
 

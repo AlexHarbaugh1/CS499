@@ -1,62 +1,96 @@
-from hospitalDB import get_cursor
+from hospitalDB import get_cursor, getCurrentUserType, userLogin
 from InsertData import hashPrefix, generatePrefixes
 from SearchDB import passwordMatch
+import psycopg2
 import EncryptionKey
 import datetime
+def updatePrefixTrigrams(patientID, field, newValue, fixedSalt):
 
-def patientUpdateFirstName(patientID, newName, encryptionKey, fixedSalt):
+    if newValue is None:
+        return False
+        
+    newValueHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(newValue)]
 
+    trigram_field_map = {
+        'fname': 'first_name_prefix_trgms',
+        'mname': 'middle_name_prefix_trgms',
+        'lname': 'last_name_prefix_trgms'
+    }
+    
+    if field not in trigram_field_map:
+        print(f"Invalid field name: {field}")
+        return False
+    
+    trigram_field = trigram_field_map[field]
+    
     with get_cursor() as cursor:
-        newNameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(newName)]
-        sql = """UPDATE Patient
-                SET first_name = pgp_sym_encrypt(%s, %s),
-                first_name_prefix_trgms = %s
+        current_role = getCurrentUserType()
+        cursor.execute("SET ROLE postgres")
+        sql = f"""UPDATE Patient
+                SET
+                {trigram_field} = %s
                 WHERE patient_id = %s;"""
         params = (
-            newName, encryptionKey,
-            newNameHashedPrefixes,
+            newValueHashedPrefixes,
+            patientID
+        )
+        
+        try:
+            cursor.execute(sql, params)
+            role = current_role.lower().replace(" ", "") + "_role"
+            sql = """SET ROLE %s;"""
+            params = (role,)
+            cursor.execute(sql, params)
+            return True
+        except psycopg2.Error as e:
+            print(f"Error updating {field}: {e}")
+            return False
+
+def patientUpdateFirstName(patientID, newName, fixedSalt):
+
+    with get_cursor() as cursor:
+        sql = """UPDATE officestaffview
+                SET first_name = %s
+                WHERE patient_id = %s;"""
+        params = (
+            newName,
             patientID
             )
         cursor.execute(sql, params)
-        cursor.close()
+        updatePrefixTrigrams(patientID, 'fname', newName, fixedSalt)
+        
 
-def patientUpdateMiddleName(patientID, newName, encryptionKey, fixedSalt):
+def patientUpdateMiddleName(patientID, newName, fixedSalt):
     with get_cursor() as cursor:
-        newNameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(newName)]
-        sql = """UPDATE Patient
-                SET middle_name = pgp_sym_encrypt(%s, %s),
-                middle_name_prefix_trgms = %s
+        sql = """UPDATE officestaffview
+                SET middle_name = %s
                 WHERE patient_id = %s;"""
         params = (
-            newName, encryptionKey,
-            newNameHashedPrefixes,
+            newName,
             patientID
             )
         cursor.execute(sql, params)
-        cursor.close()
+        updatePrefixTrigrams(patientID, 'mname', newName, fixedSalt)
 
-def patientUpdateLastName(patientID, newName, encryptionKey, fixedSalt):
+def patientUpdateLastName(patientID, newName, fixedSalt):
     with get_cursor() as cursor:
-        newNameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(newName)]
-        sql = """UPDATE Patient
-                SET last_name = pgp_sym_encrypt(%s, %s),
-                last_name_prefix_trgms = %s
+        sql = """UPDATE officestaffview
+                SET last_name = %s
                 WHERE patient_id = %s;"""
         params = (
-            newName, encryptionKey,
-            newNameHashedPrefixes,
+            newName,
             patientID
             )
         cursor.execute(sql, params)
-        cursor.close()
+        updatePrefixTrigrams(patientID, 'lname', newName, fixedSalt)
 
-def patientUpdateAddress(patientID, newAddress, encryptionKey):
+def patientUpdateAddress(patientID, newAddress):
     with get_cursor() as cursor:
-        sql = """UPDATE Patient
-                SET mailing_address = pgp_sym_encrypt(%s, %s)
+        sql = """UPDATE officestaffview
+                SET mailing_address = %s
                 WHERE patient_id = %s;"""
         params = (
-            newAddress, encryptionKey,
+            newAddress,
             patientID
             )
         cursor.execute(sql, params)
@@ -207,10 +241,7 @@ def admissionUpdateDischarge(admissionID, dischargeTime, encryptionkey):
         
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
-    #patientUpdateFirstName('81', 'Alexa', keys[0], keys[1])
-    #patientUpdateMiddleName('81', 'Ellen', keys[0], keys[1])
-    #patientUpdateLastName('81', 'Montraeu', keys[0], keys[1])
-    #patientUpdateAddress('81', '1234 Main Street, Huntsville, AL 35850', keys[0])
+    
     #patientUpdateFamilyDoctor('81', '19')
     #patientUpdateInsurance('81', 'United Healthcare', '23523', '63456', keys[0])
     #patientUpdateContact('71', 'Alex Harbaugh', '123-456-7890', 1, keys[0])
@@ -220,4 +251,9 @@ if __name__ == "__main__":
     #staffUpdateUsername('1', 'JohnSquared', keys[0], keys[1])
     #staffUpdateType('1','Physician')
     #staffUpdatePassword('51', 'BlairStafford', 'poiuytrewq', 'qwertyuiop', keys[1])
-    admissionUpdateDischarge('1', datetime.datetime.now(), keys[0])
+    userLogin('OfficeStaff1', 'qwertyuiop', keys[1])
+    patientUpdateFirstName('202', 'Blair', keys[1])
+    patientUpdateMiddleName('202', 'Gaming', keys[1])
+    patientUpdateLastName('202', 'Stafford', keys[1])
+    patientUpdateAddress('202', '1234 Main Street, Huntsville, AL 35850')
+    #admissionUpdateDischarge('1', datetime.datetime.now(), keys[0])

@@ -113,7 +113,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>Middle Initial:</string>
+        <string>Middle Name:</string>
        </property>
       </widget>
      </item>
