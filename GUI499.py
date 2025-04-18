@@ -11,6 +11,7 @@ import psycopg2
 import sys
 import traceback
 import pandas as pd
+from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
@@ -239,11 +240,13 @@ class LoginScreen(QDialog):
                 self.errorMsg.setText("Invalid username or password. Please try again.")
 
     def gotoapplication(self):
+        eventFilter.enabled = True
         application = ApplicationScreen()
         widget.addWidget(application)
         widget.setCurrentIndex(widget.currentIndex() + 1)
         
     def gotoadmin(self):
+        eventFilter.enabled = True
         admin = AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex() + 1)
@@ -252,7 +255,6 @@ class ApplicationScreen(QDialog):
     def __init__(self):
         super(ApplicationScreen, self).__init__()
         loadUi("ApplicationScreen.ui", self)
-
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()
@@ -356,6 +358,7 @@ class ApplicationScreen(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
         
     def logoutFunction(self):
+        eventFilter.enabled = False
         hospitalDB.userLogout()
         login = LoginScreen()
         widget.addWidget(login)
@@ -463,6 +466,7 @@ class AdminScreen(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
         
     def logoutFunction(self):
+        eventFilter.enabled = False
         hospitalDB.userLogout()
         login = LoginScreen()
         widget.addWidget(login)
@@ -1180,6 +1184,7 @@ class SearchStaff(QDialog):
         self.resultsTable.hide()
 
     def logoutFunction(self):
+        eventFilter.enabled = False
         hospitalDB.userLogout()
         login = LoginScreen()
         widget.addWidget(login)
@@ -1246,14 +1251,91 @@ class SearchStaff(QDialog):
 
 class StaffDetailsScreen(QDialog):
     def __init__(self, staff_id):
-        super(PatientDetailsScreen, self).__init__()
+        super(StaffDetailsScreen, self).__init__()
         self.setWindowTitle("Staff Details")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 900, 700)
+        self.staff_id = staff_id
+        self.usertype = hospitalDB.getCurrentUserType()
+        
+        layout = QVBoxLayout()
+        
+        # Create a header with patient info
+        self.header_frame = QWidget()
+        self.header_layout = QHBoxLayout()
+        self.staff_info_label = QLabel()
+        self.staff_info_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.header_layout.addWidget(self.staff_info_label)
+        self.header_frame.setLayout(self.header_layout)
+        layout.addWidget(self.header_frame)
+        
+        # Create tabs - different tabs will be shown based on user type
+        self.tabs = QTabWidget()
+        self.tabs.setTabsClosable(False)
+        self.tabs.tabCloseRequested.connect(self.closeTab)
+
+        # Create tabs for different user types
+        self.basic_info_tab = QWidget()
+        
+        # Only add the relevant tabs based on user type
+        self.setupTabs()
+        
+        layout.addWidget(self.tabs)
+        
+        # Buttons at the bottom
+        button_layout = QHBoxLayout()
+        
+        self.back_button = QPushButton("Back")
+        self.back_button.clicked.connect(self.goBack)
+        button_layout.addWidget(self.back_button)
+        
+        layout.addLayout(button_layout)
+        
+        self.setLayout(layout)
+        
+        # Load the patient data
+        self.loadStaffData()
+    
+    def setupTabs(self):
+        self.num_static_tabs = 0  # Initialize
+        self.tabs.addTab(self.basic_info_tab, "Basic Info")
+        self.num_static_tabs = self.tabs.count()  # Store default tab count
+    def closeTab(self, index):
+        # Prevent closing the default tabs (index < num_static_tabs)
+        if index < self.num_static_tabs:
+            QMessageBox.information(self, "Protected Tab", "You cannot close the default staff tabs.")
+            return
+        self.tabs.removeTab(index)
+    def loadStaffData(self):
+        try:
+            # Get data using the search function
+            data = SearchDB.searchStaffWithID(self.staff_id, encryption_key)
+            print("DEBUG - Staff data:", data)
+
+            name = f"{data[1]} {data[2]}"
+            self.staff_info_label.setText(f"Staff Member: {name}")
+            
+            # Basic Info Tab
+            basic_layout = QFormLayout()
+            basic_layout.addRow("Username:", QLabel(data[0]))
+            basic_layout.addRow("First Name:", QLabel(data[1]))
+            basic_layout.addRow("Last Name:", QLabel(data[2]))
+            basic_layout.addRow("Type:", QLabel(data[3]))
+            self.basic_info_tab.setLayout(basic_layout)
+
+            if not data:
+                QMessageBox.warning(self, "No Data", "No staff data found.")
+                return
+
+        except Exception as e:
+            traceback.print_exc()  # Add this line for full stack trace in terminal
+            QMessageBox.critical(self, "Error", f"Error loading staff data: {str(e)}")
+            print(f"Error: {e}")
 
     def goBack(self):
         search_staff = SearchStaff()
         widget.addWidget(search_staff)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+
 
 class SearchScreen(QDialog):
     def __init__(self):
@@ -1387,6 +1469,7 @@ class SearchScreen(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def logoutFunction(self):
+        eventFilter.enabled = False
         hospitalDB.userLogout()
         login = LoginScreen()
         widget.addWidget(login)
@@ -1953,16 +2036,49 @@ class PatientDetailsScreen(QDialog):
         widget.addWidget(search_screen)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
-class ListScreen(QDialog):
-    def __init__(self):
-        super(ListScreen, self).__init__()
-        loadUi("list.ui", self)
+class LockScreen(QtWidgets.QDialog):
+    def __init__(self, exitAction, widget, eventFilter, currentUser):
+        super(LockScreen, self).__init__()
+        loadUi("lockScreen.ui", self)
+        self.exitAction = exitAction
+        self.widget = widget
+        self.eventFilter = eventFilter
+        self.usernameField.setText(currentUser)
+        self.passwordField.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.resumeButton.clicked.connect(self.resumePressed)
+        self.exitButton.clicked.connect(self.exitPressed)
+        self.setWindowFlag(True)
+        self.setWindowModality(True)
+        # self.setFixedSize(400, 150)
+        self.label.setAlignment(Qt.AlignCenter)
 
+    def resumePressed(self):
+        user = self.usernameField.text()
+        password = self.passwordField.text()
+        result_pass = SearchDB.passwordMatch(user, password)
+        if result_pass:
+            self.errorMsg.setText("")
+            self.eventFilter.enabled = True
+            self.widget.removeWidget(self)
+            self.deleteLater()
+        else:
+            self.errorMsg.setText("Invalid username or password")
+        
+    def exitPressed(self):
+        self.exitAction()
 
 def LogOut():
+    eventFilter.enabled = False
     hospitalDB.userLogout()
     home = MainScreen()
     widget.addWidget(home)
+    widget.setCurrentIndex(widget.currentIndex() + 1)
+
+def lockScreen():
+    print("here")
+    eventFilter.enabled = False
+    lock = LockScreen(LogOut, widget, eventFilter, hospitalDB.getCurrentUserID())
+    widget.addWidget(lock)
     widget.setCurrentIndex(widget.currentIndex() + 1)
 
 app = QApplication(sys.argv)
@@ -2015,6 +2131,8 @@ widget = QtWidgets.QStackedWidget()
 widget.addWidget(home)
 #widget.resize(1200, 800)
 widget.showMaximized()
+eventFilter = InactivityTimer(lockScreen)
+app.installEventFilter(eventFilter)
 try:
     sys.exit(app.exec())
 except:

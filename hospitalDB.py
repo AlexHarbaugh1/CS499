@@ -554,7 +554,6 @@ GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name, p.mailing_addre
                   NULL::TEXT AS password,
                   NULL::INT AS type_id;"""
       cursor2.execute(sql)
-      cursor2.execute("GRANT UPDATE ON staffwriteview TO officestaff_role, medicalpersonnel_role, physician_role;")
       # triggers and functions for adding staff member to database
       sql = """CREATE OR REPLACE FUNCTION staff_write_trigger()
               RETURNS TRIGGER AS $$

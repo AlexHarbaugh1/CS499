@@ -10,14 +10,17 @@ import EncryptionKey
 def passwordMatch(staffID, password):
 
     with hospitalDB.get_cursor() as cursor:
+        current_role = hospitalDB.getCurrentUserType()
+        cursor.execute("SET ROLE postgres;")
         sql = """SELECT (password_hash = crypt(%s, password_hash)) AS password_match
-        FROM user_id = %s;"""
+        FROM staff WHERE user_id = %s;"""
         params = (
             password,
             staffID
         )
         cursor.execute(sql, params)
         match = cursor.fetchone()[0]
+        cursor.execute(f"SET ROLE {current_role.lower()}" + "_role;")
         cursor.close()
         return(match)
 
