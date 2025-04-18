@@ -21,7 +21,7 @@ def passwordMatch(staffID, password):
         cursor.close()
         return(match)
 
-def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial_fields=set()):
+def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial_fields=set(), active_admissions_only=False):
     with hospitalDB.get_cursor() as cursor:
         usertype = hospitalDB.getCurrentUserType()
         conditions = []
@@ -46,14 +46,22 @@ def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial
                 params.extend([value, fixedSalt])
 
         # Base query construction
-        if (usertype == 'Volunteer'):
+        if usertype == 'Volunteer':
             base_sql = """SELECT sv.patient_id, sv.first_name, 
                                 sv.middle_name, sv.last_name
                         FROM PatientSearchView sv
                         JOIN (SELECT * FROM admission WHERE discharge_datetime IS NULL) AS a ON sv.patient_id = a.patient_id
+                        JOIN approvedvisitors v on a.admission_id = v.admission_id
                         """
         else:
-            base_sql = "SELECT patient_id, first_name, middle_name, last_name FROM PatientSearchView"
+            if active_admissions_only:
+                base_sql = """SELECT sv.patient_id, sv.first_name, 
+                                sv.middle_name, sv.last_name
+                        FROM PatientSearchView sv
+                        JOIN (SELECT patient_id FROM admission WHERE discharge_datetime IS NULL) AS a ON sv.patient_id = a.patient_id
+                        """
+            else:
+                base_sql = "SELECT patient_id, first_name, middle_name, last_name FROM PatientSearchView"
 
         # Add conditions if any exist
         if conditions:

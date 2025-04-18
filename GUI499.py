@@ -13,7 +13,7 @@ import traceback
 import pandas as pd
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabBar, QLineEdit, QComboBox, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
 import string
 import EncryptionKey
@@ -26,8 +26,63 @@ class MainScreen(QDialog):
         super(MainScreen, self).__init__()
         loadUi("MainScreen.ui", self)
         
-
+        # Get screen dimensions
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        
+        # Set main widget to fill the entire screen
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        
+        # Center the UI elements
+        self.centerUI(screen_width, screen_height)
+        
+        # Style the enter button
+        self.styleElements()
+        
+        # Connect button
         self.enterApplication.clicked.connect(self.openLogin)
+
+    def centerUI(self, screen_width, screen_height):
+        """Center all UI elements properly"""
+        # Center the welcome message
+        label_width = 600
+        self.label_3.setGeometry((screen_width - label_width) // 2, 
+                                 screen_height // 3, 
+                                 label_width, 100)
+        
+        # Center the enter button and make it appropriately sized
+        button_width = 250
+        button_height = 60
+        self.enterApplication.setGeometry((screen_width - button_width) // 2, 
+                                          (screen_height // 2) + 50, 
+                                          button_width, button_height)
+    
+    def styleElements(self):
+        """Apply consistent styling to elements"""
+        # Style for the welcome message
+        self.label_3.setStyleSheet("""
+            font: bold 24pt "MS Shell Dlg 2";
+            color: #333333;
+        """)
+        
+        # Style for the enter button
+        self.enterApplication.setStyleSheet("""
+            QPushButton {
+                background-color: #e0e0e0;
+                color: black;
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 10px;
+                font: bold 14pt "MS Shell Dlg 2";
+            }
+            QPushButton:hover {
+                background-color: #d6d6d6;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+        """)
 
     def openLogin(self):
         login = LoginScreen()
@@ -39,16 +94,137 @@ class LoginScreen(QDialog):
         super(LoginScreen, self).__init__()
         loadUi("login1.ui", self)
         
-
+        # Get screen dimensions
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        
+        # Set main widget to fill the entire screen
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        
+        # Center the UI elements
+        self.centerUI(screen_width, screen_height)
+        
+        # Style form fields and button
+        self.styleElements()
+        
+        # Set password echo mode
         self.passwordField.setEchoMode(QtWidgets.QLineEdit.Password)
+        
+        # Connect button
         self.login.clicked.connect(self.loginfunction)
+
+    def centerUI(self, screen_width, screen_height):
+        """Center all UI elements properly"""
+        # Calculate a container area in the center of screen
+        container_width = 400
+        container_height = 350
+        
+        # Center position of the container
+        container_x = (screen_width - container_width) // 2
+        container_y = (screen_height - container_height) // 2
+        
+        # Calculate spacing and sizes
+        field_height = 40
+        label_width = 120
+        field_width = 250
+        spacing = 20
+        
+        # Position the PIMS title at the top of container
+        self.label.setGeometry(container_x, container_y, container_width, 60)
+        
+        # Position username label and field
+        self.labelUser.setGeometry(container_x, 
+                                  container_y + 90, 
+                                  label_width, field_height)
+        
+        self.userField.setGeometry(container_x + label_width + 10, 
+                                  container_y + 90, 
+                                  field_width, field_height)
+        
+        # Position password label and field
+        self.labelPass.setGeometry(container_x, 
+                                  container_y + 90 + field_height + spacing, 
+                                  label_width, field_height)
+        
+        self.passwordField.setGeometry(container_x + label_width + 10, 
+                                      container_y + 90 + field_height + spacing, 
+                                      field_width, field_height)
+        
+        # Position login button
+        button_width = 150
+        button_height = 50
+        self.login.setGeometry((screen_width - button_width) // 2, 
+                              container_y + 90 + (field_height + spacing) * 2 + 20, 
+                              button_width, button_height)
+        
+        # Position error message
+        error_width = 400
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, 
+                                 container_y + 90 + (field_height + spacing) * 2 + 20 + button_height + 20, 
+                                 error_width, 30)
+    
+    def styleElements(self):
+        """Apply consistent styling to all elements"""
+        # Style title
+        self.label.setStyleSheet("""
+            font: bold 36pt "MS Shell Dlg 2";
+            color: #333333;
+            padding-bottom: 20px;
+        """)
+        self.label.setAlignment(Qt.AlignCenter)
+        
+        # Style for labels
+        for label in [self.labelUser, self.labelPass]:
+            label.setStyleSheet("""
+                font: 14pt "MS Shell Dlg 2";
+                padding-right: 10px;
+            """)
+            label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        
+        # Style for input fields
+        for field in [self.userField, self.passwordField]:
+            field.setStyleSheet("""
+                font: 12pt "MS Shell Dlg 2";
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 5px;
+                background-color: white;
+            """)
+            field.setMinimumHeight(40)
+        
+        # Style for login button
+        self.login.setStyleSheet("""
+            QPushButton {
+                background-color: #e0e0e0;
+                color: black;
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 10px;
+                font: bold 14pt "MS Shell Dlg 2";
+            }
+            QPushButton:hover {
+                background-color: #d6d6d6;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+        """)
+        
+        # Style for error message
+        self.errorMsg.setStyleSheet("""
+            font: 12pt "MS Shell Dlg 2";
+            color: rgb(255, 0, 0);
+        """)
+        self.errorMsg.setAlignment(Qt.AlignCenter)
+        self.errorMsg.setWordWrap(True)
 
     def loginfunction(self):
         user = self.userField.text()
         password = self.passwordField.text()
 
         if len(user) == 0 or len(password) == 0:
-            self.errorMsg.setText("Missing field.")
+            self.errorMsg.setText("Please enter both username and password.")
         else:
             result_pass = hospitalDB.userLogin(user, password, fixed_salt)
             if result_pass:
@@ -60,16 +236,17 @@ class LoginScreen(QDialog):
                 else:
                     self.gotoapplication()
             else:
-                self.errorMsg.setText("Invalid username or password")
+                self.errorMsg.setText("Invalid username or password. Please try again.")
 
     def gotoapplication(self):
         application = ApplicationScreen()
         widget.addWidget(application)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+        
     def gotoadmin(self):
-        admin=AdminScreen()
+        admin = AdminScreen()
         widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class ApplicationScreen(QDialog):
     def __init__(self):
@@ -989,13 +1166,18 @@ class SearchStaff(QDialog):
         search_height = 40
         self.search.setGeometry((screen_width - search_width) // 2, 490, search_width, search_height)
         
-        # Center the results table
-        table_width = min(screen_width - 100, 1000)  # Limit width with padding
-        table_height = min(screen_height - 600, 400)  # Limit height with padding
-        table_x = (screen_width - table_width) // 2  # Center horizontally
+        table_width = min(screen_width - 100, 700)  # Limit width with padding
+        table_height = min(screen_height - 600, 500)  # Limit height with padding
         
+        # Center the table horizontally
+        table_x = (screen_width - table_width) // 2
         self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
-        self.resultsTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Make columns resize to content
+        self.resultsTable.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        
+        # Hide the table initially - will be shown after search
+        self.resultsTable.hide()
 
     def logoutFunction(self):
         hospitalDB.userLogout()
@@ -1104,6 +1286,12 @@ class SearchScreen(QDialog):
         self.logout.clicked.connect(self.logoutFunction)
         self.backButton.clicked.connect(self.goBack)  # Add back button functionality
         self.resultsTable.hide()
+        self.activeAdmissionsBox = QtWidgets.QCheckBox("Only Active Admissions")
+        self.activeAdmissionsBox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
+        self.gridLayoutWidget.layout().addWidget(self.activeAdmissionsBox, 3, 2)
+        usertype = hospitalDB.getCurrentUserType()
+        if usertype == "Volunteer":
+            self.activeAdmissionsBox.hide()
 
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
@@ -1132,10 +1320,18 @@ class SearchScreen(QDialog):
         self.search.setGeometry((screen_width - search_width) // 2, 510, search_width, search_height)
         
         # Center the results table
-        table_width = min(screen_width - 100, 1000)
-        table_height = min(screen_height - 600, 400)
+        table_width = min(screen_width - 100, 700)  # Limit width with padding
+        table_height = min(screen_height - 600, 500)  # Limit height with padding
+        
+        # Center the table horizontally
         table_x = (screen_width - table_width) // 2
         self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
+        
+        # Make columns resize to content
+        self.resultsTable.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        
+        # Hide the table initially - will be shown after search
+        self.resultsTable.hide()
 
     def searchFunction(self):
         lastName = self.lastField.text()
@@ -1143,21 +1339,32 @@ class SearchScreen(QDialog):
         middleName = self.midField.text()
         lastBox = self.lastBox.isChecked()
         firstBox = self.firstBox.isChecked()
+        activeAdmissionsOnly = False
+        
+        # Check if the activeAdmissionsBox exists and is visible
+        if hasattr(self, 'activeAdmissionsBox') and self.activeAdmissionsBox.isVisible():
+            activeAdmissionsOnly = self.activeAdmissionsBox.isChecked()
+        
         partials = set()
         
         if len(lastName) == 0 and len(firstName) == 0 and len(middleName) == 0:
             self.error.setText("Input at least one field.")
         else:
             df = None
+
+            # Check whether checkbox for last name or first name is checked
             if firstBox:
                 partials.add('fname')
             if lastBox:
                 partials.add('lname')
+
             df = pd.DataFrame(SearchDB.searchPatientWithName(fixed_salt, 
-                                                            fname=firstName if firstName else None,
-                                                            mname=middleName if middleName else None,
-                                                            lname=lastName if lastName else None,
-                                                            partial_fields=partials))
+                                                        fname=firstName if firstName else None,
+                                                        mname=middleName if middleName else None,
+                                                        lname=lastName if lastName else None,
+                                                        partial_fields=partials,
+                                                        active_admissions_only=activeAdmissionsOnly))
+
             if df.empty:
                 self.error.setText("No results found.")
             else:
@@ -1328,10 +1535,10 @@ class PatientDetailsScreen(QDialog):
         
         # Location Tab
         location_layout = QFormLayout()
-        location_layout.addRow("Facility:", QLabel(data.get('location', [''])[0]))
-        location_layout.addRow("Floor:", QLabel(str(data.get('location', ['', '', '', ''])[1])))
-        location_layout.addRow("Room Number:", QLabel(str(data.get('location', ['', '', '', ''])[2])))
-        location_layout.addRow("Bed Number:", QLabel(str(data.get('location', ['', '', '', ''])[3])))
+        location_layout.addRow("Facility:", QLabel(data[4]))
+        location_layout.addRow("Floor:", QLabel(str(data[5])))
+        location_layout.addRow("Room Number:", QLabel(str(data[6])))
+        location_layout.addRow("Bed Number:", QLabel(str(data[7])))
 
         self.location_tab.setLayout(location_layout)
         

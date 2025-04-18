@@ -284,6 +284,7 @@ def run():
       params = (keys[0],)*4
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON volunteerview TO volunteer_role;")
+      cursor2.execute("GRANT SELECT (admission_id) ON approvedvisitors TO volunteer_role;")
       # BillingInformationView for accessing billing information
       cursor2.execute("""CREATE VIEW BillingInformationView AS
                       SELECT 
@@ -314,6 +315,7 @@ def run():
       cursor2.execute("""CREATE VIEW activeadmissionview AS
                       SELECT admission_id, location_id FROM admission WHERE discharge_datetime IS NULL;""")
       cursor2.execute("GRANT SELECT ON activeadmissionview TO officestaff_role, medicalpersonnel_role, physician_role;")
+      cursor2.execute("GRANT SELECT ON admission TO officestaff_role, medicalpersonnel_role, physician_role;")
       #Availablelocationview shows all locations without an active admission
       cursor2.execute("""CREATE VIEW availablelocationview AS
                       SELECT l.location_id, l.facility, l.floor, l.room_number, l.bed_number
