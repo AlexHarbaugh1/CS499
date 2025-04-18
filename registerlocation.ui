@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Insert Staff</string>
+   <string>Register Location</string>
   </property>
   <widget class="QWidget" name="widget" native="true">
    <property name="geometry">
@@ -39,7 +39,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <string notr="true">font: 36pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>Insert Staff</string>
+     <string>Register Location</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>
@@ -89,12 +89,12 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>First Name:</string>
+        <string>Facility:</string>
        </property>
       </widget>
      </item>
      <item row="0" column="1">
-      <widget class="QLineEdit" name="firstNameField">
+      <widget class="QLineEdit" name="facilityField">
        <property name="minimumSize">
         <size>
          <width>0</width>
@@ -109,17 +109,23 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>Last Name:</string>
+        <string>Floor:</string>
        </property>
       </widget>
      </item>
      <item row="1" column="1">
-      <widget class="QLineEdit" name="lastNameField">
+      <widget class="QSpinBox" name="floorField">
        <property name="minimumSize">
         <size>
          <width>0</width>
          <height>35</height>
         </size>
+       </property>
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>99</number>
        </property>
       </widget>
      </item>
@@ -129,12 +135,12 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>Username:</string>
+        <string>Room Number:</string>
        </property>
       </widget>
      </item>
      <item row="2" column="1">
-      <widget class="QLineEdit" name="usernameField">
+      <widget class="QLineEdit" name="roomField">
        <property name="minimumSize">
         <size>
          <width>0</width>
@@ -149,35 +155,12 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>Password:</string>
+        <string>Bed Number:</string>
        </property>
       </widget>
      </item>
      <item row="3" column="1">
-      <widget class="QLineEdit" name="passwordField">
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>35</height>
-        </size>
-       </property>
-       <property name="echoMode">
-        <enum>QLineEdit::Password</enum>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="label_6">
-       <property name="styleSheet">
-        <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
-       </property>
-       <property name="text">
-        <string>Staff Type:</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1">
-      <widget class="QComboBox" name="staffTypeCombo">
+      <widget class="QLineEdit" name="bedField">
        <property name="minimumSize">
         <size>
          <width>0</width>
@@ -188,7 +171,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      </item>
     </layout>
    </widget>
-   <widget class="QPushButton" name="addStaff">
+   <widget class="QPushButton" name="addLocation">
     <property name="geometry">
      <rect>
       <x>300</x>
@@ -201,7 +184,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>Add Staff</string>
+     <string>Add Location</string>
     </property>
    </widget>
    <widget class="QLabel" name="errorMsg">

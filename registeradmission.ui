@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Insert Staff</string>
+   <string>Register Admission</string>
   </property>
   <widget class="QWidget" name="widget" native="true">
    <property name="geometry">
@@ -39,7 +39,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <string notr="true">font: 36pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>Insert Staff</string>
+     <string>Register Admission</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>
@@ -89,12 +89,12 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>First Name:</string>
+        <string>Patient:</string>
        </property>
       </widget>
      </item>
      <item row="0" column="1">
-      <widget class="QLineEdit" name="firstNameField">
+      <widget class="QComboBox" name="patientCombo">
        <property name="minimumSize">
         <size>
          <width>0</width>
@@ -109,12 +109,12 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>Last Name:</string>
+        <string>Location:</string>
        </property>
       </widget>
      </item>
      <item row="1" column="1">
-      <widget class="QLineEdit" name="lastNameField">
+      <widget class="QComboBox" name="locationCombo">
        <property name="minimumSize">
         <size>
          <width>0</width>
@@ -129,12 +129,12 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>Username:</string>
+        <string>Doctor:</string>
        </property>
       </widget>
      </item>
      <item row="2" column="1">
-      <widget class="QLineEdit" name="usernameField">
+      <widget class="QComboBox" name="doctorCombo">
        <property name="minimumSize">
         <size>
          <width>0</width>
@@ -149,20 +149,20 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>Password:</string>
+        <string>Admission Date:</string>
        </property>
       </widget>
      </item>
      <item row="3" column="1">
-      <widget class="QLineEdit" name="passwordField">
+      <widget class="QDateTimeEdit" name="admissionDateTime">
        <property name="minimumSize">
         <size>
          <width>0</width>
          <height>35</height>
         </size>
        </property>
-       <property name="echoMode">
-        <enum>QLineEdit::Password</enum>
+       <property name="calendarPopup">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -172,23 +172,23 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>Staff Type:</string>
+        <string>Reason:</string>
        </property>
       </widget>
      </item>
      <item row="4" column="1">
-      <widget class="QComboBox" name="staffTypeCombo">
+      <widget class="QTextEdit" name="reasonField">
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>35</height>
+         <height>100</height>
         </size>
        </property>
       </widget>
      </item>
     </layout>
    </widget>
-   <widget class="QPushButton" name="addStaff">
+   <widget class="QPushButton" name="addAdmission">
     <property name="geometry">
      <rect>
       <x>300</x>
@@ -201,7 +201,7 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
     </property>
     <property name="text">
-     <string>Add Staff</string>
+     <string>Register Admission</string>
     </property>
    </widget>
    <widget class="QLabel" name="errorMsg">
