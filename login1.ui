@@ -171,24 +171,6 @@ QPushButton:hover {
 QPushButton:pressed {
     background-color: #c0c0c0;
 }</string>
-     <layout class="QGridLayout" name="gridLayout_2">
-      <item row="1" column="0">
-       <widget class="QLabel" name="labelUser">
-        <property name="styleSheet">
-         <string notr="true">font: 16pt &quot;MS Shell Dlg 2&quot;;</string>
-        </property>
-        <property name="text">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;Username:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="userField"/>
-      </item>
-      <item row="3" column="1">
-       <widget class="QPushButton" name="login">
-        <property name="styleSheet">
-         <string notr="true">font: 16pt &quot;MS Shell Dlg 2&quot;;</string>
         </property>
         <property name="text">
          <string>Login</string>
@@ -205,13 +187,6 @@ QPushButton:pressed {
         </property>
         <property name="styleSheet">
          <string notr="true">font: 12pt &quot;MS Shell Dlg 2&quot;; color: rgb(255, 0, 0);</string>
-      <item row="2" column="1">
-       <widget class="QLineEdit" name="passwordField"/>
-      </item>
-      <item row="4" column="0" colspan="2">
-       <widget class="QLabel" name="errorMsg">
-        <property name="styleSheet">
-         <string notr="true">font: 12pt &quot;MS Shell Dlg 2&quot;;color:rgb(255, 0, 0)</string>
         </property>
         <property name="text">
          <string/>
@@ -236,33 +211,6 @@ QPushButton:pressed {
          </size>
         </property>
        </spacer>
-       </widget>
-      </item>
-      <item row="0" column="1" alignment="Qt::AlignHCenter">
-       <widget class="QLabel" name="label">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">font: 36pt &quot;MS Shell Dlg 2&quot;;</string>
-        </property>
-        <property name="text">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:20pt;&quot;&gt;PIMS&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="labelPass">
-        <property name="styleSheet">
-         <string notr="true">font: 16pt &quot;MS Shell Dlg 2&quot;;</string>
-        </property>
-        <property name="text">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;Password:&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-       </widget>
       </item>
      </layout>
     </widget>

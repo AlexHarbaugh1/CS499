@@ -196,7 +196,8 @@ def insertPrescription(admissionID, name, amount, schedule):
 
 def insertNote(admissionID, noteText):
     usertype = hospitalDB.getCurrentUserType()
-    if (usertype == 'Physician' or 'Administrator'):
+    print(usertype)
+    if (usertype == 'Physician' or usertype == 'Administrator'):
         sql = """UPDATE PhysicianWriteView
                 SET
                 note_text = %s
