@@ -2,24 +2,6 @@ import hospitalDB
 import psycopg2
 import EncryptionKey
 import datetime
-# passwordMatch checks if the entered password is the same as the saved password
-# Return TRUE or FALSE
-def passwordMatch(username, password, fixedSalt):
-    conn = getConnection()
-    cursor = conn.cursor()
-    sql = """SELECT (password_hash = crypt(%s, password_hash)) AS password_match
-             FROM Staff WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex');"""
-    
-    params = (password, username, fixedSalt)
-    cursor.execute(sql, params)
-    
-    result = cursor.fetchone()
-    match = result[0] if result is not None else False  # <- Safely handles no result
-    
-    cursor.close()
-    conn.close()
-    return match
-
 # searchPatientWithName takes the names as input and searches for the patient in the database
 # The function automatically chooses which SQL to execute based on the given parameters
 # i.e. missing names
@@ -117,132 +99,6 @@ def searchPatientWithID(patientID):
         cursor.execute(sql[usertype], params)
         patientData = cursor.fetchone()
     return patientData
-def searchPatientWithID(patientID, encryptionKey):
-    conn = getConnection()
-    cursor = conn.cursor()
-
-    sql = """
-    SELECT pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(middle_name, %s), pgp_sym_decrypt(last_name, %s), pgp_sym_decrypt(mailing_address, %s), family_doctor_id
-    FROM patient
-    WHERE patient_id = %s
-    """
-    params = (encryptionKey, encryptionKey, encryptionKey, encryptionKey, patientID)
-    cursor.execute(sql, params)
-    results = cursor.fetchone()
-    if not results:
-        return None
-    patientData = results[:-1]
-    doctorID = results[-1]
-
-    sql = """
-    SELECT pgp_sym_decrypt(username, %s), pgp_sym_decrypt(first_name, %s), pgp_sym_decrypt(last_name, %s)
-    FROM staff
-    WHERE user_id = %s
-    """
-    params = (encryptionKey, encryptionKey, encryptionKey, doctorID)
-    cursor.execute(sql, params)
-    doctorUsername = cursor.fetchone() or ("Unknown", "Unknown", "Unknown")
-
-    sql = """
-    SELECT admission_id, pgp_sym_decrypt(admittance_datetime, %s), pgp_sym_decrypt(reason_for_admission, %s), pgp_sym_decrypt(discharge_datetime, %s)
-    FROM admission
-    WHERE patient_ID = %s
-    """
-    params = (encryptionKey, encryptionKey, encryptionKey, patientID)
-    cursor.execute(sql, params)
-    patientAdmissions = cursor.fetchall()
-
-    sql = """
-    SELECT pgp_sym_decrypt(carrier_name, %s), pgp_sym_decrypt(account_number, %s), pgp_sym_decrypt(group_number, %s)
-    FROM insurance
-    WHERE patient_id = %s
-    """
-    params = (encryptionKey, encryptionKey, encryptionKey, patientID)
-    cursor.execute(sql, params)
-    patientInsurance = cursor.fetchone()
-
-    sql = """
-    SELECT phone_type, pgp_sym_decrypt(phone_number, %s)
-    FROM phonenumber
-    WHERE patient_id = %s
-    """
-    params = (encryptionKey, patientID)
-    cursor.execute(sql, params)
-    phoneNumbers = cursor.fetchall()
-
-    sql = """
-    SELECT pgp_sym_decrypt(contact_name, %s), pgp_sym_decrypt(contact_phone, %s)
-    FROM emergencycontact
-    WHERE patient_id = %s
-    ORDER BY contact_order
-    """
-    params = (encryptionKey, encryptionKey, patientID)
-    cursor.execute(sql, params)
-    emergencyContacts = cursor.fetchall()
-
-    sql = """
-    SELECT facility, floor, room_number, bed_number
-    FROM location
-    WHERE location_id = (
-        SELECT location_id FROM admission WHERE patient_id = %s LIMIT 1
-    )
-    """
-    params = (patientID,)
-    cursor.execute(sql, params)
-    locationInfo = cursor.fetchone()
-
-    sql = """
-    SELECT pgp_sym_decrypt(note_text, %s), pgp_sym_decrypt(note_datetime, %s)
-    FROM patientnote
-    WHERE LOWER(note_type) = 'doctor'
-    AND admission_id IN (
-        SELECT admission_id FROM admission WHERE patient_id = %s
-    )
-    ORDER BY note_datetime
-    """
-    params = (encryptionKey, encryptionKey, patientID)
-    cursor.execute(sql, params)
-    doctorNotes = cursor.fetchall()
-
-    sql = """
-    SELECT pgp_sym_decrypt(note_text, %s), pgp_sym_decrypt(note_datetime, %s)
-    FROM patientnote
-    WHERE LOWER(note_type) = 'nurse'
-    AND admission_id IN (
-        SELECT admission_id FROM admission WHERE patient_id = %s
-    )
-    ORDER BY note_datetime
-    """
-    params = (encryptionKey, encryptionKey, patientID)
-    cursor.execute(sql, params)
-    nurseNotes = cursor.fetchall()
-
-    sql = """
-    SELECT pgp_sym_decrypt(medication_name, %s), pgp_sym_decrypt(amount, %s), pgp_sym_decrypt(schedule, %s)
-    FROM prescription
-    WHERE admission_id IN (
-        SELECT admission_id FROM admission WHERE patient_id = %s
-    )
-    ORDER BY prescription_id
-    """
-    params = (encryptionKey, encryptionKey, encryptionKey, patientID)
-    cursor.execute(sql, params)
-    prescriptions = cursor.fetchall()
-
-    sql = """
-    SELECT pgp_sym_decrypt(procedure_name, %s), pgp_sym_decrypt(scheduled_datetime, %s)
-    FROM scheduledprocedure
-    WHERE admission_id IN (
-        SELECT admission_id FROM admission WHERE patient_id = %s
-    )
-    ORDER BY scheduled_datetime
-    """
-    params = (encryptionKey, encryptionKey, patientID)
-    cursor.execute(sql, params)
-    procedures = cursor.fetchall()
-
-    return patientData, doctorUsername, patientAdmissions, patientInsurance, phoneNumbers, emergencyContacts, locationInfo, doctorNotes, nurseNotes, prescriptions, procedures
-
 # searchStaffWithName uses same logic as searchPatientWithName to find and list Staff members
 # Returns list of tuples with user_id, first_name, last_name
 # USE CASE: search for staff members on the search screen    
@@ -472,11 +328,3 @@ if __name__ == "__main__":
     print(prescriptions)
     print(procedures)
     print(notes)"""
-    #print(searchPatientWithID('71', keys[0]))
-    #print(searchStaffWithName('S', None, keys[0], keys[1], True))
-    #print(searchStaffWithID('2', keys[0]))
-
-    print(searchAdmissionWithID('2', keys[0]))
-
-    print(searchAdmissionWithID('2', keys[0]))
-
