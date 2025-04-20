@@ -15,7 +15,7 @@ import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
 import csv
 import string
@@ -1784,9 +1784,9 @@ class SearchScreen(QDialog):
                 partials.add('lname')
 
             df = pd.DataFrame(SearchDB.searchPatientWithName(fixed_salt, 
-                                                        fname=firstName if firstName else None,
-                                                        mname=middleName if middleName else None,
-                                                        lname=lastName if lastName else None,
+                                                        fname=firstName.title() if firstName else None,
+                                                        mname=middleName.title() if middleName else None,
+                                                        lname=lastName.title() if lastName else None,
                                                         partial_fields=partials,
                                                         active_admissions_only=activeAdmissionsOnly))
 
@@ -2193,6 +2193,42 @@ class PatientDetailsScreen(QDialog):
             
             self.notes_tab.setLayout(notes_layout)
             
+            note_entry_group = QGroupBox("Add Note")
+            note_entry_layout = QVBoxLayout()
+
+            note_type_combo = QComboBox()
+            note_type_combo.addItems(["Clinical", "Progress", "Discharge", "Other"])
+
+            note_text_edit = QTextEdit()
+            note_text_edit.setPlaceholderText("Enter your note here...")
+
+            save_note_button = QPushButton("Save Note")
+
+            def saveNote():
+                note_text = note_text_edit.toPlainText().strip()
+                
+                if not note_text:
+                    QMessageBox.warning(self, "Empty Note", "Please enter note content.")
+                    return
+
+                try:
+                    InsertData.insertNote(admission_id, note_text)
+                    notes_list.addItem(f"New Note: {note_text}")
+                    QMessageBox.information(self, "Success", "Note added successfully!")
+                    note_text_edit.clear()
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Failed to save note: {str(e)}")
+
+            save_note_button.clicked.connect(saveNote)
+
+            note_entry_layout.addWidget(QLabel("Note Type:"))
+            note_entry_layout.addWidget(note_type_combo)
+            note_entry_layout.addWidget(note_text_edit)
+            note_entry_layout.addWidget(save_note_button)
+            note_entry_group.setLayout(note_entry_layout)
+
+            notes_layout.addWidget(note_entry_group)
+
             # Medications Tab
             medications_layout = QVBoxLayout()
             all_meds = []
