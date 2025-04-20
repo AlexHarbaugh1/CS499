@@ -15,7 +15,7 @@ import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
 import csv
 import string
@@ -815,7 +815,6 @@ class AuditLogScreen(QDialog):
         widget = self.parent()
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-
 
 class InsertStaff(QDialog):
     def __init__(self):
@@ -1681,7 +1680,6 @@ class StaffDetailsScreen(QDialog):
         widget.addWidget(search_staff)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
-
 class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
@@ -1900,6 +1898,32 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.visitors_tab, "Approved Visitors")
             
         elif self.usertype == "Office Staff":
+            self.basic_info_tab = QWidget()
+            layout = QFormLayout()
+            self.firstNameEdit = QLineEdit()
+            self.middleNameEdit = QLineEdit()
+            self.lastNameEdit = QLineEdit()
+            self.addressEdit = QTextEdit()
+
+            self.firstNameEdit.setReadOnly(True)
+            self.middleNameEdit.setReadOnly(True)
+            self.lastNameEdit.setReadOnly(True)
+            self.addressEdit.setReadOnly(True)
+
+            layout.addRow("First Name:", self.firstNameEdit)
+            layout.addRow("Middle Name:", self.middleNameEdit)
+            layout.addRow("Last Name:", self.lastNameEdit)
+            layout.addRow("Mailing Address:", self.addressEdit)
+
+            self.editBasicInfoBtn = QPushButton("Edit")
+            self.saveBasicInfoBtn = QPushButton("Save")
+            self.saveBasicInfoBtn.setEnabled(False)
+            self.editBasicInfoBtn.clicked.connect(self.enableBasicInfoEdit)
+            self.saveBasicInfoBtn.clicked.connect(self.saveBasicInfo)
+
+            layout.addRow(self.editBasicInfoBtn, self.saveBasicInfoBtn)
+            self.basic_info_tab.setLayout(layout)
+
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
@@ -1912,6 +1936,8 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.notes_tab, "Notes")
             self.tabs.addTab(self.medications_tab, "Medications")
             self.tabs.addTab(self.procedures_tab, "Procedures")
+            self.tabs.addTab(self.visitors_tab, "Approved Visitors")
+
 
         self.num_static_tabs = self.tabs.count()  # Store default tab count
     def closeTab(self, index):
@@ -1944,7 +1970,37 @@ class PatientDetailsScreen(QDialog):
             traceback.print_exc()  # Add this line for full stack trace in terminal
             QMessageBox.critical(self, "Error", f"Error loading patient data: {str(e)}")
             print(f"Error: {e}")
-    
+
+    def enableBasicInfoEdit(self):
+        self.firstNameEdit.setReadOnly(False)
+        self.middleNameEdit.setReadOnly(False)
+        self.lastNameEdit.setReadOnly(False)
+        self.addressEdit.setReadOnly(False)
+        self.saveBasicInfoBtn.setEnabled(True)
+
+    def saveBasicInfo(self):
+         first = self.firstNameEdit.text().strip()
+         middle = self.middleNameEdit.text().strip()
+         last = self.lastNameEdit.text().strip()
+         address = self.addressEdit.toPlainText().strip()
+ 
+         try:
+            if first != self.original_data['first_name']:
+                UpdateDB.patientUpdateFirstName(self.patient_id, first, fixed_salt)
+            if middle != self.original_data['middle_name']:
+                UpdateDB.patientUpdateMiddleName(self.patient_id, middle, fixed_salt)
+            if last != self.original_data['last_name']:
+                UpdateDB.patientUpdateLastName(self.patient_id, last, fixed_salt)
+            if address != self.original_data['address']:
+                UpdateDB.patientUpdateAddress(self.patient_id, address)
+            QMessageBox.information(self, "Success", "Patient info updated.")
+            self.firstNameEdit.setReadOnly(True)
+            self.middleNameEdit.setReadOnly(True)
+            self.lastNameEdit.setReadOnly(True)
+            self.addressEdit.setReadOnly(True)
+            self.saveBasicInfoBtn.setEnabled(False)
+         except Exception as e:
+             QMessageBox.critical(self, "Error", f"Failed to update info: {e}")
     def loadVolunteerData(self, data):
         """Load data for Volunteer view"""
         # Volunteer view has: patient_id, first_name, middle_name, last_name, 
@@ -1985,18 +2041,21 @@ class PatientDetailsScreen(QDialog):
         """Load data for Office Staff view"""
         # Office staff view has: patient_id, first_name, middle_name, last_name, 
         # mailing_address, insurance, phones, emergency contacts
-        
+        self.original_data = {
+        'first_name': data[1],
+        'middle_name': data[2],
+        'last_name': data[3],
+        'address': data[4]
+    }
         # Set header
         name = f"{data[1]} {data[2]} {data[3]}"
         self.patient_info_label.setText(f"Patient: {name}")
         
-        # Basic Info Tab
-        basic_layout = QFormLayout()
-        basic_layout.addRow("First Name:", QLabel(data[1]))
-        basic_layout.addRow("Middle Name:", QLabel(data[2]))
-        basic_layout.addRow("Last Name:", QLabel(data[3]))
-        basic_layout.addRow("Mailing Address:", QLabel(data[4]))
-        self.basic_info_tab.setLayout(basic_layout)
+        # Populate the Basic Info form fields
+        self.firstNameEdit.setText(data[1])
+        self.middleNameEdit.setText(data[2])
+        self.lastNameEdit.setText(data[3])
+        self.addressEdit.setText(data[4])
         
         # Insurance Tab
         insurance_layout = QFormLayout()
@@ -2178,6 +2237,17 @@ class PatientDetailsScreen(QDialog):
                 procedures_layout.addWidget(QLabel("No procedures found"))
             
             self.procedures_tab.setLayout(procedures_layout)
+
+            # Visitors Tab
+            visitors_layout = QVBoxLayout()
+            if data[8] and len(data[8]) > 0:
+                visitors_list = QListWidget()
+                for visitor in data[8]:
+                    visitors_list.addItem(visitor)
+                visitors_layout.addWidget(visitors_list)
+            else:
+                visitors_layout.addWidget(QLabel("No approved visitors"))
+            self.visitors_tab.setLayout(visitors_layout)
     
     def openAdmissionDetails(self, item):
         index = self.admissions_list_widget.row(item)
