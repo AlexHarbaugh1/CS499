@@ -113,17 +113,11 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
                 proc = generate_procedure()
                 InsertData.insertProcedure(admission, proc["name"], proc["date"])
             hospitalDB.userLogout()
-            # Add billing
-            total_owed = Decimal(random.randint(1000, 100000))
-            total_paid = total_owed * Decimal(random.uniform(0.1, 0.9))
-            insurance_paid = total_owed - total_paid
             items = ["Room Charge", "Lab Fee", "Medication", "Surgery Fee", "Consultation"]
             # Add billing details (3-10 items)
-            itemlist = []
+
             for _ in range(random.randint(3, 10)):
-                item = {'name': random.choice(items), 'cost': float(random.randint(50, 5000))}
-                itemlist.append(item)
-            InsertData.insertBill(admission, total_owed, total_paid, insurance_paid, itemlist)
+                InsertData.insertBilledItem(admission, random.choice(items), random.randint(50, 5000))
             if random.random() < 0.7:
                 UpdateDB.admissionUpdateDischarge(_, admit_date + timedelta(days=random.randint(1, 30)), encryptionKey)
 

@@ -4,6 +4,7 @@ Created on Wed Jan 29 09:18:06 2025
 
 @author: laure
 """
+from SetupDB import check_database_exists, DatabaseInitWorker
 import hospitalDB
 import InsertData
 import UpdateDB
@@ -14,8 +15,9 @@ import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
+import csv
 import string
 import EncryptionKey
 import SearchDB
@@ -89,6 +91,102 @@ class MainScreen(QDialog):
         login = LoginScreen()
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+
+class InitializeDatabaseScreen(QDialog):
+    def __init__(self, widget):
+        super(InitializeDatabaseScreen, self).__init__()
+        loadUi("setup.ui", self)
+        
+        # Store the widget reference
+        self.widget = widget
+        
+        # Set up the screen
+        self.setWindowTitle("Initialize Database - Hospital Management System")
+        
+        # Hide progress bar initially
+        self.progressBar.setVisible(False)
+        
+        # Connect button
+        self.initializeButton.clicked.connect(self.initialize_database)
+        
+        # Set tab order
+        self.setTabOrder(self.firstNameField, self.lastNameField)
+        self.setTabOrder(self.lastNameField, self.usernameField)
+        self.setTabOrder(self.usernameField, self.passwordField)
+        self.setTabOrder(self.passwordField, self.confirmPasswordField)
+        self.setTabOrder(self.confirmPasswordField, self.initializeButton)
+    
+    def initialize_database(self):
+        # Clear any previous error message
+        self.errorMsg.setText("")
+        
+        # Get form data
+        first_name = self.firstNameField.text().strip()
+        last_name = self.lastNameField.text().strip()
+        username = self.usernameField.text().strip()
+        password = self.passwordField.text()
+        confirm_password = self.confirmPasswordField.text()
+        
+        # Validate inputs
+        if not first_name or not last_name or not username or not password:
+            self.errorMsg.setText("All fields are required.")
+            return
+        
+        if password != confirm_password:
+            self.errorMsg.setText("Passwords do not match.")
+            return
+        
+        if len(password) < 8:
+            self.errorMsg.setText("Password must be at least 8 characters.")
+            return
+            
+        # Disable form fields and show progress
+        self.set_form_enabled(False)
+        self.progressBar.setVisible(True)
+        self.progressBar.setValue(0)
+        
+        # Create and start the worker thread
+        self.worker = DatabaseInitWorker(first_name, last_name, username, password)
+        self.worker.update_progress.connect(self.update_progress)
+        self.worker.finished.connect(self.initialization_finished)
+        self.worker.start()
+    
+    def update_progress(self, value, message):
+        self.progressBar.setValue(value)
+        self.errorMsg.setStyleSheet("font: 12pt \"MS Shell Dlg 2\"; color: #003366;")
+        self.errorMsg.setText(message)
+    
+    def initialization_finished(self, success, message):
+        if success:
+            # Display success message with green text
+            self.errorMsg.setStyleSheet("font: 12pt \"MS Shell Dlg 2\"; color: green;")
+            self.errorMsg.setText(message)
+            
+            # Show a dialog that database was initialized successfully
+            QMessageBox.information(self, "Success", 
+                "Database has been initialized successfully.\n\n"
+                "You can now log in with the administrator account you created.")
+            
+            # Transition to login screen
+                
+            mainScreen = MainScreen()
+            self.widget.addWidget(mainScreen)
+            self.widget.setCurrentIndex(widget.currentIndex() + 1)
+        else:
+            # Display error message
+            self.errorMsg.setStyleSheet("font: 12pt \"MS Shell Dlg 2\"; color: red;")
+            self.errorMsg.setText(message)
+            
+            # Re-enable form
+            self.set_form_enabled(True)
+        
+    def set_form_enabled(self, enabled):
+        self.firstNameField.setEnabled(enabled)
+        self.lastNameField.setEnabled(enabled)
+        self.usernameField.setEnabled(enabled)
+        self.passwordField.setEnabled(enabled)
+        self.confirmPasswordField.setEnabled(enabled)
+        self.initializeButton.setEnabled(enabled)
 
 class LoginScreen(QDialog):
     def __init__(self):
@@ -385,12 +483,42 @@ class AdminScreen(QDialog):
         self.insPat.clicked.connect(self.insertPatientFunction)
         self.searchStaff.clicked.connect(self.searchStaffFunction)
         self.searchPatient.clicked.connect(self.searchPatFunction)
-        self.regLocation.clicked.connect(self.registerLocationFunction)  # New button
-        self.regAdmission.clicked.connect(self.registerAdmissionFunction)  # New button
+        self.regLocation.clicked.connect(self.registerLocationFunction)
+        self.regAdmission.clicked.connect(self.registerAdmissionFunction)
+        self.auditLog.clicked.connect(self.viewAuditLog)
         self.logout.clicked.connect(self.logoutFunction)
         
         # Apply button styling
         self.styleButtons()
+
+    # Update the styleButtons method to include the new audit log button
+    def styleButtons(self):
+        """Apply consistent styling to all buttons"""
+        button_style = """
+            QPushButton {
+                background-color: #e0e0e0;
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 10px;
+                font-size: 14pt;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d6d6d6;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+        """
+        
+        # Apply style to all operation buttons
+        for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
+                      self.regLocation, self.regAdmission, self.auditLog]:
+            button.setStyleSheet(button_style)
+            button.setMinimumHeight(60)
+            
+        # Style for logout button
+        self.logout.setStyleSheet(button_style)
 
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
@@ -428,7 +556,7 @@ class AdminScreen(QDialog):
         
         # Apply style to all operation buttons
         for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
-                      self.regLocation, self.regAdmission]:  # Added new buttons here
+                      self.regLocation, self.regAdmission, self.auditLog]:
             button.setStyleSheet(button_style)
             button.setMinimumHeight(60)
             
@@ -455,14 +583,20 @@ class AdminScreen(QDialog):
         widget.addWidget(search)
         widget.setCurrentIndex(widget.currentIndex() + 1)
     
-    def registerLocationFunction(self):  # New function for registering locations
+    def registerLocationFunction(self):
         registerLocation = RegisterLocation()
         widget.addWidget(registerLocation)
         widget.setCurrentIndex(widget.currentIndex() + 1)
     
-    def registerAdmissionFunction(self):  # New function for registering admissions
+    def registerAdmissionFunction(self):
         registerAdmission = RegisterAdmission()
         widget.addWidget(registerAdmission)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+    
+    def viewAuditLog(self):
+        auditLog = AuditLogScreen()
+        widget = self.parent()
+        widget.addWidget(auditLog)
         widget.setCurrentIndex(widget.currentIndex() + 1)
         
     def logoutFunction(self):
@@ -471,6 +605,217 @@ class AdminScreen(QDialog):
         login = LoginScreen()
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+
+class AuditLogScreen(QDialog):
+    def __init__(self):
+        super(AuditLogScreen, self).__init__()
+        loadUi("auditlog.ui", self)
+        
+        # Get screen dimensions
+        screen_size = QtWidgets.QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()  
+        screen_height = screen_size.height()
+        
+        # Set main widget to fill the entire screen
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        
+        # Center the UI elements
+        self.centerUI(screen_width, screen_height)
+        
+        # Set up date filters with default values (last 7 days)
+        current_datetime = QDateTime.currentDateTime()
+        self.toDateFilter.setDateTime(current_datetime)
+        self.fromDateFilter.setDateTime(current_datetime.addDays(-7))
+        
+        # Connect buttons
+        self.backTo.clicked.connect(self.goBack)
+        self.logout.clicked.connect(self.logoutFunction)
+        self.filterButton.clicked.connect(self.applyFilters)
+        self.clearButton.clicked.connect(self.clearFilters)
+        self.exportButton.clicked.connect(self.exportToCSV)
+        
+        # Initialize the table
+        self.initTable()
+        
+        # Load initial data
+        self.loadAuditLogData()
+
+    def centerUI(self, screen_width, screen_height):
+        """Center all UI elements properly"""
+        # Center the title
+        title_width = 600
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        
+        # Position back button in top left
+        self.backTo.setGeometry(50, 70, 120, 40)
+        
+        # Position logout button in top right
+        self.logout.setGeometry(screen_width - 170, 70, 120, 40)
+        
+        # Center and resize the filter section
+        filter_width = min(1100, screen_width - 100)
+        self.gridLayoutWidget.setGeometry((screen_width - filter_width) // 2, 150, filter_width, 80)
+        
+        # Center and resize the table
+        table_width = min(1100, screen_width - 100)
+        table_height = min(480, screen_height - 320)
+        self.auditTable.setGeometry((screen_width - table_width) // 2, 250, table_width, table_height)
+        
+        # Position export button at bottom right
+        self.exportButton.setGeometry(screen_width - 230, screen_height - 60, 180, 40)
+        
+        # Position status label at bottom left
+        self.statusLabel.setGeometry(50, screen_height - 60, screen_width - 330, 40)
+
+    def initTable(self):
+        """Initialize the table with appropriate column widths"""
+        # Set column widths
+        self.auditTable.setColumnWidth(0, 80)    # ID
+        self.auditTable.setColumnWidth(1, 200)   # Username
+        self.auditTable.setColumnWidth(2, 600)   # Action
+        self.auditTable.setColumnWidth(3, 200)   # Timestamp
+        
+        # Ensure the table headers are visible
+        self.auditTable.horizontalHeader().setVisible(True)
+        
+        # Set the text alignment for columns
+        for i in range(4):
+            self.auditTable.horizontalHeaderItem(i).setTextAlignment(Qt.AlignLeft)
+    
+    def loadAuditLogData(self, username=None, action=None, from_date=None, to_date=None):
+        """Load audit log data with optional filters"""
+        try:
+            # Build the SQL query with parameters
+            params = []
+            conditions = []
+            
+            # Start with a base query
+            sql = "SELECT log_id, username, action_text, timestamp FROM auditlog"
+            
+            # Add filters if provided
+            if username:
+                conditions.append("username LIKE %s")
+                params.append(f"%{username}%")
+            
+            if action:
+                conditions.append("action_text LIKE %s")
+                params.append(f"%{action}%")
+            
+            if from_date:
+                conditions.append("timestamp >= %s")
+                params.append(from_date)
+            
+            if to_date:
+                conditions.append("timestamp <= %s")
+                params.append(to_date)
+            
+            # Add WHERE clause if needed
+            if conditions:
+                sql += " WHERE " + " AND ".join(conditions)
+            
+            # Order by timestamp (most recent first)
+            sql += " ORDER BY timestamp DESC"
+            
+            # Execute the query
+            with hospitalDB.get_cursor() as cursor:
+                cursor.execute(sql, params)
+                audit_logs = cursor.fetchall()
+            
+            # Clear the table
+            self.auditTable.setRowCount(0)
+            
+            # Populate the table with data
+            for row_num, row_data in enumerate(audit_logs):
+                self.auditTable.insertRow(row_num)
+                for col_num, col_data in enumerate(row_data):
+                    item = QTableWidgetItem(str(col_data))
+                    self.auditTable.setItem(row_num, col_num, item)
+            
+            # Update status message
+            self.statusLabel.setText(f"Displaying {len(audit_logs)} audit log entries")
+            
+        except Exception as e:
+            self.statusLabel.setText(f"Error loading audit log data: {str(e)}")
+            print(f"Error loading audit log: {e}")
+    
+    def applyFilters(self):
+        """Apply filters to the audit log data"""
+        username = self.usernameFilter.text().strip() if self.usernameFilter.text().strip() else None
+        action = self.actionFilter.text().strip() if self.actionFilter.text().strip() else None
+        from_date = self.fromDateFilter.dateTime().toString("yyyy-MM-dd HH:mm:ss") if self.fromDateFilter.dateTime().isValid() else None
+        to_date = self.toDateFilter.dateTime().toString("yyyy-MM-dd HH:mm:ss") if self.toDateFilter.dateTime().isValid() else None
+        
+        self.loadAuditLogData(username, action, from_date, to_date)
+    
+    def clearFilters(self):
+        """Clear all filters and reload the data"""
+        self.usernameFilter.clear()
+        self.actionFilter.clear()
+        
+        # Reset date filters to default (last 7 days)
+        current_datetime = QDateTime.currentDateTime()
+        self.toDateFilter.setDateTime(current_datetime)
+        self.fromDateFilter.setDateTime(current_datetime.addDays(-7))
+        
+        # Reload data without filters
+        self.loadAuditLogData()
+    
+    def exportToCSV(self):
+        """Export the current table contents to a CSV file"""
+        try:
+            # Get the file path from a save dialog
+            options = QFileDialog.Options()
+            file_name, _ = QFileDialog.getSaveFileName(self, 
+                                                       "Save Audit Log", 
+                                                       "audit_log_export.csv", 
+                                                       "CSV Files (*.csv);;All Files (*)", 
+                                                       options=options)
+            
+            if not file_name:  # User canceled
+                return
+            
+            # Ensure the file has .csv extension
+            if not file_name.endswith('.csv'):
+                file_name += '.csv'
+            
+            # Open the file for writing
+            with open(file_name, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                
+                # Write the header row
+                headers = []
+                for i in range(self.auditTable.columnCount()):
+                    headers.append(self.auditTable.horizontalHeaderItem(i).text())
+                writer.writerow(headers)
+                
+                # Write the data rows
+                for row in range(self.auditTable.rowCount()):
+                    row_data = []
+                    for col in range(self.auditTable.columnCount()):
+                        item = self.auditTable.item(row, col)
+                        row_data.append(item.text() if item else "")
+                    writer.writerow(row_data)
+            
+            self.statusLabel.setText(f"Audit log exported successfully to {file_name}")
+            
+        except Exception as e:
+            self.statusLabel.setText(f"Error exporting data: {str(e)}")
+            QMessageBox.warning(self, "Export Error", f"An error occurred while exporting the data: {str(e)}")
+    
+    def goBack(self):
+        admin = AdminScreen()
+        widget = self.parent()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+    
+    def logoutFunction(self):
+        eventFilter.enabled = False
+        hospitalDB.userLogout()
+        login = LoginScreen()
+        widget = self.parent()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
 
 class InsertStaff(QDialog):
     def __init__(self):
@@ -2125,12 +2470,17 @@ app.setStyleSheet("""
         font-weight: bold;
     }
 """)
-
-home = MainScreen()
-widget = QtWidgets.QStackedWidget()
-widget.addWidget(home)
-#widget.resize(1200, 800)
-widget.showMaximized()
+if not check_database_exists():
+    # Database doesn't exist, show initialization screen
+    widget = QtWidgets.QStackedWidget()
+    init_screen = InitializeDatabaseScreen(widget)
+    widget.addWidget(init_screen)
+    widget.showMaximized()
+else:
+    home = MainScreen()
+    widget = QtWidgets.QStackedWidget()
+    widget.addWidget(home)
+    widget.showMaximized()
 eventFilter = InactivityTimer(lockScreen)
 app.installEventFilter(eventFilter)
 try:

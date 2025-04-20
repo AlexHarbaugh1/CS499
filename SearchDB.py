@@ -1,6 +1,7 @@
 import hospitalDB
 import psycopg2
 import EncryptionKey
+import datetime
 # searchPatientWithName takes the names as input and searches for the patient in the database
 # The function automatically chooses which SQL to execute based on the given parameters
 # i.e. missing names
@@ -24,7 +25,6 @@ def passwordMatch(staffID, password):
         sql = """SET ROLE %s;"""
         params = (role,)
         cursor.execute(sql, params)
-        cursor.close()
         return(match)
 
 def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial_fields=set(), active_admissions_only=False):
@@ -78,7 +78,7 @@ def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial
         sql += " ORDER BY last_name ASC;"
         cursor.execute(sql, params)
         patients = cursor.fetchall()
-        cursor.close()
+        
     return patients
 
 # searchPatientWithID takes patientID to find the rest of the patient data
@@ -137,7 +137,7 @@ def searchStaffWithName(fixed_salt, fname=None, lname=None, partial_fields=set()
         sql += " ORDER BY last_name ASC;"
         cursor.execute(sql, params)
         staff = cursor.fetchall()
-        cursor.close()
+        
     return staff
 # searchStaffWithID takes input user_id and returns relevant staff member information
 # Returns tuple of username, first_name, last_name, type
@@ -153,7 +153,7 @@ def getDoctors(encryptionKey):
         try:
             cursor.execute(sql, params)
             doctors = cursor.fetchall()
-            cursor.close()
+            
             return doctors
         except psycopg2.ProgrammingError as e:
             print("Error: Insufficient privileges to execute this operation")
@@ -266,9 +266,42 @@ def searchAdmissionWithID(admissionID, encryptionKey):
         )
         cursor.execute(sql, params)
         notes = cursor.fetchall()
-        cursor.close()
+        
     return admissionData, location, doctor, prescriptions, procedures, notes
 
+def getLogs(from_date=None, to_date=None, limit=1000):
+    with hospitalDB.get_cursor() as cursor:
+        conditions = []
+        params = []
+        
+        # Build WHERE clause based on filters
+        if from_date:
+            conditions.append("timestamp >= %s")
+            params.append(from_date)
+        
+        if to_date:
+            # Add one day to include logs from the end date
+            to_date_end = to_date + datetime.timedelta(days=1)
+            conditions.append("timestamp < %s")
+            params.append(to_date_end)
+        
+        # Base query
+        sql = """SELECT * FROM audit_log"""
+        
+        # Add WHERE clause if we have conditions
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        
+        # Add ORDER BY and LIMIT
+        sql += " ORDER BY timestamp DESC LIMIT %s"
+        params.append(limit)
+        
+        cursor.execute(sql, params)
+        logs = cursor.fetchall()
+        cursor.close()
+        
+        return logs
+    
 def getAvailableLocations():
     with hospitalDB.get_cursor() as cursor:
         cursor.execute("SELECT * FROM availablelocationview;")

@@ -9,6 +9,30 @@ def generatePrefixes(text):
 def hashPrefix(prefix, fixedSalt):
     return hashlib.sha256((prefix + fixedSalt).encode()).hexdigest()
 
+def log_action(action_text):
+    try:
+        # Get the current user's username
+        username = hospitalDB.getCurrentUsername()
+        
+        # If no user is logged in, use 'system' as the username
+        if not username:
+            username = 'system'
+        
+        # Get the current timestamp
+        timestamp = datetime.datetime.now()
+        
+        # Insert the log entry
+        with hospitalDB.get_cursor() as cursor:
+            sql = """INSERT INTO auditlog (username, action_text, timestamp)
+                    VALUES (%s, %s, %s);"""
+            params = (username, action_text, timestamp)
+            cursor.execute(sql, params)
+        
+        return True
+    except Exception as e:
+        print(f"Error logging action: {e}")
+        return False
+    
 def insertStaff(fname, lname, username, password, type, fixedSalt):
     type_map = {
         "Administrator": 1,
@@ -42,10 +66,10 @@ def insertStaff(fname, lname, username, password, type, fixedSalt):
         )
         try:
             cursor.execute(sql, params)
+            log_action(f'Added Staff To System Username: {username}')
         except psycopg2.ProgrammingError as e:
-            print("Error: Insufficient privileges to execute this operation")
-        finally:
-            cursor.close()
+            print(f"Error: {e}")
+            
 
 def insertPatient(fname, mname, lname, address, doctorID, fixedSalt):
     fnameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(fname)]
@@ -78,10 +102,11 @@ def insertPatient(fname, mname, lname, address, doctorID, fixedSalt):
         )
         try:
             cursor.execute(sql, params)
+            params = (fname, lname)
+            log_action(f'Added Patient To System: {fname} {lname}')
         except psycopg2.ProgrammingError as e:
             print("Error: Insufficient privileges to execute this operation")
-        finally:
-            cursor.close()
+            
 
 def insertAdmission(patientID, locationID, doctorID, admissionDateTime, admissionReason):
     with hospitalDB.get_cursor() as cursor:
@@ -101,7 +126,10 @@ def insertAdmission(patientID, locationID, doctorID, admissionDateTime, admissio
             patientID
         )
         cursor.execute(sql, params)
-        cursor.close()
+        
+        params = (patientID, )
+        log_action(f'Added Admission To System PatientID: {patientID}')
+        
     
 
 def insertLocation(facility, floor, room, bed):
@@ -120,7 +148,9 @@ def insertLocation(facility, floor, room, bed):
                 bed
             )
             cursor.execute(sql, params)
-            cursor.close()
+            params = (facility, floor, room, bed)
+            log_action('Added Location To System')
+            
     
 def insertVisitors(admissionID, visitorNames, encryptionKey):
     with  hospitalDB.get_cursor() as cursor:
@@ -139,7 +169,7 @@ def insertVisitors(admissionID, visitorNames, encryptionKey):
             admissionID
         )
         cursor.execute(sql, params)
-        cursor.close()
+        log_action(f'Added Visitors To Admission ID: {admissionID}')
 
 def insertPrescription(admissionID, name, amount, schedule):
     usertype = hospitalDB.getCurrentUserType()
@@ -159,7 +189,8 @@ def insertPrescription(admissionID, name, amount, schedule):
                 admissionID
             )
             cursor.execute(sql, params)
-            cursor.close()
+            params = (admissionID, name, amount, schedule)
+            log_action(f'Added Presciption To Admission ID: {admissionID}')
     else: 
         print("Permission Denied")
 
@@ -182,7 +213,9 @@ def insertNote(admissionID, noteText):
             admissionID
         )
         cursor.execute(sql, params)
-        cursor.close()
+        log_action(f'Added Note To Admission ID: {admissionID}')
+        
+        
 
 def insertProcedure(admissionID, procedureName, procedureSchedule):
     sql = """UPDATE PhysicianWriteView
@@ -197,6 +230,7 @@ def insertProcedure(admissionID, procedureName, procedureSchedule):
         )
     with hospitalDB.get_cursor() as cursor:
         cursor.execute(sql, params)
+        log_action(f'Added Procedure To Admission ID: {admissionID}')
 
 def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemizedBill):
     with  hospitalDB.get_cursor() as cursor:
@@ -232,11 +266,6 @@ def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemize
             [item['cost'] for item in itemizedBill]
         )
         cursor.execute(sql, params)
-        cursor.close()
-
-    # Test Input data
-    # Uncomment desired function to test
-    # Must have ran all functions above it for the next one to work
 
 def insertBilledItem(admissionID, itemName, itemCost):
     with hospitalDB.get_cursor() as cursor:
@@ -268,4 +297,3 @@ if __name__ == "__main__":
     #insertVisitors('16', ['Mitch', 'Taylor', 'Josh'], keys[0])
     #insertNote('16', 'The Meth really showed results')
     #insertProcedure('16', 'Finger Surgery', '2025-03-15 12:00:00')
-    #insertBill(admissionID, '200000', '170000', '30000', [{'name': 'ER Visit', 'cost': float('75.27')}, {'name': 'X-Ray', 'cost': float('4000')}, {'name': 'Ibuprofen', 'cost': float('5.73')}, {'name': 'Morphine', 'cost': float('70919')}, {'name': 'Meth', 'cost': float('100000')}, {'name': 'Finger Surgery', 'cost': float('25000')}])

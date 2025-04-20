@@ -1,5 +1,5 @@
 from hospitalDB import get_cursor, getCurrentUserType, userLogin
-from InsertData import hashPrefix, generatePrefixes
+from InsertData import hashPrefix, generatePrefixes, log_action
 from SearchDB import passwordMatch
 import psycopg2
 import EncryptionKey
@@ -57,9 +57,9 @@ def patientUpdateFirstName(patientID, newName, fixedSalt):
             patientID
             )
         cursor.execute(sql, params)
+        log_action(f"Update Patient ID: {patientID} First Name")
         updatePrefixTrigrams(patientID, 'fname', newName, fixedSalt)
         
-
 def patientUpdateMiddleName(patientID, newName, fixedSalt):
     with get_cursor() as cursor:
         sql = """UPDATE officestaffview
@@ -70,6 +70,7 @@ def patientUpdateMiddleName(patientID, newName, fixedSalt):
             patientID
             )
         cursor.execute(sql, params)
+        log_action(f"Update Patient ID: {patientID} Middle Name")
         updatePrefixTrigrams(patientID, 'mname', newName, fixedSalt)
 
 def patientUpdateLastName(patientID, newName, fixedSalt):
@@ -82,6 +83,7 @@ def patientUpdateLastName(patientID, newName, fixedSalt):
             patientID
             )
         cursor.execute(sql, params)
+        log_action(f"Update Patient ID: {patientID} Last Name")
         updatePrefixTrigrams(patientID, 'lname', newName, fixedSalt)
 
 def patientUpdateAddress(patientID, newAddress):
@@ -94,8 +96,7 @@ def patientUpdateAddress(patientID, newAddress):
             patientID
             )
         cursor.execute(sql, params)
-        cursor.close()
-
+        
 def patientUpdatePhone(patientID, phoneType, PhoneNumber):
     with get_cursor() as cursor:
         pType = phoneType.lower() + "_phone"
@@ -112,7 +113,7 @@ def patientUpdatePhone(patientID, phoneType, PhoneNumber):
             patientID
         )
         cursor.execute(sql, params)
-        cursor.close()
+        log_action(f"Update Patient ID: {patientID} Phone Number")       
 
 def patientUpdateFamilyDoctor(patientID, newDoctor):
     with get_cursor() as cursor:
@@ -124,8 +125,7 @@ def patientUpdateFamilyDoctor(patientID, newDoctor):
             patientID
         )
         cursor.execute(sql, params)
-        cursor.close()
-
+        
 def patientUpdateInsurance(patientID, newCarrierName, newAccNum, newGroupNum):
     with get_cursor() as cursor:
         sql = """UPDATE officestaffview
@@ -140,8 +140,8 @@ def patientUpdateInsurance(patientID, newCarrierName, newAccNum, newGroupNum):
             patientID
             )
         cursor.execute(sql, params)
-        cursor.close()
-
+        log_action(f"Update Patient ID: {patientID} Insurance")
+        
 def patientUpdateContact(patientID, newContactName, newContactNumber, contactOrder):
     with get_cursor() as cursor:
         sql = """UPDATE officestaffview
@@ -158,8 +158,8 @@ def patientUpdateContact(patientID, newContactName, newContactNumber, contactOrd
             patientID
         )
         cursor.execute(sql, params)
-        cursor.close()
-
+        log_action(f"Update Patient ID: {patientID} Emergency Contact")
+        
 def staffUpdateFirstName(userID, newName, encryptionKey, fixedSalt):
     with get_cursor() as cursor:
         newNameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(newName)]
@@ -173,8 +173,7 @@ def staffUpdateFirstName(userID, newName, encryptionKey, fixedSalt):
             userID
             )
         cursor.execute(sql, params)
-        cursor.close()
-
+        
 def staffUpdateLastName(userID, newName, encryptionKey, fixedSalt):
     with get_cursor() as cursor:
         newNameHashedPrefixes = [hashPrefix(prefix, fixedSalt) for prefix in generatePrefixes(newName)]
@@ -188,8 +187,7 @@ def staffUpdateLastName(userID, newName, encryptionKey, fixedSalt):
             userID
             )
         cursor.execute(sql, params)
-        cursor.close()
-
+        
 def staffUpdateUsername(userID, newName, encryptionKey, fixedSalt):
     with get_cursor() as cursor:
         sql = """UPDATE Staff
@@ -202,8 +200,7 @@ def staffUpdateUsername(userID, newName, encryptionKey, fixedSalt):
             userID
             )
         cursor.execute(sql, params)
-        cursor.close()
-
+        
 def staffUpdatePassword(userID, newPassword, oldPassword):
     with get_cursor() as cursor:
         if (passwordMatch(userID, oldPassword)):
@@ -215,8 +212,7 @@ def staffUpdatePassword(userID, newPassword, oldPassword):
                 userID
                 )
         cursor.execute(sql, params)
-        cursor.close()
-
+        
 def staffUpdateType(userID, newType):
     with get_cursor() as cursor:
         sql = """Update Staff
@@ -226,8 +222,7 @@ def staffUpdateType(userID, newType):
             newType,
             userID)
         cursor.execute(sql, params)
-        cursor.close()
-
+        
 def admissionUpdateDischarge(admissionID, dischargeTime, encryptionkey):
     with get_cursor() as cursor:
         sql = """UPDATE admission
@@ -237,7 +232,8 @@ def admissionUpdateDischarge(admissionID, dischargeTime, encryptionkey):
             str(dischargeTime), encryptionkey,
             admissionID)
         cursor.execute(sql, params)
-        cursor.close()
+        log_action(f"Discharge Admission ID: {admissionID}")
+        
         
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()

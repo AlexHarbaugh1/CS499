@@ -1,4 +1,5 @@
 import psycopg2
+from InsertData import log_action
 from contextlib import contextmanager
 from EncryptionKey import getKeys
 
@@ -49,6 +50,11 @@ def run():
     # After creating the new database create a new connection to access it
     createConnection()
     with get_cursor() as cursor2:
+      cursor2.execute("""SELECT set_config(
+            'app.current_user', 
+            'Initial User',
+            false
+          );""")
       cursor2.execute("CREATE EXTENSION pgcrypto;")
       cursor2.execute("CREATE EXTENSION pg_trgm;")
       # Pass CREATE TABLE statements to populate the database.
@@ -169,10 +175,12 @@ def run():
                       charge_amount DECIMAL(10, 2) NOT NULL);"""
                       )
       # 15. Audit Log
-      cursor2.execute("""CREATE TABLE audit_log
-                      (username TEXT,
-                      action TEXT,
-                      timestamp TIMESTAMP);""")
+      cursor2.execute("""CREATE TABLE auditlog (
+                        log_id SERIAL PRIMARY KEY,
+                        username VARCHAR(50) NOT NULL,
+                        action_text TEXT NOT NULL,
+                        timestamp TIMESTAMP NOT NULL
+                    );""")
       # Adding Indexes for Faster Searching and Partial Searching.
       cursor2.execute("CREATE INDEX idx_staff_username_hash ON Staff USING HASH (username_hash);")
       cursor2.execute("CREATE INDEX idx_staff_first_name_prefix_trgms ON Staff USING gin (first_name_prefix_trgms);")
@@ -180,6 +188,8 @@ def run():
       cursor2.execute("CREATE INDEX idx_first_name_prefix_trgms ON Patient USING gin (first_name_prefix_trgms);")
       cursor2.execute("CREATE INDEX idx_middle_name_prefix_trgms ON Patient USING gin (middle_name_prefix_trgms);")
       cursor2.execute("CREATE INDEX idx_last_name_prefix_trgms ON Patient USING gin (last_name_prefix_trgms);")
+      cursor2.execute("CREATE INDEX idx_audit_log_timestamp ON auditlog(timestamp);")
+      cursor2.execute("CREATE INDEX idx_audit_log_username ON auditlog(username);")
       #Insert User types into database
       cursor2.execute("""INSERT INTO UserType (type_name)
                       VALUES
@@ -216,14 +226,15 @@ def run():
         cursor2.execute("CREATE ROLE physician_role;")
         print("Created Physician Role!")
       else: print('physician_role Already Exists!')
-      # Admin gets all privileges
 
-      # Permissions for Inserting a new patient
+      # Permissions for Inserting Data
       cursor2.execute("GRANT INSERT ON patient TO medicalpersonnel_role, physician_role, officestaff_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patient_patient_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE staff_user_id_seq TO administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE admission_admission_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billingdetail_billing_detail_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billing_billing_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE auditlog_log_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role, volunteer_role;")
       
       # Create Views for Accessing Data
       # patientsearchview is the table used for the search screen, accessible to all user roles
@@ -351,6 +362,7 @@ def run():
         keys[0],
       ) *14
       cursor2.execute(sql, params)
+      cursor2.execute("GRANT INSERT ON auditlog TO volunteer_role, medicalpersonnel_role, administrator_role, officestaff_role, physician_role;")
       cursor2.execute("""GRANT SELECT, UPDATE ON officestaffview TO officestaff_role, physician_role, medicalpersonnel_role;""")
       cursor2.execute("""GRANT SELECT ON officestaffview TO physician_role, medicalpersonnel_role;""")
       cursor2.execute("""GRANT SELECT, UPDATE (first_name, last_name, mailing_address) ON Patient TO officestaff_role, physician_role, medicalpersonnel_role;""")
@@ -360,55 +372,111 @@ def run():
       # Functions For Updating Patient Data
       # Name and Address
       sql = """CREATE OR REPLACE FUNCTION update_office_staff_all()
-            RETURNS TRIGGER AS $$
-            DECLARE
-            encryption_key TEXT := %s;
-            BEGIN
-              IF NEW.first_name IS DISTINCT FROM OLD.first_name OR
-                NEW.middle_name IS DISTINCT FROM OLD.middle_name OR
-                NEW.last_name IS DISTINCT FROM OLD.last_name OR
-                NEW.mailing_address IS DISTINCT FROM OLD.mailing_address
-              THEN
-                UPDATE Patient SET
-                  first_name = pgp_sym_encrypt(NEW.first_name, encryption_key),
-                  middle_name = pgp_sym_encrypt(NEW.middle_name, encryption_key),
-                  last_name = pgp_sym_encrypt(NEW.last_name, encryption_key),
-                  mailing_address = pgp_sym_encrypt(NEW.mailing_address, encryption_key)
-                WHERE patient_id = OLD.patient_id;
-              END IF;
-              IF NEW.insurance_carrier IS DISTINCT FROM OLD.insurance_carrier OR
-                NEW.insurance_account IS DISTINCT FROM OLD.insurance_account OR
-                NEW.insurance_group IS DISTINCT FROM OLD.insurance_group 
-              THEN
-                UPDATE Insurance SET
-                carrier_name = pgp_sym_encrypt(NEW.insurance_carrier, encryption_key),
-                account_number = pgp_sym_encrypt(NEW.insurance_account, encryption_key),
-                group_number = pgp_sym_encrypt(NEW.insurance_group, encryption_key)
-                WHERE patient_id = OLD.patient_id;
-            END IF;
-            IF NEW.home_phone IS DISTINCT FROM OLD.home_phone THEN
-              PERFORM update_phone(OLD.patient_id, 'Home', NEW.home_phone);
-            END IF;
-            IF NEW.work_phone IS DISTINCT FROM OLD.work_phone THEN
-              PERFORM update_phone(OLD.patient_id, 'Work', NEW.work_phone);
-            END IF;
-            IF NEW.mobile_phone IS DISTINCT FROM OLD.mobile_phone THEN
-              PERFORM update_phone(OLD.patient_id, 'Mobile', NEW.mobile_phone);
-            END IF;
-            IF NEW.ec1_name IS DISTINCT FROM OLD.ec1_name OR
-              NEW.ec1_phone IS DISTINCT FROM OLD.ec1_phone 
-            THEN
-              PERFORM update_emergency_contact(OLD.patient_id, 1, NEW.ec1_name, NEW.ec1_phone);
-            END IF;
-            IF NEW.ec2_name IS DISTINCT FROM OLD.ec2_name OR
-              NEW.ec2_phone IS DISTINCT FROM OLD.ec2_phone 
-            THEN
-              PERFORM update_emergency_contact(OLD.patient_id, 2, NEW.ec2_name, NEW.ec2_phone);
-            END IF;
+                RETURNS TRIGGER AS $$
+                DECLARE
+                encryption_key TEXT := %s;
+                old_values TEXT;
+                new_values TEXT;
+                action_details TEXT;
+                BEGIN
+                  old_values := '';
+                  new_values := '';
+                  action_details := '';
+                  
+                  IF NEW.first_name IS DISTINCT FROM OLD.first_name OR
+                    NEW.middle_name IS DISTINCT FROM OLD.middle_name OR
+                    NEW.last_name IS DISTINCT FROM OLD.last_name OR
+                    NEW.mailing_address IS DISTINCT FROM OLD.mailing_address
+                  THEN
+                    old_values := 'Old values: ' || COALESCE(OLD.first_name, 'NULL') || ', ' || 
+                                  COALESCE(OLD.middle_name, 'NULL') || ', ' ||
+                                  COALESCE(OLD.last_name, 'NULL') || ', ' ||
+                                  COALESCE(OLD.mailing_address, 'NULL');
+                    new_values := 'New values: ' || COALESCE(NEW.first_name, 'NULL') || ', ' || 
+                                  COALESCE(NEW.middle_name, 'NULL') || ', ' ||
+                                  COALESCE(NEW.last_name, 'NULL') || ', ' ||
+                                  COALESCE(NEW.mailing_address, 'NULL');
+                    action_details := 'Updated patient basic info for patient_id ' || OLD.patient_id;
 
-            RETURN NEW;
-          END;
-          $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+                    
+                    UPDATE Patient SET
+                      first_name = pgp_sym_encrypt(NEW.first_name, encryption_key),
+                      middle_name = pgp_sym_encrypt(NEW.middle_name, encryption_key),
+                      last_name = pgp_sym_encrypt(NEW.last_name, encryption_key),
+                      mailing_address = pgp_sym_encrypt(NEW.mailing_address, encryption_key)
+                    WHERE patient_id = OLD.patient_id;
+                  END IF;
+                  
+                  IF NEW.insurance_carrier IS DISTINCT FROM OLD.insurance_carrier OR
+                    NEW.insurance_account IS DISTINCT FROM OLD.insurance_account OR
+                    NEW.insurance_group IS DISTINCT FROM OLD.insurance_group 
+                  THEN
+                    old_values := 'Old insurance: ' || COALESCE(OLD.insurance_carrier, 'NULL') || ', ' || 
+                                COALESCE(OLD.insurance_account, 'NULL') || ', ' ||
+                                COALESCE(OLD.insurance_group, 'NULL');
+                    new_values := 'New insurance: ' || COALESCE(NEW.insurance_carrier, 'NULL') || ', ' || 
+                                COALESCE(NEW.insurance_account, 'NULL') || ', ' ||
+                                COALESCE(NEW.insurance_group, 'NULL');
+                    action_details := 'Updated insurance info for patient_id ' || OLD.patient_id;
+                    
+                    UPDATE Insurance SET
+                    carrier_name = pgp_sym_encrypt(NEW.insurance_carrier, encryption_key),
+                    account_number = pgp_sym_encrypt(NEW.insurance_account, encryption_key),
+                    group_number = pgp_sym_encrypt(NEW.insurance_group, encryption_key)
+                    WHERE patient_id = OLD.patient_id;
+                  END IF;
+                  
+                  IF NEW.home_phone IS DISTINCT FROM OLD.home_phone THEN
+                    old_values := 'Old home phone: ' || COALESCE(OLD.home_phone, 'NULL');
+                    new_values := 'New home phone: ' || COALESCE(NEW.home_phone, 'NULL');
+                    action_details := 'Updated home phone for patient_id ' || OLD.patient_id;
+
+                    PERFORM update_phone(OLD.patient_id, 'Home', NEW.home_phone);
+                  END IF;
+                  
+                  IF NEW.work_phone IS DISTINCT FROM OLD.work_phone THEN
+                    old_values := 'Old work phone: ' || COALESCE(OLD.work_phone, 'NULL');
+                    new_values := 'New work phone: ' || COALESCE(NEW.work_phone, 'NULL');
+                    action_details := 'Updated work phone for patient_id ' || OLD.patient_id;
+                    
+                    PERFORM update_phone(OLD.patient_id, 'Work', NEW.work_phone);
+                  END IF;
+                  
+                  IF NEW.mobile_phone IS DISTINCT FROM OLD.mobile_phone THEN
+                    old_values := 'Old mobile phone: ' || COALESCE(OLD.mobile_phone, 'NULL');
+                    new_values := 'New mobile phone: ' || COALESCE(NEW.mobile_phone, 'NULL');
+                    action_details := 'Updated mobile phone for patient_id ' || OLD.patient_id;
+                    
+                    PERFORM update_phone(OLD.patient_id, 'Mobile', NEW.mobile_phone);
+                  END IF;
+                  
+                  IF NEW.ec1_name IS DISTINCT FROM OLD.ec1_name OR
+                    NEW.ec1_phone IS DISTINCT FROM OLD.ec1_phone 
+                  THEN
+                    old_values := 'Old emergency contact 1: ' || COALESCE(OLD.ec1_name, 'NULL') || ', ' || 
+                                COALESCE(OLD.ec1_phone, 'NULL');
+                    new_values := 'New emergency contact 1: ' || COALESCE(NEW.ec1_name, 'NULL') || ', ' || 
+                                COALESCE(NEW.ec1_phone, 'NULL');
+                    action_details := 'Updated emergency contact 1 for patient_id ' || OLD.patient_id;
+                    
+                    PERFORM update_emergency_contact(OLD.patient_id, 1, NEW.ec1_name, NEW.ec1_phone);
+                  END IF;
+                  
+                  IF NEW.ec2_name IS DISTINCT FROM OLD.ec2_name OR
+                    NEW.ec2_phone IS DISTINCT FROM OLD.ec2_phone 
+                  THEN
+                    old_values := 'Old emergency contact 2: ' || COALESCE(OLD.ec2_name, 'NULL') || ', ' || 
+                                COALESCE(OLD.ec2_phone, 'NULL');
+                    new_values := 'New emergency contact 2: ' || COALESCE(NEW.ec2_name, 'NULL') || ', ' || 
+                                COALESCE(NEW.ec2_phone, 'NULL');
+                    action_details := 'Updated emergency contact 2 for patient_id ' || OLD.patient_id;
+                    
+                    PERFORM update_emergency_contact(OLD.patient_id, 2, NEW.ec2_name, NEW.ec2_phone);
+                  END IF;
+
+                  RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql SECURITY DEFINER;"""
       params = (keys[0],)
       cursor2.execute(sql, params)
       cursor2.execute("""ALTER FUNCTION update_office_staff_all() OWNER TO administrator_role;""")
@@ -464,81 +532,81 @@ def run():
       # Physician and Medical Personnel
       # Patient Admission View for Physicians and Medical Personnel
       sql = """CREATE OR REPLACE VIEW PatientAdmissionOverview AS
-SELECT 
-  p.patient_id,
-  pgp_sym_decrypt(p.first_name, %s) AS first_name,
-  pgp_sym_decrypt(p.middle_name, %s) AS middle_name,
-  pgp_sym_decrypt(p.last_name, %s) AS last_name,
-  pgp_sym_decrypt(p.mailing_address, %s) AS mailing_address,
-  pgp_sym_decrypt(i.carrier_name, %s) AS insurance_carrier,
-  pgp_sym_decrypt(i.account_number, %s) AS insurance_account,
-  pgp_sym_decrypt(i.group_number, %s) AS insurance_group,
-  (SELECT pgp_sym_decrypt(pn.phone_number, %s) FROM PhoneNumber pn 
-   WHERE pn.patient_id = p.patient_id AND pn.phone_type = 'Home' LIMIT 1) AS home_phone,
-  (SELECT pgp_sym_decrypt(pn.phone_number, %s) FROM PhoneNumber pn 
-   WHERE pn.patient_id = p.patient_id AND pn.phone_type = 'Work' LIMIT 1) AS work_phone,
-  (SELECT pgp_sym_decrypt(pn.phone_number, %s) FROM PhoneNumber pn 
-   WHERE pn.patient_id = p.patient_id AND pn.phone_type = 'Mobile' LIMIT 1) AS mobile_phone,
-  (SELECT pgp_sym_decrypt(ec.contact_name, %s) FROM EmergencyContact ec 
-   WHERE ec.patient_id = p.patient_id AND ec.contact_order = 1 LIMIT 1) AS ec1_name,
-  (SELECT pgp_sym_decrypt(ec.contact_phone, %s) FROM EmergencyContact ec 
-   WHERE ec.patient_id = p.patient_id AND ec.contact_order = 1 LIMIT 1) AS ec1_phone,
-  (SELECT pgp_sym_decrypt(ec.contact_name, %s) FROM EmergencyContact ec 
-   WHERE ec.patient_id = p.patient_id AND ec.contact_order = 2 LIMIT 1) AS ec2_name,
-  (SELECT pgp_sym_decrypt(ec.contact_phone, %s) FROM EmergencyContact ec 
-   WHERE ec.patient_id = p.patient_id AND ec.contact_order = 2 LIMIT 1) AS ec2_phone,
-  (
-    SELECT jsonb_agg(
-      jsonb_build_object(
-        'admission_id', a.admission_id,
-        'admittance_date', pgp_sym_decrypt(a.admittance_datetime, %s),
-        'admission_reason', pgp_sym_decrypt(a.reason_for_admission, %s),
-        'admittance_discharge', pgp_sym_decrypt(a.discharge_datetime, %s),
-        'details', jsonb_build_object(
-          'notes', (
-            SELECT jsonb_agg(
-              jsonb_build_object(
-                'text', pgp_sym_decrypt(pn.note_text, %s),
-                'type', pn.note_type,
-                'author', pgp_sym_decrypt(s.first_name, %s) || ' ' || pgp_sym_decrypt(s.last_name, %s),
-                'datetime', pgp_sym_decrypt(pn.note_datetime, %s)
-              )
-            )
-            FROM PatientNote pn
-            JOIN Staff s ON pn.author_id = s.user_id
-            WHERE pn.admission_id = a.admission_id
-          ),
-          'prescriptions', (
-            SELECT jsonb_agg(
-              jsonb_build_object(
-                'medication', pgp_sym_decrypt(pr.medication_name, %s),
-                'amount', pgp_sym_decrypt(pr.amount, %s),
-                'schedule', pgp_sym_decrypt(pr.schedule, %s)
-              )
-            )
-            FROM Prescription pr
-            WHERE pr.admission_id = a.admission_id
-          ),
-          'procedures', (
-            SELECT jsonb_agg(
-              jsonb_build_object(
-                'name', pgp_sym_decrypt(sp.procedure_name, %s),
-                'scheduled', pgp_sym_decrypt(sp.scheduled_datetime, %s)
-              )
-            )
-            FROM ScheduledProcedure sp
-            WHERE sp.admission_id = a.admission_id
-          )
-        )
-      ) ORDER BY a.admittance_datetime DESC
-    )
-    FROM Admission a
-    WHERE a.patient_id = p.patient_id
-  ) AS admissions
-FROM Patient p
-LEFT JOIN Insurance i ON p.patient_id = i.patient_id
-GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name, p.mailing_address, 
-         i.carrier_name, i.account_number, i.group_number;"""
+              SELECT 
+                p.patient_id,
+                pgp_sym_decrypt(p.first_name, %s) AS first_name,
+                pgp_sym_decrypt(p.middle_name, %s) AS middle_name,
+                pgp_sym_decrypt(p.last_name, %s) AS last_name,
+                pgp_sym_decrypt(p.mailing_address, %s) AS mailing_address,
+                pgp_sym_decrypt(i.carrier_name, %s) AS insurance_carrier,
+                pgp_sym_decrypt(i.account_number, %s) AS insurance_account,
+                pgp_sym_decrypt(i.group_number, %s) AS insurance_group,
+                (SELECT pgp_sym_decrypt(pn.phone_number, %s) FROM PhoneNumber pn 
+                WHERE pn.patient_id = p.patient_id AND pn.phone_type = 'Home' LIMIT 1) AS home_phone,
+                (SELECT pgp_sym_decrypt(pn.phone_number, %s) FROM PhoneNumber pn 
+                WHERE pn.patient_id = p.patient_id AND pn.phone_type = 'Work' LIMIT 1) AS work_phone,
+                (SELECT pgp_sym_decrypt(pn.phone_number, %s) FROM PhoneNumber pn 
+                WHERE pn.patient_id = p.patient_id AND pn.phone_type = 'Mobile' LIMIT 1) AS mobile_phone,
+                (SELECT pgp_sym_decrypt(ec.contact_name, %s) FROM EmergencyContact ec 
+                WHERE ec.patient_id = p.patient_id AND ec.contact_order = 1 LIMIT 1) AS ec1_name,
+                (SELECT pgp_sym_decrypt(ec.contact_phone, %s) FROM EmergencyContact ec 
+                WHERE ec.patient_id = p.patient_id AND ec.contact_order = 1 LIMIT 1) AS ec1_phone,
+                (SELECT pgp_sym_decrypt(ec.contact_name, %s) FROM EmergencyContact ec 
+                WHERE ec.patient_id = p.patient_id AND ec.contact_order = 2 LIMIT 1) AS ec2_name,
+                (SELECT pgp_sym_decrypt(ec.contact_phone, %s) FROM EmergencyContact ec 
+                WHERE ec.patient_id = p.patient_id AND ec.contact_order = 2 LIMIT 1) AS ec2_phone,
+                (
+                  SELECT jsonb_agg(
+                    jsonb_build_object(
+                      'admission_id', a.admission_id,
+                      'admittance_date', pgp_sym_decrypt(a.admittance_datetime, %s),
+                      'admission_reason', pgp_sym_decrypt(a.reason_for_admission, %s),
+                      'admittance_discharge', pgp_sym_decrypt(a.discharge_datetime, %s),
+                      'details', jsonb_build_object(
+                        'notes', (
+                          SELECT jsonb_agg(
+                            jsonb_build_object(
+                              'text', pgp_sym_decrypt(pn.note_text, %s),
+                              'type', pn.note_type,
+                              'author', pgp_sym_decrypt(s.first_name, %s) || ' ' || pgp_sym_decrypt(s.last_name, %s),
+                              'datetime', pgp_sym_decrypt(pn.note_datetime, %s)
+                            )
+                          )
+                          FROM PatientNote pn
+                          JOIN Staff s ON pn.author_id = s.user_id
+                          WHERE pn.admission_id = a.admission_id
+                        ),
+                        'prescriptions', (
+                          SELECT jsonb_agg(
+                            jsonb_build_object(
+                              'medication', pgp_sym_decrypt(pr.medication_name, %s),
+                              'amount', pgp_sym_decrypt(pr.amount, %s),
+                              'schedule', pgp_sym_decrypt(pr.schedule, %s)
+                            )
+                          )
+                          FROM Prescription pr
+                          WHERE pr.admission_id = a.admission_id
+                        ),
+                        'procedures', (
+                          SELECT jsonb_agg(
+                            jsonb_build_object(
+                              'name', pgp_sym_decrypt(sp.procedure_name, %s),
+                              'scheduled', pgp_sym_decrypt(sp.scheduled_datetime, %s)
+                            )
+                          )
+                          FROM ScheduledProcedure sp
+                          WHERE sp.admission_id = a.admission_id
+                        )
+                      )
+                    ) ORDER BY a.admittance_datetime DESC
+                  )
+                  FROM Admission a
+                  WHERE a.patient_id = p.patient_id
+                ) AS admissions
+              FROM Patient p
+              LEFT JOIN Insurance i ON p.patient_id = i.patient_id
+              GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name, p.mailing_address, 
+                      i.carrier_name, i.account_number, i.group_number;"""
       params = (keys[0],)*26
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
@@ -585,6 +653,7 @@ GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name, p.mailing_addre
               $$ LANGUAGE plpgsql SECURITY DEFINER;"""
       params = (keys[0], keys[1])
       cursor2.execute(sql, params)
+      cursor2.execute("ALTER FUNCTION staff_write_trigger() OWNER TO administrator_role;")
       cursor2.execute("""CREATE TRIGGER staff_write_trigger
                       INSTEAD OF UPDATE ON staffwriteview
                       FOR EACH ROW
@@ -1044,9 +1113,18 @@ def userLogin(username, password, fixedSalt):
     results = cursor.fetchone()
     if (not results) or (not results[0]):
       print("Incorrect Username or Password")
-      cursor.close()
+      
       return False
     else:
+      sql = """SELECT set_config(
+            'app.current_user', 
+            %s,
+            false
+          );"""
+      params = (
+        username,
+      )
+      cursor.execute(sql, params)
       sql = """SELECT set_config(
             'app.current_user_id', 
             (SELECT user_id::TEXT FROM staff 
@@ -1070,12 +1148,19 @@ def userLogin(username, password, fixedSalt):
       sql = """SET ROLE %s;"""
       params = (role,)
       cursor.execute(sql, params)
+      log_action("Logged In")
       print("Successfully Signed In")
-      cursor.close()
     return True
 
 def userLogout():
   with get_cursor() as cursor:
+    username = getCurrentUsername()
+    sql = """SELECT set_config(
+            'app.current_user', 
+            NULL,
+            false
+          );"""
+    cursor.execute(sql)
     sql = """SELECT set_config(
             'app.current_user_id', 
             NULL,
@@ -1090,21 +1175,28 @@ def userLogout():
     cursor.execute(sql)
     sql = """SET ROLE administrator_role;"""
     cursor.execute(sql)
-    cursor.close()
+    log_action(f"{username} Logged Out")
     print("User Logged Out")
 
 def getCurrentUserType():
   with get_cursor() as cursor:
     cursor.execute("SELECT current_setting('app.current_user_type', true) AS user_type;")
     results = cursor.fetchone()[0]
-    cursor.close()
+    
+  return results
+
+def getCurrentUsername():
+  with get_cursor() as cursor:
+    cursor.execute("SELECT current_setting('app.current_user', true) AS user_type;")
+    results = cursor.fetchone()[0]
+    
   return results
 
 def getCurrentUserID():
   with get_cursor() as cursor:
     cursor.execute("SELECT current_setting('app.current_user_id', true) AS user_type;")
     results = cursor.fetchone()[0]
-    cursor.close()
+    
   return results
 
 if __name__ == "__main__":
