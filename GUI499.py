@@ -1,33 +1,79 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jan 29 09:18:06 2025
-
-@author: laure
+Merged GUI499.py - Part 1
 """
+
 import hospitalDB
 import InsertData
+import UpdateDB
 import psycopg2
 import sys
+import traceback
 import pandas as pd
+from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QTabBar
-from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt
+from PyQt5.QtWidgets import (
+    QDialog, QApplication, QWidget, QTableWidgetItem, QTabBar, QTabWidget,
+    QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame,
+    QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QLineEdit, QComboBox, QTextEdit
+)
+from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
 import string
 import EncryptionKey
 import SearchDB
-import traceback
+
 keys = EncryptionKey.getKeys()
 encryption_key = keys[0]
 fixed_salt = keys[1]
+
 class MainScreen(QDialog):
     def __init__(self):
         super(MainScreen, self).__init__()
         loadUi("MainScreen.ui", self)
-        
-        self.showMaximized()
 
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+
+        self.centerUI(screen_width, screen_height)
+        self.styleElements()
         self.enterApplication.clicked.connect(self.openLogin)
+
+    def centerUI(self, screen_width, screen_height):
+        label_width = 600
+        self.label_3.setGeometry((screen_width - label_width) // 2,
+                                 screen_height // 3,
+                                 label_width, 100)
+
+        button_width = 250
+        button_height = 60
+        self.enterApplication.setGeometry((screen_width - button_width) // 2,
+                                          (screen_height // 2) + 50,
+                                          button_width, button_height)
+
+    def styleElements(self):
+        self.label_3.setStyleSheet("""
+            font: bold 24pt "MS Shell Dlg 2";
+            color: #333333;
+        """)
+        self.enterApplication.setStyleSheet("""
+            QPushButton {
+                background-color: #e0e0e0;
+                color: black;
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 10px;
+                font: bold 14pt "MS Shell Dlg 2";
+            }
+            QPushButton:hover {
+                background-color: #d6d6d6;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+        """)
 
     def openLogin(self):
         login = LoginScreen()
@@ -38,109 +84,170 @@ class LoginScreen(QDialog):
     def __init__(self):
         super(LoginScreen, self).__init__()
         loadUi("login1.ui", self)
-        
-        self.showMaximized()
+
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+
+        self.centerUI(screen_width, screen_height)
+        self.styleElements()
 
         self.passwordField.setEchoMode(QtWidgets.QLineEdit.Password)
         self.login.clicked.connect(self.loginfunction)
+
+    def centerUI(self, screen_width, screen_height):
+        container_width = 400
+        container_height = 350
+        container_x = (screen_width - container_width) // 2
+        container_y = (screen_height - container_height) // 2
+        field_height = 40
+        label_width = 120
+        field_width = 250
+        spacing = 20
+
+        self.label.setGeometry(container_x, container_y, container_width, 60)
+
+        self.labelUser.setGeometry(container_x,
+                                   container_y + 90,
+                                   label_width, field_height)
+        self.userField.setGeometry(container_x + label_width + 10,
+                                   container_y + 90,
+                                   field_width, field_height)
+
+        self.labelPass.setGeometry(container_x,
+                                   container_y + 90 + field_height + spacing,
+                                   label_width, field_height)
+        self.passwordField.setGeometry(container_x + label_width + 10,
+                                       container_y + 90 + field_height + spacing,
+                                       field_width, field_height)
+
+        button_width = 150
+        button_height = 50
+        self.login.setGeometry((screen_width - button_width) // 2,
+                               container_y + 90 + (field_height + spacing) * 2 + 20,
+                               button_width, button_height)
+
+        error_width = 400
+        self.errorMsg.setGeometry((screen_width - error_width) // 2,
+                                  container_y + 90 + (field_height + spacing) * 2 + 20 + button_height + 20,
+                                  error_width, 30)
+
+    def styleElements(self):
+        self.label.setStyleSheet("""
+            font: bold 36pt "MS Shell Dlg 2";
+            color: #333333;
+            padding-bottom: 20px;
+        """)
+        self.label.setAlignment(Qt.AlignCenter)
+
+        for label in [self.labelUser, self.labelPass]:
+            label.setStyleSheet("""
+                font: 14pt "MS Shell Dlg 2";
+                padding-right: 10px;
+            """)
+            label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        for field in [self.userField, self.passwordField]:
+            field.setStyleSheet("""
+                font: 12pt "MS Shell Dlg 2";
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 5px;
+                background-color: white;
+            """)
+            field.setMinimumHeight(40)
+
+        self.login.setStyleSheet("""
+            QPushButton {
+                background-color: #e0e0e0;
+                color: black;
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 10px;
+                font: bold 14pt "MS Shell Dlg 2";
+            }
+            QPushButton:hover {
+                background-color: #d6d6d6;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+        """)
+
+        self.errorMsg.setStyleSheet("""
+            font: 12pt "MS Shell Dlg 2";
+            color: rgb(255, 0, 0);
+        """)
+        self.errorMsg.setAlignment(Qt.AlignCenter)
+        self.errorMsg.setWordWrap(True)
 
     def loginfunction(self):
         user = self.userField.text()
         password = self.passwordField.text()
 
         if len(user) == 0 or len(password) == 0:
-            self.errorMsg.setText("Missing field.")
+            self.errorMsg.setText("Please enter both username and password.")
         else:
             result_pass = hospitalDB.userLogin(user, password, fixed_salt)
             if result_pass:
                 self.errorMsg.setText("")
                 userType = hospitalDB.getCurrentUserType()
-                current_user_id = hospitalDB.getCurrentUserID()
                 if userType == "Administrator":
                     self.gotoadmin()
                 else:
                     self.gotoapplication()
             else:
-                self.errorMsg.setText("Invalid username or password")
+                self.errorMsg.setText("Invalid username or password. Please try again.")
 
     def gotoapplication(self):
+        eventFilter.enabled = True
         application = ApplicationScreen()
         widget.addWidget(application)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-    def gotoadmin(self):
-        admin=AdminScreen()
-        widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex()+1)
 
+    def gotoadmin(self):
+        eventFilter.enabled = True
+        admin = AdminScreen()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 class ApplicationScreen(QDialog):
     def __init__(self):
         super(ApplicationScreen, self).__init__()
         loadUi("ApplicationScreen.ui", self)
-
-        # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()
         screen_height = screen_size.height()
-        
-        # Set main widget to fill the entire screen
-        self.showMaximized()
         self.widget.setGeometry(0, 0, screen_width, screen_height)
-        
-        # Center the UI elements
+
         self.centerUI(screen_width, screen_height)
-        
-        # Get current user role to determine button visibility
+
         self.usertype = hospitalDB.getCurrentUserType()
-        
-        # Show/hide buttons based on user role
         self.configureButtonVisibility()
-        
-        # Connect button signals to slots
         self.connectButtons()
-        
-        # Apply button styling
         self.styleButtons()
 
     def centerUI(self, screen_width, screen_height):
-        """Center all UI elements properly"""
-        # Center the title and subtitle
         title_width = 600
         self.label.setGeometry((screen_width - title_width) // 2, 120, title_width, 61)
-        
-        # Position logout button in top right
         self.logout.setGeometry(screen_width - 150, 70, 120, 50)
-        
-        # Center the gridLayoutWidget
+
         grid_width = 700
         grid_height = 400
         self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 260, grid_width, grid_height)
 
     def configureButtonVisibility(self):
-        """Show/hide buttons based on user role"""
-        # Search Patient - Volunteer, Physician, Office Staff, Medical Personnel (all roles)
         self.PatientSearch.setVisible(True)
-        
-        # Register Patient - Medical Personnel, Physician, Office Staff
-        if self.usertype in ["Medical Personnel", "Physician", "Office Staff"]:
-            self.RegisterPatient.setVisible(True)
-        else:
-            self.RegisterPatient.setVisible(False)
-        
-        # Register Admission - Medical Personnel, Physician
-        if self.usertype in ["Medical Personnel", "Physician"]:
-            self.RegisterAdmission.setVisible(True)
-        else:
-            self.RegisterAdmission.setVisible(False)
+        self.RegisterPatient.setVisible(self.usertype in ["Medical Personnel", "Physician", "Office Staff"])
+        self.RegisterAdmission.setVisible(self.usertype in ["Medical Personnel", "Physician"])
 
     def connectButtons(self):
-        """Connect button signals to slots"""
         self.PatientSearch.clicked.connect(self.goToPatientSearch)
         self.RegisterPatient.clicked.connect(self.goToRegisterPatient)
         self.RegisterAdmission.clicked.connect(self.goToRegisterAdmission)
         self.logout.clicked.connect(self.logoutFunction)
 
     def styleButtons(self):
-        """Apply consistent styling to all buttons"""
         button_style = """
             QPushButton {
                 background-color: #e0e0e0;
@@ -157,27 +264,28 @@ class ApplicationScreen(QDialog):
                 background-color: #c0c0c0;
             }
         """
-        
-        # Apply style to all operation buttons
         for button in [self.PatientSearch, self.RegisterPatient, self.RegisterAdmission]:
             button.setStyleSheet(button_style)
             button.setMinimumHeight(60)
-            
-        # Style for logout button
         self.logout.setStyleSheet(button_style)
 
     def goToPatientSearch(self):
         search = SearchScreen()
         widget.addWidget(search)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-        
+
     def goToRegisterPatient(self):
-        print("placeholder")
-        
+        insertPatient = InsertPatient()
+        widget.addWidget(insertPatient)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
     def goToRegisterAdmission(self):
-        print("placeholder")
-        
+        registerAdmission = RegisterAdmission()
+        widget.addWidget(registerAdmission)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
     def logoutFunction(self):
+        eventFilter.enabled = False
         hospitalDB.userLogout()
         login = LoginScreen()
         widget.addWidget(login)
@@ -188,47 +296,34 @@ class AdminScreen(QDialog):
         super(AdminScreen, self).__init__()
         loadUi("admin.ui", self)
 
-        self.showMaximized()
-        # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
-        screen_width = screen_size.width()  
+        screen_width = screen_size.width()
         screen_height = screen_size.height()
-        
-        # Set main widget to fill the entire screen
         self.widget.setGeometry(0, 0, screen_width, screen_height)
-        
-        # Center the UI elements
+
         self.centerUI(screen_width, screen_height)
-        
-        # Connect buttons
+
         self.insStaff.clicked.connect(self.insertStaffFunction)
         self.insPat.clicked.connect(self.insertPatientFunction)
         self.searchStaff.clicked.connect(self.searchStaffFunction)
         self.searchPatient.clicked.connect(self.searchPatFunction)
-        self.regLocation.clicked.connect(self.registerLocationFunction)  # New button
-        self.regAdmission.clicked.connect(self.registerAdmissionFunction)  # New button
+        self.regLocation.clicked.connect(self.registerLocationFunction)
+        self.regAdmission.clicked.connect(self.registerAdmissionFunction)
         self.logout.clicked.connect(self.logoutFunction)
-        
-        # Apply button styling
+
         self.styleButtons()
 
     def centerUI(self, screen_width, screen_height):
-        """Center all UI elements properly"""
-        # Center the title and subtitle
         title_width = 600
         self.label.setGeometry((screen_width - title_width) // 2, 120, title_width, 61)
         self.label_2.setGeometry((screen_width - title_width) // 2, 200, title_width, 41)
-        
-        # Position logout button in top right
         self.logout.setGeometry(screen_width - 150, 70, 120, 50)
-        
-        # Center the gridLayoutWidget
+
         grid_width = 700
         grid_height = 400
         self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 260, grid_width, grid_height)
-    
+
     def styleButtons(self):
-        """Apply consistent styling to all buttons"""
         button_style = """
             QPushButton {
                 background-color: #e0e0e0;
@@ -245,271 +340,463 @@ class AdminScreen(QDialog):
                 background-color: #c0c0c0;
             }
         """
-        
-        # Apply style to all operation buttons
-        for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
-                      self.regLocation, self.regAdmission]:  # Added new buttons here
+        for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient,
+                       self.regLocation, self.regAdmission]:
             button.setStyleSheet(button_style)
             button.setMinimumHeight(60)
-            
-        # Style for logout button - same as other buttons now
         self.logout.setStyleSheet(button_style)
 
     def insertStaffFunction(self):
         insertStaff = InsertStaff()
         widget.addWidget(insertStaff)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-    
+
     def insertPatientFunction(self):
         insertPatient = InsertPatient()
         widget.addWidget(insertPatient)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-    
+
     def searchStaffFunction(self):
         searchStaff = SearchStaff()
         widget.addWidget(searchStaff)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-    
+
     def searchPatFunction(self):
         search = SearchScreen()
         widget.addWidget(search)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-    
-    def registerLocationFunction(self):  # New function for registering locations
-        print('Not Ready')
-    
-    def registerAdmissionFunction(self):  # New function for registering admissions
-        print('Not Ready')
-        
+
+    def registerLocationFunction(self):
+        registerLocation = RegisterLocation()
+        widget.addWidget(registerLocation)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
+    def registerAdmissionFunction(self):
+        registerAdmission = RegisterAdmission()
+        widget.addWidget(registerAdmission)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
     def logoutFunction(self):
+        eventFilter.enabled = False
         hospitalDB.userLogout()
         login = LoginScreen()
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-
 class InsertStaff(QDialog):
     def __init__(self):
         super(InsertStaff, self).__init__()
         loadUi("insertstaff.ui", self)
 
-        self.showMaximized()
-        # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
-        screen_width = screen_size.width()  
+        screen_width = screen_size.width()
         screen_height = screen_size.height()
-        
-        # Set main widget to fill the entire screen
         self.widget.setGeometry(0, 0, screen_width, screen_height)
-        
-        # Center the UI elements
+
         self.centerUI(screen_width, screen_height)
-        
-        # Set up the combo box for staff type
         self.staffTypeCombo.addItems(["", "Administrator", "Medical Personnel", "Physician", "Volunteer", "Office Staff"])
-        
-        # Connect buttons
+
         self.backTo.clicked.connect(self.goBack)
         self.addStaff.clicked.connect(self.addStaffMember)
-        
-        # Style form fields
+
         for field in [self.firstNameField, self.lastNameField, self.usernameField, self.passwordField]:
             field.setMinimumHeight(35)
             field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
-        
-        # Style combo box
+
         self.staffTypeCombo.setMinimumHeight(35)
         self.staffTypeCombo.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
 
     def centerUI(self, screen_width, screen_height):
-        """Center all UI elements properly"""
-        # Center the title
-        title_width = 401  # From original UI
+        title_width = 401
         self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
-        
-        # Position back button in top left
         self.backTo.setGeometry(50, 70, 120, 40)
-        
-        # Center the form layout
-        form_width = 600  # Increased width for better alignment
-        form_height = 350  # Increased height for the form
+
+        form_width = 600
+        form_height = 350
         self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 180, form_width, form_height)
-        
-        # Center the add staff button
+
         button_width = 200
         button_height = 50
         self.addStaff.setGeometry((screen_width - button_width) // 2, 550, button_width, button_height)
-        
-        # Center and resize the error message to be wider
-        error_width = 600  # Increased from 400
-        self.errorMsg.setGeometry((screen_width - error_width) // 2, 610, error_width, 40)  # Increased height from 31 to 40
-        
-        # Configure the error message to wrap text
+
+        error_width = 600
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, 610, error_width, 40)
         self.errorMsg.setWordWrap(True)
-    
+
     def addStaffMember(self):
-    
         firstName = self.firstNameField.text()
         lastName = self.lastNameField.text()
         username = self.usernameField.text()
         password = self.passwordField.text()
         staffType = self.staffTypeCombo.currentText()
-        
-        # Check if all fields are filled
+
         if not firstName or not lastName or not username or not password or not staffType:
+            self.errorMsg.setStyleSheet("color: red;")
             self.errorMsg.setText("All fields are required.")
             return
-        else:
-            try:
-                InsertData.insertStaff(firstName, lastName, username, password, staffType, fixed_salt)
-
-                self.errorMsg.setStyleSheet("color: green;")
-                self.errorMsg.setText(f"Staff member {firstName} {lastName} added successfully!")
-                # Clear the form fields
-                self.firstNameField.clear()
-                self.lastNameField.clear()
-                self.usernameField.clear()
-                self.passwordField.clear()
-                self.staffTypeCombo.setCurrentIndex(0)
-            except psycopg2.errors.UniqueViolation:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Username already exists. Please choose a different username.")
-            except psycopg2.errors.NotNullViolation:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Missing required information. Please fill all fields.")
-            except psycopg2.errors.ForeignKeyViolation:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Invalid staff type selected.")
-            except psycopg2.OperationalError:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Connection to database failed. Please try again later.")
-            except ValueError as e:
-                self.errorMsg.setStyleSheet("color: red;")
-                if "Invalid staff type" in str(e):
-                    self.errorMsg.setText("Please select a valid staff type.")
-                else:
-                    self.errorMsg.setText("Invalid input data. Please check your entries.")
+        try:
+            InsertData.insertStaff(firstName, lastName, username, password, staffType, fixed_salt)
+            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setText(f"Staff member {firstName} {lastName} added successfully!")
+            self.firstNameField.clear()
+            self.lastNameField.clear()
+            self.usernameField.clear()
+            self.passwordField.clear()
+            self.staffTypeCombo.setCurrentIndex(0)
+        except psycopg2.errors.UniqueViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Username already exists.")
+        except Exception as e:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText(f"Error: {str(e)}")
 
     def goBack(self):
-        # Navigate back to the admin screen
         admin = AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class InsertPatient(QDialog):
     def __init__(self):
-        super(InsertPatient,self).__init__()
-        loadUi("insertpat.ui",self)
+        super(InsertPatient, self).__init__()
+        loadUi("insertpat.ui", self)
+
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+
+        self.centerUI(screen_width, screen_height)
+        self.populateDoctors()
 
         self.back.clicked.connect(self.goBack)
-        self.insertPatient.clicked.connect(self.addPatient)
+        self.addPatient.clicked.connect(self.addPatientData)
 
-    def addPatient(self):
-        for i in range(0,15):
-            lastName=self.tableWidget.item(i,0)
-            firstName=self.tableWidget.item(i,0)
-            midInit=self.tableWidget.item(i,0)
-            address=self.tableWidget.item(i,0)
-            hPhone=self.tableWidget.item(i,0)
-            cPhone=self.tableWidget.item(i,0)
-            wPhone=self.tableWidget.item(i,0)
-            c1Name=self.tableWidget.item(i,0)
-            c1Phone=self.tableWidget.item(i,0)
-            c2Name=self.tableWidget.item(i,0)
-            c2Phone=self.tableWidget.item(i,0)
-            doctor=self.tableWidget.item(i,0)
-            insurance=self.tableWidget.item(i,0)
-            insAcct=self.tableWidget.item(i,0)
-            insGNum=self.tableWidget.item(i,0)
-            #do sql here
-            self.insertPatientFunction()
-        #takes you back to insert patient screen where user can add more/go back to admin space    
-    def insertPatientFunction(self):
-        insertPatient=InsertPatient()
-        widget.addWidget(insertPatient)
-        widget.setCurrentIndex(widget.currentIndex()+1)
+        self.firstNameField.setStyleSheet("border: 1px solid red;")
+        self.lastNameField.setStyleSheet("border: 1px solid red;")
+
+    def centerUI(self, screen_width, screen_height):
+        title_width = 401
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        self.back.setGeometry(50, 70, 120, 40)
+        note_width = 400
+        self.requiredNote.setGeometry((screen_width - note_width) // 2, 140, note_width, 20)
+
+        grid_width = min(900, screen_width - 100)
+        grid_height = min(550, screen_height - 250)
+        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 170, grid_width, grid_height)
+
+        button_width = 200
+        button_height = 50
+        button_y = 170 + grid_height + 10
+        self.addPatient.setGeometry((screen_width - button_width) // 2, button_y, button_width, button_height)
+
+        error_width = 600
+        error_y = button_y + button_height + 10
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, error_y, error_width, 40)
+        self.errorMsg.setWordWrap(True)
+
+    def populateDoctors(self):
+        try:
+            doctors = SearchDB.getDoctors(encryption_key)
+            self.doctorCombo.addItem("", "")
+            if doctors and doctors != "Error":
+                for doctor in doctors:
+                    display_text = f"{doctor[0]} - {doctor[3]}, {doctor[2]}"
+                    self.doctorCombo.addItem(display_text, doctor[0])
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading doctors: {str(e)}")
+
+    def addPatientData(self):
+        if not self.firstNameField.text().strip() or not self.lastNameField.text().strip():
+            self.errorMsg.setText("First and last name are required.")
+            return
+        try:
+            firstName = self.firstNameField.text()
+            middleInit = self.middleInitField.text()
+            lastName = self.lastNameField.text()
+            address = self.addressField.text()
+            doctorIndex = self.doctorCombo.currentIndex()
+            doctorID = self.doctorCombo.itemData(doctorIndex) if doctorIndex > 0 else None
+            InsertData.insertPatient(firstName, middleInit, lastName, address, doctorID, fixed_salt)
+
+            with hospitalDB.get_cursor() as cursor:
+                cursor.execute("SELECT MAX(patient_id) FROM patient;")
+                patientID = cursor.fetchone()[0]
+
+            for kind, field in [("Home", self.homePhoneField), ("Mobile", self.cellPhoneField), ("Work", self.workPhoneField)]:
+                phone = field.text()
+                if phone:
+                    UpdateDB.patientUpdatePhone(patientID, kind, phone)
+
+            if self.contact1NameField.text() and self.contact1PhoneField.text():
+                UpdateDB.patientUpdateContact(patientID, self.contact1NameField.text(), self.contact1PhoneField.text(), "1")
+            if self.contact2NameField.text() and self.contact2PhoneField.text():
+                UpdateDB.patientUpdateContact(patientID, self.contact2NameField.text(), self.contact2PhoneField.text(), "2")
+
+            UpdateDB.patientUpdateInsurance(patientID, self.insuranceField.text(),
+                                            self.accountNumberField.text(), self.groupNumberField.text())
+
+            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setText(f"Patient {firstName} {lastName} added successfully!")
+            self.clearFields()
+        except Exception as e:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText(f"Error: {str(e)}")
+
+    def clearFields(self):
+        for field in [self.firstNameField, self.middleInitField, self.lastNameField, self.addressField,
+                      self.homePhoneField, self.cellPhoneField, self.workPhoneField,
+                      self.contact1NameField, self.contact1PhoneField,
+                      self.contact2NameField, self.contact2PhoneField,
+                      self.insuranceField, self.accountNumberField, self.groupNumberField]:
+            field.clear()
+        self.doctorCombo.setCurrentIndex(0)
 
     def goBack(self):
-        # Get the current user type
         usertype = hospitalDB.getCurrentUserType()
-        
-        # Navigate based on user type
+        if usertype == "Administrator":
+            widget.addWidget(AdminScreen())
+        else:
+            widget.addWidget(ApplicationScreen())
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
+class RegisterLocation(QDialog):
+    def __init__(self):
+        super(RegisterLocation, self).__init__()
+        loadUi("registerlocation.ui", self)
+
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+
+        self.centerUI(screen_width, screen_height)
+
+        self.backTo.clicked.connect(self.goBack)
+        self.addLocation.clicked.connect(self.addLocationFunction)
+
+        self.styleFormFields()
+
+    def centerUI(self, screen_width, screen_height):
+        title_width = 401
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        self.backTo.setGeometry(50, 70, 120, 40)
+
+        form_width = 600
+        form_height = 350
+        self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 180, form_width, form_height)
+
+        button_width = 200
+        button_height = 50
+        self.addLocation.setGeometry((screen_width - button_width) // 2, 550, button_width, button_height)
+
+        error_width = 600
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, 610, error_width, 40)
+        self.errorMsg.setWordWrap(True)
+
+    def styleFormFields(self):
+        self.facilityField.setMinimumHeight(35)
+        self.facilityField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.roomField.setMinimumHeight(35)
+        self.roomField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.bedField.setMinimumHeight(35)
+        self.bedField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.floorField.setMinimumHeight(35)
+        self.floorField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+
+    def addLocationFunction(self):
+        facility = self.facilityField.text()
+        floor = self.floorField.value()
+        room = self.roomField.text()
+        bed = self.bedField.text()
+
+        if not facility or not room or not bed:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("All fields are required.")
+            return
+
+        try:
+            InsertData.insertLocation(facility, floor, room, bed)
+            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setText("Location added successfully!")
+            self.facilityField.clear()
+            self.floorField.setValue(1)
+            self.roomField.clear()
+            self.bedField.clear()
+        except Exception as e:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText(f"Error: {str(e)}")
+
+    def goBack(self):
+        admin = AdminScreen()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+class RegisterAdmission(QDialog):
+    def __init__(self):
+        super(RegisterAdmission, self).__init__()
+        loadUi("registeradmission.ui", self)
+
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+
+        self.centerUI(screen_width, screen_height)
+        self.admissionDateTime.setDateTime(QDateTime.currentDateTime())
+
+        self.populatePatients()
+        self.populateLocations()
+        self.populateDoctors()
+
+        self.backTo.clicked.connect(self.goBack)
+        self.addAdmission.clicked.connect(self.addAdmissionFunction)
+        self.styleFormFields()
+
+    def centerUI(self, screen_width, screen_height):
+        title_width = 401
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        self.backTo.setGeometry(50, 70, 120, 40)
+        form_width = 600
+        form_height = 350
+        self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 180, form_width, form_height)
+        button_width = 200
+        button_height = 50
+        self.addAdmission.setGeometry((screen_width - button_width) // 2, 550, button_width, button_height)
+        error_width = 600
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, 610, error_width, 40)
+        self.errorMsg.setWordWrap(True)
+
+    def styleFormFields(self):
+        for combo in [self.patientCombo, self.locationCombo, self.doctorCombo]:
+            combo.setMinimumHeight(35)
+            combo.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.admissionDateTime.setMinimumHeight(35)
+        self.admissionDateTime.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.reasonField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+
+    def populatePatients(self):
+        try:
+            with hospitalDB.get_cursor() as cursor:
+                cursor.execute("SELECT patient_id, first_name, middle_name, last_name FROM patientsearchview ORDER BY last_name;")
+                patients = cursor.fetchall()
+
+            self.patientCombo.addItem("", "")
+            for patient in patients:
+                pid, fname, mname, lname = patient
+                display_text = f"{pid} - {lname}, {fname} {mname or ''}"
+                self.patientCombo.addItem(display_text, pid)
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading patients: {str(e)}")
+
+    def populateLocations(self):
+        try:
+            locations = SearchDB.getAvailableLocations()
+            self.locationCombo.addItem("", "")
+            for loc in locations:
+                loc_id, facility, floor, room, bed = loc
+                display_text = f"{loc_id} - {facility}, Floor {floor}, Room {room}, Bed {bed}"
+                self.locationCombo.addItem(display_text, loc_id)
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading locations: {str(e)}")
+
+    def populateDoctors(self):
+        try:
+            doctors = SearchDB.getDoctors(encryption_key)
+            self.doctorCombo.addItem("", "")
+            if doctors and doctors != "Error":
+                for doc in doctors:
+                    display_text = f"{doc[0]} - {doc[3]}, {doc[2]}"
+                    self.doctorCombo.addItem(display_text, doc[0])
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading doctors: {str(e)}")
+
+    def addAdmissionFunction(self):
+        patient_index = self.patientCombo.currentIndex()
+        patient_id = self.patientCombo.itemData(patient_index) if patient_index > 0 else None
+        location_index = self.locationCombo.currentIndex()
+        location_id = self.locationCombo.itemData(location_index) if location_index > 0 else None
+        doctor_index = self.doctorCombo.currentIndex()
+        doctor_id = self.doctorCombo.itemData(doctor_index) if doctor_index > 0 else None
+        admission_date = self.admissionDateTime.dateTime().toString("yyyy-MM-dd HH:mm:ss")
+        reason = self.reasonField.toPlainText()
+
+        if not patient_id or not location_id or not doctor_id or not reason:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("All fields are required.")
+            return
+
+        try:
+            InsertData.insertAdmission(patient_id, location_id, doctor_id, admission_date, reason)
+            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setText("Admission registered successfully!")
+            self.patientCombo.setCurrentIndex(0)
+            self.doctorCombo.setCurrentIndex(0)
+            self.reasonField.clear()
+            self.locationCombo.clear()
+            self.populateLocations()
+        except Exception as e:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText(f"Error: {str(e)}")
+
+    def goBack(self):
+        usertype = hospitalDB.getCurrentUserType()
         if usertype == "Administrator":
             admin = AdminScreen()
             widget.addWidget(admin)
         else:
             application = ApplicationScreen()
             widget.addWidget(application)
-        
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class SearchStaff(QDialog):
     def __init__(self):
         super(SearchStaff, self).__init__()
         loadUi("stafflookup.ui", self)
-        
-        self.showMaximized()
-        
-        # Get screen dimensions
+
         screen_size = QApplication.primaryScreen().availableGeometry()
-        screen_width = screen_size.width()  
+        screen_width = screen_size.width()
         screen_height = screen_size.height()
-        
-        # Set main widget to fill the entire screen
         self.widget.setGeometry(0, 0, screen_width, screen_height)
 
-        # Center the form elements
         self.centerUI(screen_width, screen_height)
-        
-        # Style form fields
+
         for field in [self.lastField, self.firstField]:
             field.setMinimumHeight(35)
             field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
-            
-        # Style checkboxes
+
         for checkbox in [self.lastBox, self.firstBox]:
             checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
-    
-        # Connect event handlers
+
         self.search.clicked.connect(self.searchFunction)
         self.logout.clicked.connect(self.logoutFunction)
-        self.backButton.clicked.connect(self.goBack)  # Add back button functionality
+        self.backButton.clicked.connect(self.goBack)
         self.resultsTable.hide()
 
     def centerUI(self, screen_width, screen_height):
-        """Center all UI elements properly"""
-        # Center the title
-        title_width = 401  # From original UI
+        title_width = 401
         self.label.setGeometry((screen_width - title_width) // 2, 200, title_width, 71)
-        
-        # Position logout button in top right
         self.logout.setGeometry(screen_width - 150, 70, 120, 50)
-        
-        # Position back button in top left
         self.backButton.setGeometry(50, 70, 120, 50)
-        
-        # Center the form grid
-        form_width = 600  # Increased width for better alignment
+
+        form_width = 600
         form_height = 151
         self.gridLayoutWidget.setGeometry((screen_width - form_width) // 2, 290, form_width, form_height)
-        
-        # Center the error message
+
         error_width = 300
         self.error.setGeometry((screen_width - error_width) // 2, 450, error_width, 31)
-        
-        # Center search button
+
         search_width = 151
         search_height = 40
         self.search.setGeometry((screen_width - search_width) // 2, 490, search_width, search_height)
-        
-        # Center the results table
-        table_width = min(screen_width - 100, 1000)  # Limit width with padding
-        table_height = min(screen_height - 600, 400)  # Limit height with padding
-        table_x = (screen_width - table_width) // 2  # Center horizontally
-        
+
+        table_width = min(screen_width - 100, 700)
+        table_height = min(screen_height - 600, 500)
+        table_x = (screen_width - table_width) // 2
         self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
-        self.resultsTable.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.resultsTable.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.resultsTable.hide()
 
     def logoutFunction(self):
+        eventFilter.enabled = False
         hospitalDB.userLogout()
         login = LoginScreen()
         widget.addWidget(login)
@@ -521,13 +808,11 @@ class SearchStaff(QDialog):
         firstBox = self.firstBox.isChecked()
         lastBox = self.lastBox.isChecked()
         partials = set()
-        
+
         if len(lastName) == 0 and len(firstName) == 0:
             self.error.setText("Input at least one field.")
         else:
             df = None
-
-            # Check whether checkbox for last name or first name is checked
             if lastBox:
                 partials.add('lname')
             if firstBox:
@@ -560,95 +845,753 @@ class SearchStaff(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def goBack(self):
-        # Get the current user type
         usertype = hospitalDB.getCurrentUserType()
-        
-        # For InsertStaff, we might always want to go back to the admin screen
-        # since only administrators can access this screen, but let's check anyway
         if usertype == "Administrator":
             admin = AdminScreen()
             widget.addWidget(admin)
         else:
             application = ApplicationScreen()
             widget.addWidget(application)
-        
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+class InsertPatient(QDialog):
+    def __init__(self):
+        super(InsertPatient, self).__init__()
+        loadUi("insertpat.ui", self)
+
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        self.centerUI(screen_width, screen_height)
+
+        self.populateDoctors()
+        self.back.clicked.connect(self.goBack)
+        self.addPatient.clicked.connect(self.addPatientData)
+        self.firstNameField.setStyleSheet("border: 1px solid red;")
+        self.lastNameField.setStyleSheet("border: 1px solid red;")
+
+    def centerUI(self, screen_width, screen_height):
+        title_width = 401
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        self.back.setGeometry(50, 70, 120, 40)
+        note_width = 400
+        self.requiredNote.setGeometry((screen_width - note_width) // 2, 140, note_width, 20)
+
+        grid_width = min(900, screen_width - 100)
+        grid_height = min(550, screen_height - 250)
+        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 170, grid_width, grid_height)
+
+        button_width = 200
+        button_height = 50
+        button_y = 170 + grid_height + 10
+        self.addPatient.setGeometry((screen_width - button_width) // 2, button_y, button_width, button_height)
+
+        error_width = 600
+        error_y = button_y + button_height + 10
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, error_y, error_width, 40)
+        self.errorMsg.setWordWrap(True)
+
+    def populateDoctors(self):
+        try:
+            keys = EncryptionKey.getKeys()
+            doctors = SearchDB.getDoctors(keys[0])
+            self.doctorCombo.addItem("", "")
+            if doctors and doctors != "Error":
+                for doctor in doctors:
+                    display_text = f"{doctor[0]} - {doctor[3]}, {doctor[2]}"
+                    self.doctorCombo.addItem(display_text, doctor[0])
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading doctors: {str(e)}")
+
+    def validateRequiredFields(self):
+        firstName = self.firstNameField.text().strip()
+        lastName = self.lastNameField.text().strip()
+        if not firstName:
+            self.errorMsg.setText("First name is required.")
+            self.firstNameField.setFocus()
+            return False
+        if not lastName:
+            self.errorMsg.setText("Last name is required.")
+            self.lastNameField.setFocus()
+            return False
+        return True
+
+    def addPatientData(self):
+        if not self.validateRequiredFields():
+            return
+        keys = EncryptionKey.getKeys()
+        fixed_salt = keys[1]
+        firstName = self.firstNameField.text()
+        middleInit = self.middleInitField.text()
+        lastName = self.lastNameField.text()
+        address = self.addressField.text()
+        doctorIndex = self.doctorCombo.currentIndex()
+        doctorID = self.doctorCombo.itemData(doctorIndex) if doctorIndex > 0 else None
+        try:
+            InsertData.insertPatient(firstName, middleInit, lastName, address, doctorID, fixed_salt)
+            with hospitalDB.get_cursor() as cursor:
+                cursor.execute("SELECT MAX(patient_id) FROM patient;")
+                patientID = cursor.fetchone()[0]
+
+            homePhone = self.homePhoneField.text()
+            cellPhone = self.cellPhoneField.text()
+            workPhone = self.workPhoneField.text()
+            if homePhone:
+                UpdateDB.patientUpdatePhone(patientID, "Home", homePhone)
+            if cellPhone:
+                UpdateDB.patientUpdatePhone(patientID, "Mobile", cellPhone)
+            if workPhone:
+                UpdateDB.patientUpdatePhone(patientID, "Work", workPhone)
+
+            contact1Name = self.contact1NameField.text()
+            contact1Phone = self.contact1PhoneField.text()
+            contact2Name = self.contact2NameField.text()
+            contact2Phone = self.contact2PhoneField.text()
+            if contact1Name and contact1Phone:
+                UpdateDB.patientUpdateContact(patientID, contact1Name, contact1Phone, "1")
+            if contact2Name and contact2Phone:
+                UpdateDB.patientUpdateContact(patientID, contact2Name, contact2Phone, "2")
+
+            insurance = self.insuranceField.text()
+            accountNumber = self.accountNumberField.text()
+            groupNumber = self.groupNumberField.text()
+            if insurance or accountNumber or groupNumber:
+                UpdateDB.patientUpdateInsurance(patientID, insurance, accountNumber, groupNumber)
+
+            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setText(f"Patient {firstName} {lastName} added successfully!")
+            self.clearFields()
+        except psycopg2.errors.UniqueViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("A database constraint was violated. Please check your data.")
+        except psycopg2.errors.NotNullViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Missing required information. Please check all required fields.")
+        except psycopg2.errors.ForeignKeyViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Invalid doctor selection.")
+        except psycopg2.OperationalError:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Connection to database failed. Please try again later.")
+        except Exception as e:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText(f"Error: {str(e)}")
+
+    def clearFields(self):
+        self.firstNameField.clear()
+        self.middleInitField.clear()
+        self.lastNameField.clear()
+        self.addressField.clear()
+        self.homePhoneField.clear()
+        self.cellPhoneField.clear()
+        self.workPhoneField.clear()
+        self.contact1NameField.clear()
+        self.contact1PhoneField.clear()
+        self.contact2NameField.clear()
+        self.contact2PhoneField.clear()
+        self.insuranceField.clear()
+        self.accountNumberField.clear()
+        self.groupNumberField.clear()
+        self.doctorCombo.setCurrentIndex(0)
+
+    def goBack(self):
+        usertype = hospitalDB.getCurrentUserType()
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
+        else:
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+class InsertPatient(QDialog):
+    def __init__(self):
+        super(InsertPatient, self).__init__()
+        loadUi("insertpat.ui", self)
+
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        self.centerUI(screen_width, screen_height)
+
+        self.populateDoctors()
+        self.back.clicked.connect(self.goBack)
+        self.addPatient.clicked.connect(self.addPatientData)
+        self.firstNameField.setStyleSheet("border: 1px solid red;")
+        self.lastNameField.setStyleSheet("border: 1px solid red;")
+
+    def centerUI(self, screen_width, screen_height):
+        title_width = 401
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        self.back.setGeometry(50, 70, 120, 40)
+        note_width = 400
+        self.requiredNote.setGeometry((screen_width - note_width) // 2, 140, note_width, 20)
+
+        grid_width = min(900, screen_width - 100)
+        grid_height = min(550, screen_height - 250)
+        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 170, grid_width, grid_height)
+
+        button_width = 200
+        button_height = 50
+        button_y = 170 + grid_height + 10
+        self.addPatient.setGeometry((screen_width - button_width) // 2, button_y, button_width, button_height)
+
+        error_width = 600
+        error_y = button_y + button_height + 10
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, error_y, error_width, 40)
+        self.errorMsg.setWordWrap(True)
+
+    def populateDoctors(self):
+        try:
+            keys = EncryptionKey.getKeys()
+            doctors = SearchDB.getDoctors(keys[0])
+            self.doctorCombo.addItem("", "")
+            if doctors and doctors != "Error":
+                for doctor in doctors:
+                    display_text = f"{doctor[0]} - {doctor[3]}, {doctor[2]}"
+                    self.doctorCombo.addItem(display_text, doctor[0])
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading doctors: {str(e)}")
+
+    def validateRequiredFields(self):
+        firstName = self.firstNameField.text().strip()
+        lastName = self.lastNameField.text().strip()
+        if not firstName:
+            self.errorMsg.setText("First name is required.")
+            self.firstNameField.setFocus()
+            return False
+        if not lastName:
+            self.errorMsg.setText("Last name is required.")
+            self.lastNameField.setFocus()
+            return False
+        return True
+
+    def addPatientData(self):
+        if not self.validateRequiredFields():
+            return
+        keys = EncryptionKey.getKeys()
+        fixed_salt = keys[1]
+        firstName = self.firstNameField.text()
+        middleInit = self.middleInitField.text()
+        lastName = self.lastNameField.text()
+        address = self.addressField.text()
+        doctorIndex = self.doctorCombo.currentIndex()
+        doctorID = self.doctorCombo.itemData(doctorIndex) if doctorIndex > 0 else None
+        try:
+            InsertData.insertPatient(firstName, middleInit, lastName, address, doctorID, fixed_salt)
+            with hospitalDB.get_cursor() as cursor:
+                cursor.execute("SELECT MAX(patient_id) FROM patient;")
+                patientID = cursor.fetchone()[0]
+
+            homePhone = self.homePhoneField.text()
+            cellPhone = self.cellPhoneField.text()
+            workPhone = self.workPhoneField.text()
+            if homePhone:
+                UpdateDB.patientUpdatePhone(patientID, "Home", homePhone)
+            if cellPhone:
+                UpdateDB.patientUpdatePhone(patientID, "Mobile", cellPhone)
+            if workPhone:
+                UpdateDB.patientUpdatePhone(patientID, "Work", workPhone)
+
+            contact1Name = self.contact1NameField.text()
+            contact1Phone = self.contact1PhoneField.text()
+            contact2Name = self.contact2NameField.text()
+            contact2Phone = self.contact2PhoneField.text()
+            if contact1Name and contact1Phone:
+                UpdateDB.patientUpdateContact(patientID, contact1Name, contact1Phone, "1")
+            if contact2Name and contact2Phone:
+                UpdateDB.patientUpdateContact(patientID, contact2Name, contact2Phone, "2")
+
+            insurance = self.insuranceField.text()
+            accountNumber = self.accountNumberField.text()
+            groupNumber = self.groupNumberField.text()
+            if insurance or accountNumber or groupNumber:
+                UpdateDB.patientUpdateInsurance(patientID, insurance, accountNumber, groupNumber)
+
+            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setText(f"Patient {firstName} {lastName} added successfully!")
+            self.clearFields()
+        except psycopg2.errors.UniqueViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("A database constraint was violated. Please check your data.")
+        except psycopg2.errors.NotNullViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Missing required information. Please check all required fields.")
+        except psycopg2.errors.ForeignKeyViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Invalid doctor selection.")
+        except psycopg2.OperationalError:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Connection to database failed. Please try again later.")
+        except Exception as e:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText(f"Error: {str(e)}")
+
+    def clearFields(self):
+        self.firstNameField.clear()
+        self.middleInitField.clear()
+        self.lastNameField.clear()
+        self.addressField.clear()
+        self.homePhoneField.clear()
+        self.cellPhoneField.clear()
+        self.workPhoneField.clear()
+        self.contact1NameField.clear()
+        self.contact1PhoneField.clear()
+        self.contact2NameField.clear()
+        self.contact2PhoneField.clear()
+        self.insuranceField.clear()
+        self.accountNumberField.clear()
+        self.groupNumberField.clear()
+        self.doctorCombo.setCurrentIndex(0)
+
+    def goBack(self):
+        usertype = hospitalDB.getCurrentUserType()
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
+        else:
+            application = ApplicationScreen()
+            widget.addWidget(application)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
+class RegisterLocation(QDialog):
+    def __init__(self):
+        super(RegisterLocation, self).__init__()
+        loadUi("registerlocation.ui", self)
+
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        self.centerUI(screen_width, screen_height)
+
+        self.backTo.clicked.connect(self.goBack)
+        self.addLocation.clicked.connect(self.addLocationFunction)
+        self.styleFormFields()
+
+    def centerUI(self, screen_width, screen_height):
+        title_width = 401
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        self.backTo.setGeometry(50, 70, 120, 40)
+
+        form_width = 600
+        form_height = 350
+        self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 180, form_width, form_height)
+
+        button_width = 200
+        button_height = 50
+        self.addLocation.setGeometry((screen_width - button_width) // 2, 550, button_width, button_height)
+
+        error_width = 600
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, 610, error_width, 40)
+        self.errorMsg.setWordWrap(True)
+
+    def styleFormFields(self):
+        self.formLayout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.formLayout.setFormAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        self.formLayout.setHorizontalSpacing(20)
+        self.formLayout.setVerticalSpacing(20)
+
+        self.facilityField.setMinimumHeight(35)
+        self.facilityField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.roomField.setMinimumHeight(35)
+        self.roomField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.bedField.setMinimumHeight(35)
+        self.bedField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.floorField.setMinimumHeight(35)
+        self.floorField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+
+    def addLocationFunction(self):
+        facility = self.facilityField.text()
+        floor = self.floorField.value()
+        room = self.roomField.text()
+        bed = self.bedField.text()
+
+        if not facility or not room or not bed:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("All fields are required.")
+            return
+
+        try:
+            InsertData.insertLocation(facility, floor, room, bed)
+            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setText("Location added successfully!")
+            self.facilityField.clear()
+            self.floorField.setValue(1)
+            self.roomField.clear()
+            self.bedField.clear()
+        except psycopg2.errors.UniqueViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("This location already exists. Please try a different combination.")
+        except psycopg2.errors.NotNullViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Missing required information. Please fill all fields.")
+        except psycopg2.OperationalError:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Connection to database failed. Please try again later.")
+        except Exception as e:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText(f"Error: {str(e)}")
+
+    def goBack(self):
+        admin = AdminScreen()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+class RegisterAdmission(QDialog):
+    def __init__(self):
+        super(RegisterAdmission, self).__init__()
+        loadUi("registeradmission.ui", self)
+
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+        self.centerUI(screen_width, screen_height)
+
+        self.admissionDateTime.setDateTime(QDateTime.currentDateTime())
+
+        self.populatePatients()
+        self.populateLocations()
+        self.populateDoctors()
+
+        self.backTo.clicked.connect(self.goBack)
+        self.addAdmission.clicked.connect(self.addAdmissionFunction)
+        self.styleFormFields()
+
+    def centerUI(self, screen_width, screen_height):
+        title_width = 401
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        self.backTo.setGeometry(50, 70, 120, 40)
+
+        form_width = 600
+        form_height = 350
+        self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 180, form_width, form_height)
+
+        button_width = 200
+        button_height = 50
+        self.addAdmission.setGeometry((screen_width - button_width) // 2, 550, button_width, button_height)
+
+        error_width = 600
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, 610, error_width, 40)
+        self.errorMsg.setWordWrap(True)
+
+    def styleFormFields(self):
+        for combo in [self.patientCombo, self.locationCombo, self.doctorCombo]:
+            combo.setMinimumHeight(35)
+            combo.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+
+        self.admissionDateTime.setMinimumHeight(35)
+        self.admissionDateTime.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.reasonField.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+
+    def populatePatients(self):
+        try:
+            with hospitalDB.get_cursor() as cursor:
+                cursor.execute("SELECT patient_id, first_name, middle_name, last_name FROM patientsearchview ORDER BY last_name;")
+                patients = cursor.fetchall()
+
+            self.patientCombo.addItem("", "")
+            for patient in patients:
+                display_text = f"{patient[0]} - {patient[3]}, {patient[1]} {patient[2] or ''}"
+                self.patientCombo.addItem(display_text, patient[0])
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading patients: {str(e)}")
+
+    def populateLocations(self):
+        try:
+            locations = SearchDB.getAvailableLocations()
+            self.locationCombo.addItem("", "")
+            for location in locations:
+                display_text = f"{location[0]} - {location[1]}, Floor {location[2]}, Room {location[3]}, Bed {location[4]}"
+                self.locationCombo.addItem(display_text, location[0])
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading locations: {str(e)}")
+
+    def populateDoctors(self):
+        try:
+            keys = EncryptionKey.getKeys()
+            doctors = SearchDB.getDoctors(keys[0])
+            self.doctorCombo.addItem("", "")
+            if doctors and doctors != "Error":
+                for doctor in doctors:
+                    display_text = f"{doctor[0]} - {doctor[3]}, {doctor[2]}"
+                    self.doctorCombo.addItem(display_text, doctor[0])
+        except Exception as e:
+            self.errorMsg.setText(f"Error loading doctors: {str(e)}")
+
+    def addAdmissionFunction(self):
+        patient_index = self.patientCombo.currentIndex()
+        patient_id = self.patientCombo.itemData(patient_index) if patient_index > 0 else None
+
+        location_index = self.locationCombo.currentIndex()
+        location_id = self.locationCombo.itemData(location_index) if location_index > 0 else None
+
+        doctor_index = self.doctorCombo.currentIndex()
+        doctor_id = self.doctorCombo.itemData(doctor_index) if doctor_index > 0 else None
+
+        admission_date = self.admissionDateTime.dateTime().toString("yyyy-MM-dd HH:mm:ss")
+        reason = self.reasonField.toPlainText()
+
+        if not patient_id or not location_id or not doctor_id or not reason:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("All fields are required.")
+            return
+
+        try:
+            InsertData.insertAdmission(patient_id, location_id, doctor_id, admission_date, reason)
+            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setText("Admission registered successfully!")
+
+            self.patientCombo.setCurrentIndex(0)
+            self.doctorCombo.setCurrentIndex(0)
+            self.reasonField.clear()
+            self.locationCombo.clear()
+            self.populateLocations()
+        except psycopg2.errors.UniqueViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("A constraint was violated. Please check your data.")
+        except psycopg2.errors.NotNullViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Missing required information. Please fill all fields.")
+        except psycopg2.errors.ForeignKeyViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Invalid selection. Please check patient, location, and doctor choices.")
+        except psycopg2.OperationalError:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Connection to database failed. Please try again later.")
+        except Exception as e:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText(f"Error: {str(e)}")
+
+    def goBack(self):
+        usertype = hospitalDB.getCurrentUserType()
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
+        else:
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+class SearchStaff(QDialog):
+    def __init__(self):
+        super(SearchStaff, self).__init__()
+        loadUi("stafflookup.ui", self)
+
+        screen_size = QApplication.primaryScreen().availableGeometry()
+        screen_width = screen_size.width()
+        screen_height = screen_size.height()
+        self.widget.setGeometry(0, 0, screen_width, screen_height)
+
+        self.centerUI(screen_width, screen_height)
+
+        for field in [self.lastField, self.firstField]:
+            field.setMinimumHeight(35)
+            field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+
+        for checkbox in [self.lastBox, self.firstBox]:
+            checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
+
+        self.search.clicked.connect(self.searchFunction)
+        self.logout.clicked.connect(self.logoutFunction)
+        self.backButton.clicked.connect(self.goBack)
+        self.resultsTable.hide()
+
+    def centerUI(self, screen_width, screen_height):
+        title_width = 401
+        self.label.setGeometry((screen_width - title_width) // 2, 200, title_width, 71)
+        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        self.backButton.setGeometry(50, 70, 120, 50)
+        form_width = 600
+        form_height = 151
+        self.gridLayoutWidget.setGeometry((screen_width - form_width) // 2, 290, form_width, form_height)
+        error_width = 300
+        self.error.setGeometry((screen_width - error_width) // 2, 450, error_width, 31)
+        search_width = 151
+        search_height = 40
+        self.search.setGeometry((screen_width - search_width) // 2, 490, search_width, search_height)
+        table_width = min(screen_width - 100, 700)
+        table_height = min(screen_height - 600, 500)
+        table_x = (screen_width - table_width) // 2
+        self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
+        self.resultsTable.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.resultsTable.hide()
+
+    def logoutFunction(self):
+        eventFilter.enabled = False
+        hospitalDB.userLogout()
+        login = LoginScreen()
+        widget.addWidget(login)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
+    def searchFunction(self):
+        lastName = self.lastField.text()
+        firstName = self.firstField.text()
+        firstBox = self.firstBox.isChecked()
+        lastBox = self.lastBox.isChecked()
+        partials = set()
+
+        if len(lastName) == 0 and len(firstName) == 0:
+            self.error.setText("Input at least one field.")
+        else:
+            df = None
+            if lastBox:
+                partials.add('lname')
+            if firstBox:
+                partials.add('fname')
+
+            df = pd.DataFrame(SearchDB.searchStaffWithName(fixed_salt,
+                                                          firstName if firstName else None,
+                                                          lastName if lastName else None,
+                                                          partials))
+
+            if df.empty:
+                self.error.setText("No results found.")
+            else:
+                self.error.setText("")
+                self.resultsTable.show()
+                self.resultsTable.setRowCount(len(df))
+                self.resultsTable.setColumnCount(len(df.columns))
+                self.resultsTable.setHorizontalHeaderLabels(["ID", "Username", "First Name", "Last Name", "Role"])
+                for i in range(len(df)):
+                    for j in range(len(df.columns)):
+                        item = QTableWidgetItem(str(df.iat[i, j]))
+                        self.resultsTable.setItem(i, j, item)
+                self.resultsTable.cellDoubleClicked.connect(self.openStaffDetails)
+                self.df = df
+
+    def openStaffDetails(self, row, column):
+        staff_id = str(self.df.iat[row, 0])
+        details = StaffDetailsScreen(staff_id)
+        widget.addWidget(details)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
+    def goBack(self):
+        usertype = hospitalDB.getCurrentUserType()
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
+        else:
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 class StaffDetailsScreen(QDialog):
     def __init__(self, staff_id):
-        super(PatientDetailsScreen, self).__init__()
+        super(StaffDetailsScreen, self).__init__()
         self.setWindowTitle("Staff Details")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 900, 700)
+        self.staff_id = staff_id
+        self.usertype = hospitalDB.getCurrentUserType()
+
+        layout = QVBoxLayout()
+
+        # Header
+        self.header_frame = QWidget()
+        self.header_layout = QHBoxLayout()
+        self.staff_info_label = QLabel()
+        self.staff_info_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.header_layout.addWidget(self.staff_info_label)
+        self.header_frame.setLayout(self.header_layout)
+        layout.addWidget(self.header_frame)
+
+        # Tabs
+        self.tabs = QTabWidget()
+        self.tabs.setTabsClosable(False)
+        self.tabs.tabCloseRequested.connect(self.closeTab)
+
+        # Basic info tab
+        self.basic_info_tab = QWidget()
+        self.setupTabs()
+        layout.addWidget(self.tabs)
+
+        # Bottom buttons
+        button_layout = QHBoxLayout()
+        self.back_button = QPushButton("Back")
+        self.back_button.clicked.connect(self.goBack)
+        button_layout.addWidget(self.back_button)
+        layout.addLayout(button_layout)
+
+        self.setLayout(layout)
+        self.loadStaffData()
+
+    def setupTabs(self):
+        self.num_static_tabs = 0
+        self.tabs.addTab(self.basic_info_tab, "Basic Info")
+        self.num_static_tabs = self.tabs.count()
+
+
+    def closeTab(self, index):
+        if index < self.num_static_tabs:
+            QMessageBox.information(self, "Protected Tab", "You cannot close the default staff tabs.")
+            return
+        self.tabs.removeTab(index)
+
+    def loadStaffData(self):
+        try:
+            data = SearchDB.searchStaffWithID(self.staff_id, encryption_key)
+            name = f"{data[1]} {data[2]}"
+            self.staff_info_label.setText(f"Staff Member: {name}")
+
+            basic_layout = QFormLayout()
+            basic_layout.addRow("Username:", QLabel(data[0]))
+            basic_layout.addRow("First Name:", QLabel(data[1]))
+            basic_layout.addRow("Last Name:", QLabel(data[2]))
+            basic_layout.addRow("Type:", QLabel(data[3]))
+            self.basic_info_tab.setLayout(basic_layout)
+
+            if not data:
+                QMessageBox.warning(self, "No Data", "No staff data found.")
+                return
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"Error loading staff data: {str(e)}")
+            print(f"Error: {e}")
 
     def goBack(self):
         search_staff = SearchStaff()
         widget.addWidget(search_staff)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-
 class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
         loadUi("patientsearch.ui", self)
-        
-        self.showMaximized()
-        
-        # Get screen dimensions
+
         screen_size = QApplication.primaryScreen().availableGeometry()
-        screen_width = screen_size.width()  
+        screen_width = screen_size.width()
         screen_height = screen_size.height()
-        
-        # Set main widget to fill the entire screen
         self.widget.setGeometry(0, 0, screen_width, screen_height)
 
-        # Center the form elements
         self.centerUI(screen_width, screen_height)
-        
-        # Style form fields
+
         for field in [self.lastField, self.firstField, self.midField]:
             field.setMinimumHeight(35)
             field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
-            
-        # Style checkboxes
         for checkbox in [self.lastBox, self.firstBox]:
             checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
-    
-        # Connect event handlers
+
         self.search.clicked.connect(self.searchFunction)
         self.logout.clicked.connect(self.logoutFunction)
-        self.backButton.clicked.connect(self.goBack)  # Add back button functionality
+        self.backButton.clicked.connect(self.goBack)
         self.resultsTable.hide()
 
+        self.activeAdmissionsBox = QtWidgets.QCheckBox("Only Active Admissions")
+        self.activeAdmissionsBox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
+        self.gridLayoutWidget.layout().addWidget(self.activeAdmissionsBox, 3, 2)
+
+        usertype = hospitalDB.getCurrentUserType()
+        if usertype == "Volunteer":
+            self.activeAdmissionsBox.hide()
+
     def centerUI(self, screen_width, screen_height):
-        """Center all UI elements properly"""
-        # Center the title
         title_width = 401
         self.label.setGeometry((screen_width - title_width) // 2, 170, title_width, 61)
-        
-        # Position logout button in top right
         self.logout.setGeometry(screen_width - 150, 70, 120, 50)
-        
-        # Position back button in top left
         self.backButton.setGeometry(50, 70, 120, 50)
-        
-        # Center the form grid
-        form_width = 600
-        form_height = 200
-        self.gridLayoutWidget.setGeometry((screen_width - form_width) // 2, 270, form_width, form_height)
-        
-        # Center the error message
-        error_width = 300
-        self.error.setGeometry((screen_width - error_width) // 2, 470, error_width, 31)
-        
-        # Center search button
-        search_width = 116
-        search_height = 40
-        self.search.setGeometry((screen_width - search_width) // 2, 510, search_width, search_height)
-        
-        # Center the results table
-        table_width = min(screen_width - 100, 1000)
-        table_height = min(screen_height - 600, 400)
-        table_x = (screen_width - table_width) // 2
-        self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
+        self.gridLayoutWidget.setGeometry((screen_width - 600) // 2, 270, 600, 200)
+        self.error.setGeometry((screen_width - 300) // 2, 470, 300, 31)
+        self.search.setGeometry((screen_width - 116) // 2, 510, 116, 40)
+        self.resultsTable.setGeometry((screen_width - 700) // 2, 550, 700, 500)
+        self.resultsTable.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.resultsTable.hide()
 
     def searchFunction(self):
         lastName = self.lastField.text()
@@ -656,21 +1599,29 @@ class SearchScreen(QDialog):
         middleName = self.midField.text()
         lastBox = self.lastBox.isChecked()
         firstBox = self.firstBox.isChecked()
+        activeAdmissionsOnly = False
+
+        if hasattr(self, 'activeAdmissionsBox') and self.activeAdmissionsBox.isVisible():
+            activeAdmissionsOnly = self.activeAdmissionsBox.isChecked()
+
         partials = set()
-        
+
         if len(lastName) == 0 and len(firstName) == 0 and len(middleName) == 0:
             self.error.setText("Input at least one field.")
         else:
-            df = None
             if firstBox:
                 partials.add('fname')
             if lastBox:
                 partials.add('lname')
-            df = pd.DataFrame(SearchDB.searchPatientWithName(fixed_salt, 
-                                                            fname=firstName if firstName else None,
-                                                            mname=middleName if middleName else None,
-                                                            lname=lastName if lastName else None,
-                                                            partial_fields=partials))
+
+            df = pd.DataFrame(SearchDB.searchPatientWithName(
+                fixed_salt,
+                fname=firstName if firstName else None,
+                mname=middleName if middleName else None,
+                lname=lastName if lastName else None,
+                partial_fields=partials,
+                active_admissions_only=activeAdmissionsOnly))
+
             if df.empty:
                 self.error.setText("No results found.")
             else:
@@ -693,16 +1644,14 @@ class SearchScreen(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def logoutFunction(self):
+        eventFilter.enabled = False
         hospitalDB.userLogout()
         login = LoginScreen()
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def goBack(self):
-        # Get the current user type
         usertype = hospitalDB.getCurrentUserType()
-        
-        # Navigate based on user type
         if usertype == "Administrator":
             admin = AdminScreen()
             widget.addWidget(admin)
@@ -710,7 +1659,7 @@ class SearchScreen(QDialog):
             application = ApplicationScreen()
             widget.addWidget(application)
         widget.setCurrentIndex(widget.currentIndex() + 1)
-
+from EncryptionKey import getKeys
 class PatientDetailsScreen(QDialog):
     def __init__(self, patient_id):
         super(PatientDetailsScreen, self).__init__()
@@ -718,10 +1667,13 @@ class PatientDetailsScreen(QDialog):
         self.setGeometry(100, 100, 900, 700)
         self.patient_id = patient_id
         self.usertype = hospitalDB.getCurrentUserType()
-        
+        keys = getKeys()
+        self.encryption_key = keys[0]
+        self.basicInfoTab = QWidget()
+        self.setupBasicInfoTab()
+
         layout = QVBoxLayout()
-        
-        # Create a header with patient info
+
         self.header_frame = QWidget()
         self.header_layout = QHBoxLayout()
         self.patient_info_label = QLabel()
@@ -729,60 +1681,47 @@ class PatientDetailsScreen(QDialog):
         self.header_layout.addWidget(self.patient_info_label)
         self.header_frame.setLayout(self.header_layout)
         layout.addWidget(self.header_frame)
-        
-        # Create tabs - different tabs will be shown based on user type
+
         self.tabs = QTabWidget()
         self.tabs.setTabsClosable(False)
         self.tabs.tabCloseRequested.connect(self.closeTab)
 
-        # Create tabs for different user types
-        self.basic_info_tab = QWidget()
+        self.basicInfoTab = QWidget()
         self.insurance_tab = QWidget()
         self.contacts_tab = QWidget()
         self.notes_tab = QWidget()
         self.medications_tab = QWidget()
         self.procedures_tab = QWidget()
         self.location_tab = QWidget()
-        self.admissions_tab = QWidget()
         self.visitors_tab = QWidget()
-        
-        # Only add the relevant tabs based on user type
+        self.admissions_tab = QWidget()
+
         self.setupTabs()
-        
         layout.addWidget(self.tabs)
-        
-        # Buttons at the bottom
+
         button_layout = QHBoxLayout()
-        
         self.back_button = QPushButton("Back")
         self.back_button.clicked.connect(self.goBack)
         button_layout.addWidget(self.back_button)
-        
         self.print_button = QPushButton("Print to File")
         self.print_button.clicked.connect(self.printPatientDetails)
         button_layout.addWidget(self.print_button)
-        
-        layout.addLayout(button_layout)
-        
-        self.setLayout(layout)
-        
-        # Load the patient data
-        self.loadPatientData()
-    
-    def setupTabs(self):
-        self.num_static_tabs = 0  # Initialize count
 
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
+        self.loadPatientData()
+
+    def setupTabs(self):
+        self.num_static_tabs = 0
         if self.usertype == "Volunteer":
             self.tabs.addTab(self.basic_info_tab, "Patient Info")
             self.tabs.addTab(self.location_tab, "Location")
             self.tabs.addTab(self.visitors_tab, "Approved Visitors")
-            
         elif self.usertype == "Office Staff":
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
-            
-        elif self.usertype in ["Medical Personnel", "Physician"]:
+        elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
@@ -790,21 +1729,22 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.notes_tab, "Notes")
             self.tabs.addTab(self.medications_tab, "Medications")
             self.tabs.addTab(self.procedures_tab, "Procedures")
+        self.num_static_tabs = self.tabs.count()
 
-        self.num_static_tabs = self.tabs.count()  # Store default tab count
     def closeTab(self, index):
-        # Prevent closing the default tabs (index < num_static_tabs)
-        if index < self.num_static_tabs:
-            QMessageBox.information(self, "Protected Tab", "You cannot close the default patient tabs.")
-            return
-        self.tabs.removeTab(index)
-
-
+            # Prevent closing the default tabs (index < num_static_tabs)
+            if index < self.num_static_tabs:
+                QMessageBox.information(self, "Protected Tab", "You cannot close the default patient tabs.")
+                return
+            self.tabs.removeTab(index)
+    def goBack(self):
+        search_screen = SearchScreen()
+        widget.addWidget(search_screen)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
     def loadPatientData(self):
         try:
             # Get data using the search function
             patient_data = SearchDB.searchPatientWithID(self.patient_id)
-            print("DEBUG - Patient data:", patient_data)
             print("Keys in patient_data:", patient_data.keys())
 
             if not patient_data:
@@ -823,7 +1763,102 @@ class PatientDetailsScreen(QDialog):
             traceback.print_exc()  # Add this line for full stack trace in terminal
             QMessageBox.critical(self, "Error", f"Error loading patient data: {str(e)}")
             print(f"Error: {e}")
-    
+
+    def setupBasicInfoTab(self):
+        self.basic_info_tab = QWidget()  # <-- Add this here now
+        layout = QFormLayout()
+        self.firstNameEdit = QLineEdit()
+        self.middleNameEdit = QLineEdit()
+        self.lastNameEdit = QLineEdit()
+        self.addressEdit = QTextEdit()
+
+        self.firstNameEdit.setReadOnly(True)
+        self.middleNameEdit.setReadOnly(True)
+        self.lastNameEdit.setReadOnly(True)
+        self.addressEdit.setReadOnly(True)
+
+        layout.addRow("First Name:", self.firstNameEdit)
+        layout.addRow("Middle Name:", self.middleNameEdit)
+        layout.addRow("Last Name:", self.lastNameEdit)
+        layout.addRow("Mailing Address:", self.addressEdit)
+
+        self.editBasicInfoBtn = QPushButton("Edit")
+        self.saveBasicInfoBtn = QPushButton("Save")
+        self.saveBasicInfoBtn.setEnabled(False)
+        self.editBasicInfoBtn.clicked.connect(self.enableBasicInfoEdit)
+        self.saveBasicInfoBtn.clicked.connect(self.saveBasicInfo)
+
+        layout.addRow(self.editBasicInfoBtn, self.saveBasicInfoBtn)
+        self.basic_info_tab.setLayout(layout)
+
+        self.loadBasicInfo()
+
+
+    def enableBasicInfoEdit(self):
+        self.firstNameEdit.setReadOnly(False)
+        self.middleNameEdit.setReadOnly(False)
+        self.lastNameEdit.setReadOnly(False)
+        self.addressEdit.setReadOnly(False)
+        self.saveBasicInfoBtn.setEnabled(True)
+
+    def loadBasicInfo(self):
+        try:
+            with hospitalDB.get_cursor() as cursor:
+                cursor.execute("""
+                    SELECT
+                        pgp_sym_decrypt(first_name, %s),
+                        pgp_sym_decrypt(middle_name, %s),
+                        pgp_sym_decrypt(last_name, %s),
+                        pgp_sym_decrypt(mailing_address, %s)
+                    FROM patient
+                    WHERE patient_id = %s
+                """, (self.encryption_key,)*4 + (self.patient_id,))
+                row = cursor.fetchone()
+                print("DEBUG - patient row:", row)
+
+
+            if row and len(row) >= 4:
+                self.firstNameEdit.setText(row[0])
+                self.middleNameEdit.setText(row[1])
+                self.lastNameEdit.setText(row[2])
+                self.addressEdit.setText(row[3])
+            else:
+                QMessageBox.warning(self, "Data Issue", "Incomplete patient data retrieved.")
+        except Exception as e:
+            print("DEBUG - loadBasicInfo error:", e)
+            QMessageBox.critical(self, "Error loading patient data", str(e))
+
+
+    def saveBasicInfo(self):
+        first = self.firstNameEdit.text().strip()
+        middle = self.middleNameEdit.text().strip()
+        last = self.lastNameEdit.text().strip()
+        address = self.addressEdit.toPlainText().strip()
+
+        try:
+            with hospitalDB.get_cursor() as cursor:
+                cursor.execute("""
+                    UPDATE patient
+                    SET
+                        first_name = pgp_sym_encrypt(%s, %s),
+                        middle_name = pgp_sym_encrypt(%s, %s),
+                        last_name = pgp_sym_encrypt(%s, %s),
+                        mailing_address = pgp_sym_encrypt(%s, %s)
+                    WHERE patient_id = %s
+                """, (first, self.encryption_key,
+                      middle, self.encryption_key,
+                      last, self.encryption_key,
+                      address, self.encryption_key,
+                      self.patient_id))
+            QMessageBox.information(self, "Success", "Patient info updated.")
+            self.firstNameEdit.setReadOnly(True)
+            self.middleNameEdit.setReadOnly(True)
+            self.lastNameEdit.setReadOnly(True)
+            self.addressEdit.setReadOnly(True)
+            self.saveBasicInfoBtn.setEnabled(False)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to update info: {e}")
+
     def loadVolunteerData(self, data):
         """Load data for Volunteer view"""
         # Volunteer view has: patient_id, first_name, middle_name, last_name, 
@@ -859,7 +1894,6 @@ class PatientDetailsScreen(QDialog):
         else:
             visitors_layout.addWidget(QLabel("No approved visitors"))
         self.visitors_tab.setLayout(visitors_layout)
-    
     def loadOfficeStaffData(self, data):
         """Load data for Office Staff view"""
         # Office staff view has: patient_id, first_name, middle_name, last_name, 
@@ -874,7 +1908,7 @@ class PatientDetailsScreen(QDialog):
         basic_layout.addRow("First Name:", QLabel(data.get('first_name', '')))
         basic_layout.addRow("Middle Name:", QLabel(data.get('middle_name', '')))
         basic_layout.addRow("Last Name:", QLabel(data.get('last_name', '')))
-        basic_layout.addRow("Mailing Address:", QLabel(data[4] or ""))
+        basic_layout.addRow("Mailing Address:", QLabel(data.get('mailing_address', '')))
         self.basic_info_tab.setLayout(basic_layout)
         
         # Insurance Tab
@@ -1013,6 +2047,51 @@ class PatientDetailsScreen(QDialog):
         
         self.notes_tab.setLayout(notes_layout)
         
+        # Add note entry section
+        note_entry_group = QGroupBox("Add Note")
+        note_entry_layout = QVBoxLayout()
+
+        note_type_combo = QComboBox()
+        note_type_combo.addItems(["Clinical", "Progress", "Discharge", "Other"])
+
+        note_text_edit = QTextEdit()
+        note_text_edit.setPlaceholderText("Enter your note here...")
+
+        save_note_button = QPushButton("Save Note")
+
+        from datetime import datetime
+
+        def saveNote():
+            note_type = note_type_combo.currentText()
+            note_text = note_text_edit.toPlainText().strip()
+            author_id = hospitalDB.getCurrentUserID()
+            from datetime import datetime
+            timestamp = datetime.now()
+
+            if not note_text:
+                QMessageBox.warning(self, "Empty Note", "Please enter note content.")
+                return
+
+            try:
+                InsertData.insertNote(admission_id, note_text)
+                QMessageBox.information(self, "Success", "Note added successfully!")
+                note_text_edit.clear()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save note: {str(e)}")
+
+
+
+        save_note_button.clicked.connect(saveNote)
+
+        note_entry_layout.addWidget(QLabel("Note Type:"))
+        note_entry_layout.addWidget(note_type_combo)
+        note_entry_layout.addWidget(note_text_edit)
+        note_entry_layout.addWidget(save_note_button)
+        note_entry_group.setLayout(note_entry_layout)
+
+        notes_layout.addWidget(note_entry_group)
+
+
         # Medications Tab
         medications_layout = QVBoxLayout()
         all_meds = []
@@ -1142,7 +2221,14 @@ class PatientDetailsScreen(QDialog):
                 QMessageBox.warning(self, "No Data", "No patient data to print.")
                 return
             
-            data = patient_data[0]
+            if isinstance(patient_data, dict):
+                data = patient_data
+            elif isinstance(patient_data, (list, tuple)) and len(patient_data) > 0:
+                data = patient_data[0]
+            else:
+                QMessageBox.warning(self, "No Data", "No patient data to print.")
+                return
+
             lines = []
             lines.append("PATIENT DETAILS REPORT")
             lines.append("=" * 50)
@@ -1254,17 +2340,49 @@ class PatientDetailsScreen(QDialog):
         search_screen = SearchScreen()
         widget.addWidget(search_screen)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+class LockScreen(QtWidgets.QDialog):
+    def __init__(self, exitAction, widget, eventFilter, currentUser):
+        super(LockScreen, self).__init__()
+        loadUi("lockScreen.ui", self)
+        self.exitAction = exitAction
+        self.widget = widget
+        self.eventFilter = eventFilter
+        self.usernameField.setText(currentUser)
+        self.passwordField.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.resumeButton.clicked.connect(self.resumePressed)
+        self.exitButton.clicked.connect(self.exitPressed)
+        self.setWindowFlag(True)
+        self.setWindowModality(True)
+        # self.setFixedSize(400, 150)
+        self.label.setAlignment(Qt.AlignCenter)
 
-class ListScreen(QDialog):
-    def __init__(self):
-        super(ListScreen, self).__init__()
-        loadUi("list.ui", self)
-
+    def resumePressed(self):
+        user = self.usernameField.text()
+        password = self.passwordField.text()
+        result_pass = SearchDB.passwordMatch(user, password)
+        if result_pass:
+            self.errorMsg.setText("")
+            self.eventFilter.enabled = True
+            self.widget.removeWidget(self)
+            self.deleteLater()
+        else:
+            self.errorMsg.setText("Invalid username or password")
+        
+    def exitPressed(self):
+        self.exitAction()
 
 def LogOut():
+    eventFilter.enabled = False
     hospitalDB.userLogout()
     home = MainScreen()
     widget.addWidget(home)
+    widget.setCurrentIndex(widget.currentIndex() + 1)
+
+def lockScreen():
+    print("here")
+    eventFilter.enabled = False
+    lock = LockScreen(LogOut, widget, eventFilter, hospitalDB.getCurrentUserID())
+    widget.addWidget(lock)
     widget.setCurrentIndex(widget.currentIndex() + 1)
 
 app = QApplication(sys.argv)
@@ -1311,12 +2429,13 @@ app.setStyleSheet("""
         font-weight: bold;
     }
 """)
-
 home = MainScreen()
 widget = QtWidgets.QStackedWidget()
 widget.addWidget(home)
 #widget.resize(1200, 800)
 widget.showMaximized()
+eventFilter = InactivityTimer(lockScreen)
+app.installEventFilter(eventFilter)
 try:
     sys.exit(app.exec())
 except:
