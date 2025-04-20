@@ -17,7 +17,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Hospital Management System</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
@@ -29,6 +29,8 @@
       <string notr="true">QWidget#widget{
 background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop:0 rgba(0, 170, 255, 255), stop:1 rgba(255, 255, 255, 255))}</string>
      </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item alignment="Qt::AlignHCenter|Qt::AlignVCenter">
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="0" column="1" alignment="Qt::AlignHCenter">
        <widget class="QLabel" name="label_3">
@@ -38,6 +40,27 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="minimumSize">
+         <size>
+          <width>600</width>
+          <height>100</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">font: bold 24pt &quot;MS Shell Dlg 2&quot;; color: #333333;</string>
+        </property>
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Welcome to the Patient Information&lt;/p&gt;&lt;p align=&quot;center&quot;&gt;Management System (PIMS)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item alignment="Qt::AlignHCenter|Qt::AlignVCenter">
+       <widget class="QPushButton" name="enterApplication">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
         <property name="layoutDirection">
          <enum>Qt::LeftToRight</enum>
         </property>
@@ -56,6 +79,34 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>250</width>
+          <height>60</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>300</width>
+          <height>60</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton {
+    background-color: #e0e0e0;
+    color: black;
+    border: 1px solid #aaa;
+    border-radius: 4px;
+    padding: 10px;
+    font: bold 14pt &quot;MS Shell Dlg 2&quot;;
+}
+QPushButton:hover {
+    background-color: #d6d6d6;
+}
+QPushButton:pressed {
+    background-color: #c0c0c0;
+}</string>
         </property>
         <property name="maximumSize">
          <size>
