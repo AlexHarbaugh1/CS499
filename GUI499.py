@@ -1957,7 +1957,21 @@ class PatientDetailsScreen(QDialog):
             patient_data = SearchDB.searchPatientWithID(self.patient_id)
             print("DEBUG - Patient data:", patient_data)
 
-            if not patient_data:
+            # ✅ Save to self before using
+            self.patient_data = patient_data
+
+            # Now it's safe to unpack from self.patient_data
+            first = self.patient_data[1]
+            middle = self.patient_data[2]
+            last = self.patient_data[3]
+
+            # Build full name string (omit middle if it's None or blank)
+            if middle:
+                self.patient_full_name = f"{first} {middle} {last}"
+            else:
+                self.patient_full_name = f"{first} {last}"
+
+            if not self.patient_data:
                 QMessageBox.warning(self, "No Data", "No patient data found.")
                 return
 
@@ -1970,9 +1984,10 @@ class PatientDetailsScreen(QDialog):
                 self.loadMedicalData(patient_data)
 
         except Exception as e:
-            traceback.print_exc()  # Add this line for full stack trace in terminal
+            traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Error loading patient data: {str(e)}")
             print(f"Error: {e}")
+
 
     def enableBasicInfoEdit(self):
         self.firstNameEdit.setReadOnly(False)
@@ -2363,6 +2378,12 @@ class PatientDetailsScreen(QDialog):
         )
         layout.addWidget(discharge_btn)  # Add it somewhere visually appropriate
 
+        print_summary_btn = QPushButton("Print Summary")
+        print_summary_btn.clicked.connect(
+            lambda _, adm_id=admission_id: self.printAdmissionSummary(adm_id)
+        )
+        layout.addWidget(print_summary_btn)
+
 
         # --- Add close button only for this dynamic tab ---
         close_button = QPushButton("✕")
@@ -2509,6 +2530,70 @@ class PatientDetailsScreen(QDialog):
             self.reloadAdmissionTab(admission_id)  # Optional: refresh to reflect discharge
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to discharge patient: {str(e)}")
+
+    def showPrintDialog(self, text):
+        from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+        from PyQt5.QtGui import QTextDocument
+
+        printer = QPrinter()
+        dialog = QPrintDialog(printer, self)
+        if dialog.exec_() == QPrintDialog.Accepted:
+            doc = QTextDocument()
+            doc.setPlainText(text)
+            doc.print_(printer)
+
+    def printAdmissionSummary(self, admission_id):
+        print("DEBUG - admissions_data type:", type(self.admissions_data))
+        print("DEBUG - admissions_data:", self.admissions_data)
+
+        try:
+            # ✅ Find the matching admission dict
+            admission_data = next((a for a in self.admissions_data if a["admission_id"] == admission_id), None)
+            print("DEBUG - Matching admission:", admission_data)
+
+            if not admission_data:
+                QMessageBox.warning(self, "Error", "No admission data found.")
+                return
+
+            # ✅ Extract admission fields
+            admit_date = admission_data.get("admittance_date", "N/A")
+            discharge = admission_data.get("admittance_discharge", "Still Admitted")
+            reason = admission_data.get("admission_reason", "N/A")
+
+            # ✅ Use patient name from existing text fields (already decrypted)
+            patient_name = getattr(self, "patient_full_name", "Unknown Patient")
+
+            # ✅ Extract notes safely
+            notes = admission_data.get("details", {}).get("notes", [])
+            if notes is None:
+                notes_text = "No notes available."
+            else:
+                notes_text = "\n\n".join([
+                    f"{n['datetime']} - {n['type']} by {n['author']}:\n{n['text']}"
+                    for n in notes
+                ]) if notes else "No notes available."
+
+            # ✅ Build printable summary
+            summary_text = f"""
+            Admission Summary
+            ----------------------------
+            Patient: {patient_name}
+            Admission ID: {admission_id}
+            Admitted: {admit_date}
+            Discharged: {discharge}
+            Reason: {reason}
+
+            Notes:
+            {notes_text}
+            """
+
+            # ✅ Print dialog
+            self.showPrintDialog(summary_text)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to generate summary: {str(e)}")
+
+
 
     def reloadAdmissionTab(self, admission_id):
         self.tabs.clear()
