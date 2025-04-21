@@ -2314,21 +2314,33 @@ class PatientDetailsScreen(QDialog):
                     if not visitor_name:
                         QMessageBox.warning(self, "Error", "Please enter a visitor name.")
                         return
-                    
+                    if len(current_visitors) > 0:
                     # Add to the current list
-                    current_visitors.append(visitor_name)
-                    self.visitors_list.addItem(visitor_name)
+                        try:
+                            current_visitors.append(visitor_name)
+                            self.visitors_list.addItem(visitor_name)
+                            UpdateDB.updateVisitors(active_admission_id, current_visitors, encryption_key)
+                            visitor_name_input.clear()
+                            QMessageBox.information(self, "Success", f"Added {visitor_name} to approved visitors.")
+                        except Exception as e:
+                            QMessageBox.critical(self, "Error", f"Failed to add visitor: {str(e)}")
+                            # Roll back the list changes
+                            self.visitors_list.takeItem(self.visitors_list.count() - 1)
+                            current_visitors.pop()
                     
                     # Update in the database
-                    try:
-                        InsertData.insertVisitors(active_admission_id, current_visitors, encryption_key)
-                        visitor_name_input.clear()
-                        QMessageBox.information(self, "Success", f"Added {visitor_name} to approved visitors.")
-                    except Exception as e:
-                        QMessageBox.critical(self, "Error", f"Failed to add visitor: {str(e)}")
-                        # Roll back the list changes
-                        self.visitors_list.takeItem(self.visitors_list.count() - 1)
-                        current_visitors.pop()
+                    else:
+                        try:
+                            current_visitors.append(visitor_name)
+                            self.visitors_list.addItem(visitor_name)
+                            InsertData.insertVisitors(active_admission_id, current_visitors, encryption_key)
+                            visitor_name_input.clear()
+                            QMessageBox.information(self, "Success", f"Added {visitor_name} to approved visitors.")
+                        except Exception as e:
+                            QMessageBox.critical(self, "Error", f"Failed to add visitor: {str(e)}")
+                            # Roll back the list changes
+                            self.visitors_list.takeItem(self.visitors_list.count() - 1)
+                            current_visitors.pop()
                 
                 def removeVisitor():
                     selected_items = self.visitors_list.selectedItems()
@@ -2344,7 +2356,7 @@ class PatientDetailsScreen(QDialog):
                     
                     # Update in the database
                     try:
-                        InsertData.insertVisitors(active_admission_id, current_visitors, encryption_key)
+                        UpdateDB.updateVisitors(active_admission_id, current_visitors, encryption_key)
                         QMessageBox.information(self, "Success", f"Removed {visitor_name} from approved visitors.")
                     except Exception as e:
                         QMessageBox.critical(self, "Error", f"Failed to remove visitor: {str(e)}")
@@ -2449,7 +2461,12 @@ class PatientDetailsScreen(QDialog):
         new_index = self.tabs.addTab(tab, tab_title)
         self.tabs.setCurrentWidget(tab)
 
-        # --- Add close button only for this dynamic tab ---
+        discharge_btn = QPushButton("Discharge Patient")
+        discharge_btn.clicked.connect(
+            lambda _, adm_id=admission_id: self.dischargePatient(adm_id)
+        )
+        layout.addWidget(discharge_btn)
+
         close_button = QPushButton("✕")
         close_button.setFixedSize(18, 18)
         close_button.setStyleSheet("""
@@ -2584,7 +2601,21 @@ class PatientDetailsScreen(QDialog):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error printing patient data: {str(e)}")
                 print(f"Error: {e}")
-        
+    def dischargePatient(self, admission_id):
+        from datetime import datetime
+        discharge_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            UpdateDB.admissionUpdateDischarge(admission_id, discharge_time, encryption_key)
+            QMessageBox.information(self, "Success", f"Admission {admission_id} discharged.")
+            self.reloadAdmissionTab(admission_id)  # Optional: refresh to reflect discharge
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to discharge patient: {str(e)}")
+
+    def reloadAdmissionTab(self, admission_id):
+        self.tabs.clear()
+        self.setupTabs()
+        self.loadPatientData()
+
     def goBack(self):
         search_screen = SearchScreen()
         widget.addWidget(search_screen)

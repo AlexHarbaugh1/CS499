@@ -230,6 +230,7 @@ def run():
       # Permissions for Inserting Data
       cursor2.execute("GRANT INSERT ON patient TO medicalpersonnel_role, physician_role, officestaff_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patient_patient_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE approvedvisitors_visitors_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE staff_user_id_seq TO administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE admission_admission_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billingdetail_billing_detail_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
@@ -619,6 +620,7 @@ def run():
       params = (keys[0],)*27
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
+      cursor2.execute("GRANT DELETE ON approvedvisitors TO medicalpersonnel_role, physician_role;")
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")
       # staffwriteview allows insertion of staff members information
       sql = """CREATE VIEW staffwriteview AS
