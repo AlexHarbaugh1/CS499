@@ -21,6 +21,9 @@ import csv
 import string
 import EncryptionKey
 import SearchDB
+from datetime import datetime
+import UpdateDB
+
 keys = EncryptionKey.getKeys()
 encryption_key = keys[0]
 fixed_salt = keys[1]
@@ -2354,6 +2357,13 @@ class PatientDetailsScreen(QDialog):
         new_index = self.tabs.addTab(tab, tab_title)
         self.tabs.setCurrentWidget(tab)
 
+        discharge_btn = QPushButton("Discharge Patient")
+        discharge_btn.clicked.connect(
+            lambda _, adm_id=admission_id: self.dischargePatient(adm_id)
+        )
+        layout.addWidget(discharge_btn)  # Add it somewhere visually appropriate
+
+
         # --- Add close button only for this dynamic tab ---
         close_button = QPushButton("✕")
         close_button.setFixedSize(18, 18)
@@ -2490,6 +2500,22 @@ class PatientDetailsScreen(QDialog):
                 QMessageBox.critical(self, "Error", f"Error printing patient data: {str(e)}")
                 print(f"Error: {e}")
         
+    def dischargePatient(self, admission_id):
+        from datetime import datetime
+        discharge_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            UpdateDB.admissionUpdateDischarge(admission_id, discharge_time, encryption_key)
+            QMessageBox.information(self, "Success", f"Admission {admission_id} discharged.")
+            self.reloadAdmissionTab(admission_id)  # Optional: refresh to reflect discharge
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to discharge patient: {str(e)}")
+
+    def reloadAdmissionTab(self, admission_id):
+        self.tabs.clear()
+        self.setupTabs()
+        self.loadPatientData()
+
+
     def goBack(self):
         search_screen = SearchScreen()
         widget.addWidget(search_screen)
