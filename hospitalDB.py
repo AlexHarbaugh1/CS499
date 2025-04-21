@@ -326,7 +326,7 @@ def run():
       cursor2.execute("""CREATE VIEW activeadmissionview AS
                       SELECT admission_id, location_id FROM admission WHERE discharge_datetime IS NULL;""")
       cursor2.execute("GRANT SELECT ON activeadmissionview TO officestaff_role, medicalpersonnel_role, physician_role;")
-      cursor2.execute("GRANT SELECT ON admission TO officestaff_role, medicalpersonnel_role, physician_role;")
+      cursor2.execute("GRANT SELECT, UPDATE ON admission TO officestaff_role, medicalpersonnel_role, physician_role;")
       #Availablelocationview shows all locations without an active admission
       cursor2.execute("""CREATE VIEW availablelocationview AS
                       SELECT l.location_id, l.facility, l.floor, l.room_number, l.bed_number
@@ -335,6 +335,7 @@ def run():
                       SELECT 1 FROM activeadmissionview a WHERE a.location_ID = l.location_id)
                       ORDER BY l.location_id ASC;""")
       cursor2.execute("GRANT SELECT ON availablelocationview TO officestaff_role, medicalpersonnel_role, physician_role;")
+      cursor2.execute("GRANT SELECT ON location TO officestaff_role, medicalpersonnel_role, physician_role;")
       # Office View Selects all none medical data and uses triggers to update the underlying database.
       sql = """CREATE VIEW officestaffview AS
             SELECT
@@ -531,7 +532,7 @@ def run():
       cursor2.execute(sql, params)
       # Physician and Medical Personnel
       # Patient Admission View for Physicians and Medical Personnel
-      sql = """CREATE OR REPLACE VIEW PatientAdmissionOverview AS
+      sql = """CREATE VIEW PatientAdmissionOverview AS
               SELECT 
                 p.patient_id,
                 pgp_sym_decrypt(p.first_name, %s) AS first_name,
@@ -562,6 +563,14 @@ def run():
                       'admittance_date', pgp_sym_decrypt(a.admittance_datetime, %s),
                       'admission_reason', pgp_sym_decrypt(a.reason_for_admission, %s),
                       'admittance_discharge', pgp_sym_decrypt(a.discharge_datetime, %s),
+                      'approved_visitors', (
+                        SELECT ARRAY (
+                          SELECT pgp_sym_decrypt(visitor, %s)
+                          FROM unnest(v.names) AS visitor
+                        )
+                        FROM ApprovedVisitors v
+                        WHERE v.admission_id = a.admission_id
+                      ),
                       'details', jsonb_build_object(
                         'notes', (
                           SELECT jsonb_agg(
@@ -607,7 +616,7 @@ def run():
               LEFT JOIN Insurance i ON p.patient_id = i.patient_id
               GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name, p.mailing_address, 
                       i.carrier_name, i.account_number, i.group_number;"""
-      params = (keys[0],)*26
+      params = (keys[0],)*27
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")

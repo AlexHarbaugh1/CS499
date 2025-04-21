@@ -222,7 +222,30 @@ def staffUpdateType(userID, newType):
             newType,
             userID)
         cursor.execute(sql, params)
+
+def updateVisitors(admissionID, visitorNames, encryptionKey):
+    with  get_cursor() as cursor:
+        # First, delete existing visitors
+        sql = """DELETE FROM approvedvisitors WHERE admission_id = %s;"""
+        cursor.execute(sql, (admissionID,))
         
+        # Then insert the new visitors
+        if visitorNames:
+            encryptedNames = []
+            for name in visitorNames:
+                sql = "SELECT pgp_sym_encrypt(%s, %s) AS encrypted_name;"
+                params = (name, encryptionKey)
+                cursor.execute(sql, params)
+                encryptedNames.append(cursor.fetchone()[0])
+            
+            sql = """INSERT INTO approvedvisitors (admission_id, names)
+                    VALUES (%s, %s);"""
+            params = (
+                admissionID,
+                encryptedNames
+            )
+            cursor.execute(sql, params)
+           
 def admissionUpdateDischarge(admissionID, dischargeTime, encryptionkey):
     with get_cursor() as cursor:
         sql = """UPDATE admission

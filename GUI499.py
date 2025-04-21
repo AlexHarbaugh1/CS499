@@ -2196,8 +2196,6 @@ class PatientDetailsScreen(QDialog):
             note_entry_group = QGroupBox("Add Note")
             note_entry_layout = QVBoxLayout()
 
-            note_type_combo = QComboBox()
-            note_type_combo.addItems(["Clinical", "Progress", "Discharge", "Other"])
 
             note_text_edit = QTextEdit()
             note_text_edit.setPlaceholderText("Enter your note here...")
@@ -2221,8 +2219,6 @@ class PatientDetailsScreen(QDialog):
 
             save_note_button.clicked.connect(saveNote)
 
-            note_entry_layout.addWidget(QLabel("Note Type:"))
-            note_entry_layout.addWidget(note_type_combo)
             note_entry_layout.addWidget(note_text_edit)
             note_entry_layout.addWidget(save_note_button)
             note_entry_group.setLayout(note_entry_layout)
@@ -2274,15 +2270,122 @@ class PatientDetailsScreen(QDialog):
             
             self.procedures_tab.setLayout(procedures_layout)
 
-            # Visitors Tab
+             # Visitors Tab
             visitors_layout = QVBoxLayout()
-            if data[8] and len(data[8]) > 0:
-                visitors_list = QListWidget()
-                for visitor in data[8]:
-                    visitors_list.addItem(visitor)
-                visitors_layout.addWidget(visitors_list)
+            
+            # Find the active admission (one without discharge date)
+            active_admission = None
+            active_admission_id = None  # Store admission ID for updates
+            for admission in admissions:
+                discharge = admission.get('admittance_discharge', '')
+                if not discharge or discharge.lower() == 'none':
+                    active_admission = admission
+                    active_admission_id = admission.get('admission_id')
+                    break
+            
+            # Display current visitors
+            current_visitors = []
+            if active_admission and 'approved_visitors' in active_admission and active_admission['approved_visitors']:
+                current_visitors = active_admission['approved_visitors']
+            
+            visitors_group = QGroupBox("Current Approved Visitors")
+            visitors_group_layout = QVBoxLayout()
+            
+            self.visitors_list = QListWidget()
+            for visitor in current_visitors:
+                self.visitors_list.addItem(visitor)
+            visitors_group_layout.addWidget(self.visitors_list)
+            visitors_group.setLayout(visitors_group_layout)
+            visitors_layout.addWidget(visitors_group)
+            
+            # Add visitor management section if there's an active admission
+            if active_admission_id:
+                add_visitor_group = QGroupBox("Add/Remove Visitors")
+                add_visitor_layout = QHBoxLayout()
+                
+                visitor_name_input = QLineEdit()
+                visitor_name_input.setPlaceholderText("Enter visitor name")
+                
+                add_visitor_button = QPushButton("Add Visitor")
+                remove_visitor_button = QPushButton("Remove Selected")
+                
+                def addVisitor():
+                    visitor_name = visitor_name_input.text().strip()
+                    if not visitor_name:
+                        QMessageBox.warning(self, "Error", "Please enter a visitor name.")
+                        return
+                    
+                    # Add to the current list
+                    current_visitors.append(visitor_name)
+                    self.visitors_list.addItem(visitor_name)
+                    
+                    # Update in the database
+                    try:
+                        InsertData.insertVisitors(active_admission_id, current_visitors, encryption_key)
+                        visitor_name_input.clear()
+                        QMessageBox.information(self, "Success", f"Added {visitor_name} to approved visitors.")
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Failed to add visitor: {str(e)}")
+                        # Roll back the list changes
+                        self.visitors_list.takeItem(self.visitors_list.count() - 1)
+                        current_visitors.pop()
+                
+                def removeVisitor():
+                    selected_items = self.visitors_list.selectedItems()
+                    if not selected_items:
+                        QMessageBox.warning(self, "Error", "Please select a visitor to remove.")
+                        return
+                    
+                    visitor_name = selected_items[0].text()
+                    
+                    # Remove from the current list
+                    current_visitors.remove(visitor_name)
+                    self.visitors_list.takeItem(self.visitors_list.row(selected_items[0]))
+                    
+                    # Update in the database
+                    try:
+                        InsertData.insertVisitors(active_admission_id, current_visitors, encryption_key)
+                        QMessageBox.information(self, "Success", f"Removed {visitor_name} from approved visitors.")
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Failed to remove visitor: {str(e)}")
+                        # Roll back the list changes
+                        current_visitors.append(visitor_name)
+                        self.visitors_list.addItem(visitor_name)
+                
+                add_visitor_button.clicked.connect(addVisitor)
+                remove_visitor_button.clicked.connect(removeVisitor)
+                
+                add_visitor_layout.addWidget(visitor_name_input)
+                add_visitor_layout.addWidget(add_visitor_button)
+                add_visitor_layout.addWidget(remove_visitor_button)
+                add_visitor_group.setLayout(add_visitor_layout)
+                visitors_layout.addWidget(add_visitor_group)
             else:
-                visitors_layout.addWidget(QLabel("No approved visitors"))
+                no_active_label = QLabel("No active admission. Cannot modify visitors.")
+                no_active_label.setStyleSheet("color: red; font-weight: bold;")
+                visitors_layout.addWidget(no_active_label)
+            
+            # Show all historical visitors across all admissions
+            historical_group = QGroupBox("Historical Visitors (All Admissions)")
+            historical_layout = QVBoxLayout()
+            
+            all_historical_visitors = set()  # Use a set to avoid duplicates
+            for admission in admissions:
+                if 'approved_visitors' in admission and admission['approved_visitors']:
+                    for visitor in admission['approved_visitors']:
+                        all_historical_visitors.add(visitor)
+            
+            if all_historical_visitors:
+                historical_list = QListWidget()
+                for visitor in sorted(all_historical_visitors):
+                    historical_list.addItem(visitor)
+                historical_layout.addWidget(historical_list)
+            else:
+                historical_layout.addWidget(QLabel("No historical visitors"))
+            
+            historical_group.setLayout(historical_layout)
+            visitors_layout.addWidget(historical_group)
+            
             self.visitors_tab.setLayout(visitors_layout)
     
     def openAdmissionDetails(self, item):
