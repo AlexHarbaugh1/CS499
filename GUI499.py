@@ -1039,7 +1039,7 @@ class InsertPatient(QDialog):
         
         try:
             # Insert the patient
-            InsertData.insertPatient(firstName, middleInit, lastName, address, doctorID, fixed_salt)
+            InsertData.insertPatient(firstName.title(), middleInit.title() if middleInit else None, lastName.title(), address, doctorID, fixed_salt)
             
             # Get the newly inserted patient ID (most recent patient)
             with hospitalDB.get_cursor() as cursor:
