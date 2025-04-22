@@ -21,9 +21,6 @@ import csv
 import string
 import EncryptionKey
 import SearchDB
-from datetime import datetime
-import UpdateDB
-
 keys = EncryptionKey.getKeys()
 encryption_key = keys[0]
 fixed_salt = keys[1]
@@ -490,7 +487,7 @@ class AdminScreen(QDialog):
         self.regAdmission.clicked.connect(self.registerAdmissionFunction)
         self.auditLog.clicked.connect(self.viewAuditLog)
         self.logout.clicked.connect(self.logoutFunction)
-        
+        self.printAllAdmissions.clicked.connect(self.printAllAdmissionsSummary)
         # Apply button styling
         self.styleButtons()
 
@@ -608,6 +605,85 @@ class AdminScreen(QDialog):
         login = LoginScreen()
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+
+    def printAllAdmissionsSummary(self):
+        try:
+            from SearchDB import getAllPatientsWithAdmissions
+            keys = EncryptionKey.getKeys()
+            encryption_key = keys[0]
+
+            patients = getAllPatientsWithAdmissions()
+            if not patients:
+                QMessageBox.information(self, "Info", "No active patients found.")
+                return
+
+            summaries = []
+            for p in patients:
+                admissions = p[-1]
+                if not admissions:
+                    continue
+
+                first = p[1]
+                middle = p[2]
+                last = p[3]
+                name = f"{first} {middle} {last}" if middle else f"{first} {last}"
+                for admission in admissions:
+                    if admission.get("admittance_discharge"):
+                        continue
+
+                    notes = admission.get("details", {}).get("notes", [])
+                    meds = admission.get("details", {}).get("prescriptions", [])
+                    procedures = admission.get("details", {}).get("procedures", [])
+
+                    notes_text = "\n\n".join([
+                        f"{n['datetime']} - {n['type']} by {n['author']}:\n{n['text']}"
+                        for n in notes
+                    ]) if notes else "No notes."
+
+                    meds_text = "\n".join([
+                        f"- {m['medication']} ({m['amount']}), schedule: {m['schedule']}"
+                        for m in meds
+                    ]) if meds else "No medications."
+
+                    proc_text = "\n".join([
+                        f"- {p['name']} scheduled for {p['scheduled']}"
+                        for p in procedures
+                    ]) if procedures else "No procedures."
+
+                    summaries.append(f"""
+                    Patient: {name}
+                    Admission ID: {admission['admission_id']}
+                    Admitted: {admission.get('admittance_date')}
+                    Reason: {admission.get('admission_reason')}
+
+                    Notes:
+                    {notes_text}
+
+                    Medications:
+                    {meds_text}
+
+                    Procedures:
+                    {proc_text}
+                    ---------------------------
+                    """)
+            final_output = "\n".join(summaries)
+            self.showPrintDialog(final_output)
+
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"Failed to print all summaries: {str(e)}")
+
+    def showPrintDialog(self, text):
+        from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+        from PyQt5.QtGui import QTextDocument
+
+        printer = QPrinter()
+        dialog = QPrintDialog(printer, self)
+        if dialog.exec_() == QPrintDialog.Accepted:
+            doc = QTextDocument()
+            doc.setPlainText(text)
+            doc.print_(printer)
+
 
 class AuditLogScreen(QDialog):
     def __init__(self):
@@ -924,6 +1000,7 @@ class InsertStaff(QDialog):
         # Navigate back to the admin screen
         admin = AdminScreen()
         widget.addWidget(admin)
+        admin.resize(admin.sizeHint())
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class InsertPatient(QDialog):
@@ -1250,6 +1327,7 @@ class RegisterLocation(QDialog):
         # Navigate back to the admin screen
         admin = AdminScreen()
         widget.addWidget(admin)
+        admin.resize(admin.sizeHint())
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class RegisterAdmission(QDialog):
@@ -1942,6 +2020,7 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.visitors_tab, "Approved Visitors")
 
 
+
         self.num_static_tabs = self.tabs.count()  # Store default tab count
     def closeTab(self, index):
         # Prevent closing the default tabs (index < num_static_tabs)
@@ -1955,7 +2034,6 @@ class PatientDetailsScreen(QDialog):
         try:
             # Get data using the search function
             patient_data = SearchDB.searchPatientWithID(self.patient_id)
-            print("DEBUG - Patient data:", patient_data)
 
             # ✅ Save to self before using
             self.patient_data = patient_data
@@ -2384,6 +2462,14 @@ class PatientDetailsScreen(QDialog):
         )
         layout.addWidget(print_summary_btn)
 
+        add_med_btn = QPushButton("Add Medication")
+        add_med_btn.clicked.connect(lambda _, adm_id=admission_id: self.showAddMedicationDialog(adm_id))
+        layout.addWidget(add_med_btn)
+
+        add_proc_btn = QPushButton("Add Procedure")
+        add_proc_btn.clicked.connect(lambda _, adm_id=admission_id: self.showAddProcedureDialog(adm_id))
+        layout.addWidget(add_proc_btn)
+
 
         # --- Add close button only for this dynamic tab ---
         close_button = QPushButton("✕")
@@ -2402,6 +2488,70 @@ class PatientDetailsScreen(QDialog):
 
         # Set button on the tab
         self.tabs.tabBar().setTabButton(new_index, QTabBar.RightSide, close_button)
+
+    def addMedication(self, admission_id, name, amount, schedule, dialog):
+        try:
+            with hospitalDB.get_cursor() as cursor:
+                sql = """
+                    INSERT INTO prescription (admission_id, medication_name, amount, schedule)
+                    VALUES (
+                        %s,
+                        pgp_sym_encrypt(%s, %s),
+                        pgp_sym_encrypt(%s, %s),
+                        pgp_sym_encrypt(%s, %s)
+                    );
+                """
+                params = (
+                    admission_id,
+                    name, encryption_key,
+                    amount, encryption_key,
+                    schedule, encryption_key
+                )
+                cursor.execute(sql, params)
+                cursor.connection.commit()  # ✅ commit manually
+
+            QMessageBox.information(self, "Success", "Medication added successfully.")
+            dialog.accept()
+
+            self.loadPatientData()
+            self.tabs.clear()
+            self.setupTabs()
+
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"Failed to add medication: {str(e)}")
+
+    def addProcedure(self, admission_id, procedure_name, scheduled_time, dialog):
+        try:
+            with hospitalDB.get_cursor() as cursor:
+                sql = """
+                    INSERT INTO scheduledprocedure (admission_id, procedure_name, scheduled_datetime)
+                    VALUES (
+                        %s,
+                        pgp_sym_encrypt(%s, %s),
+                        pgp_sym_encrypt(%s, %s)
+                    );
+                """
+                params = (
+                    admission_id,
+                    procedure_name, encryption_key,
+                    scheduled_time, encryption_key
+                )
+                cursor.execute(sql, params)
+                cursor.connection.commit()
+
+            QMessageBox.information(self, "Success", "Procedure added successfully.")
+            dialog.accept()
+
+            self.loadPatientData()
+            self.tabs.clear()
+            self.setupTabs()
+
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"Failed to add procedure: {str(e)}")
+
+
 
     def printPatientDetails(self):
             """Print patient details to a file"""
@@ -2521,6 +2671,7 @@ class PatientDetailsScreen(QDialog):
                 QMessageBox.critical(self, "Error", f"Error printing patient data: {str(e)}")
                 print(f"Error: {e}")
         
+
     def dischargePatient(self, admission_id):
         from datetime import datetime
         discharge_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2542,10 +2693,54 @@ class PatientDetailsScreen(QDialog):
             doc.setPlainText(text)
             doc.print_(printer)
 
-    def printAdmissionSummary(self, admission_id):
-        print("DEBUG - admissions_data type:", type(self.admissions_data))
-        print("DEBUG - admissions_data:", self.admissions_data)
+    def showAddMedicationDialog(self, admission_id):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Medication")
+        layout = QVBoxLayout(dialog)
 
+        name_input = QLineEdit()
+        amount_input = QLineEdit()
+        schedule_input = QLineEdit()
+
+        layout.addWidget(QLabel("Medication Name:"))
+        layout.addWidget(name_input)
+        layout.addWidget(QLabel("Amount:"))
+        layout.addWidget(amount_input)
+        layout.addWidget(QLabel("Schedule:"))
+        layout.addWidget(schedule_input)
+
+        save_btn = QPushButton("Add")
+        layout.addWidget(save_btn)
+
+        save_btn.clicked.connect(lambda: self.addMedication(admission_id, name_input.text(), amount_input.text(), schedule_input.text(), dialog))
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+
+    def showAddProcedureDialog(self, admission_id):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Procedure")
+        layout = QVBoxLayout(dialog)
+
+        proc_input = QLineEdit()
+        datetime_input = QLineEdit()
+        datetime_input.setPlaceholderText("e.g. 2025-04-21 14:30:00")
+
+        layout.addWidget(QLabel("Procedure Name:"))
+        layout.addWidget(proc_input)
+        layout.addWidget(QLabel("Scheduled Time (YYYY-MM-DD HH:MM:SS):"))
+        layout.addWidget(datetime_input)
+
+        save_btn = QPushButton("Add")
+        save_btn.clicked.connect(lambda: self.addProcedure(admission_id, proc_input.text(), datetime_input.text(), dialog))
+        layout.addWidget(save_btn)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+
+    def printAdmissionSummary(self, admission_id):
         try:
             # ✅ Find the matching admission dict
             admission_data = next((a for a in self.admissions_data if a["admission_id"] == admission_id), None)
@@ -2564,14 +2759,36 @@ class PatientDetailsScreen(QDialog):
             patient_name = getattr(self, "patient_full_name", "Unknown Patient")
 
             # ✅ Extract notes safely
+            # --- Notes ---
             notes = admission_data.get("details", {}).get("notes", [])
-            if notes is None:
-                notes_text = "No notes available."
-            else:
+            if notes:
                 notes_text = "\n\n".join([
                     f"{n['datetime']} - {n['type']} by {n['author']}:\n{n['text']}"
                     for n in notes
-                ]) if notes else "No notes available."
+                ])
+            else:
+                notes_text = "No notes available."
+
+            # --- Medications ---
+            meds = admission_data.get("details", {}).get("prescriptions", [])
+            if meds:
+                meds_text = "\n".join([
+                    f"- {m['medication']} ({m['amount']}), schedule: {m['schedule']}"
+                    for m in meds
+                ])
+            else:
+                meds_text = "No medications prescribed."
+
+            # --- Procedures ---
+            procedures = admission_data.get("details", {}).get("procedures", [])
+            if procedures:
+                procedures_text = "\n".join([
+                    f"- {p['name']} scheduled for {p['scheduled']}"
+                    for p in procedures
+                ])
+            else:
+                procedures_text = "No procedures scheduled."
+
 
             # ✅ Build printable summary
             summary_text = f"""
@@ -2585,6 +2802,12 @@ class PatientDetailsScreen(QDialog):
 
             Notes:
             {notes_text}
+
+            Medications:
+            {meds_text}
+
+            Procedures:
+            {procedures_text}
             """
 
             # ✅ Print dialog
@@ -2593,13 +2816,10 @@ class PatientDetailsScreen(QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to generate summary: {str(e)}")
 
-
-
     def reloadAdmissionTab(self, admission_id):
         self.tabs.clear()
         self.setupTabs()
         self.loadPatientData()
-
 
     def goBack(self):
         search_screen = SearchScreen()
@@ -2660,7 +2880,7 @@ app.setStyleSheet("""
         outline: none;
     }
     QWidget {
-        font-size: 16px;
+        font-size: 32px;
         font-family: Arial, sans-serif;
     }
     QLabel {
