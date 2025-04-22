@@ -176,6 +176,25 @@ def searchStaffWithID(userID, encryptionKey):
         staffData = cursor.fetchone()
 
     return staffData
+
+def getAdmissionsWithPatientID(patientID):
+    try:
+        with hospitalDB.get_cursor() as cursor:
+            sql = """SELECT admission_id
+                    FROM admission 
+                    WHERE patient_id = %s;"""
+            params = (patientID,)
+            cursor.execute(sql, params)
+            admission_rows = cursor.fetchall()
+            
+            admissions = []
+            for row in admission_rows:
+                admissions.append({'admission_id': row[0]})
+
+            return admissions
+    except Exception as e:
+        print(f"Error fetching admissions: {e}")
+
 # searchBillingWithAdmission takes the admissionID and returns all billing information and Itemized Bill
 # returns tuple with price owed, price paid, price paid by insurance
 # returns a list of tuples with billed item, cost
@@ -308,6 +327,18 @@ def getAvailableLocations():
         cursor.execute("SELECT * FROM availablelocationview;")
         rooms = cursor.fetchall()
     return rooms
+
+from hospitalDB import get_cursor
+
+def getAllPatientsWithAdmissions():
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute("SELECT * FROM patientadmissionoverview;")
+        patients = cursor.fetchall()
+    return patients
+
+
+
+
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     fixedSalt = keys[1]
