@@ -29,7 +29,3 @@ class InactivityTimer(QObject):
         self.timer.stop()
         # print("Logged out due to inactivity.")        # debug statement
         self.action()
-
-
-
-    

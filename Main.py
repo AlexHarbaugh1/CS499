@@ -1,120 +1,95 @@
-import psycopg2
 import hospitalDB
-import InsertData
+import SearchDB
 import EncryptionKey
-import datetime
-
-keys = EncryptionKey.getKeys()
-# hospitalDB creates the database and all user tables
 hospitalDB.run()
-# Connect to the database
-conn = hospitalDB.getConnection()
-cursor = conn.cursor()
-
-# Ask User for input data
-
+import InsertData
+import datetime
+keys = EncryptionKey.getKeys()
 while True:
-    mode = input("Select Mode:\n1. Register User\n2. Register Patient\n3. Process Admission\n")
-    if(mode == '1'):
-        username = input("Enter Username\n")
-        password = input("Enter Password\n")
-        firstname = input("Enter Firstname\n")
-        lastname = input("Enter lastname\n")
-        type = input("Enter Type\n")
-        #Insert Data will perform the SQL to add the user to the database and encrypt the password
-        InsertData.insertStaff(firstname , lastname, username, password, type, keys[0], keys[1])
-    elif(mode == '2'):
-        fName = input("Enter Patient's First Name\n")
-        mName = input("Enter Patient's Middle Name\n")
-        lName = input("Enter Patient's Last Name\n")
-        mAddress = input("Enter Patient's Mailing Address\n")
-        hPhone = input("Enter Patient's Home Phone Number\n")
-        mPhone = input("Enter Patient's Mobile Phone Number\n")
-        wPhone = input("Enter Patient's Work Phone Number\n")
-        c1Name = input("Enter Patient's 1st Contact Name\n")
-        c1Phone = input("Enter Patient's 1st Contact Phone Number\n")
-        c2Name = input("Enter Patient's 2nd Contact Name\n")
-        c2Phone = input("Enter Patient's 2nd Contact Phone Number\n")
-        fDoctor = input("Enter Patient's Family Doctor\n")
-        insCarrier = input("Enter Patient's Insurance Carrier\n")
-        insAcc = input("Enter Patient's Insurance Account Number\n")
-        insGNum = input("Enter Patient's Insurance Group Number\n")
-        InsertData.insertPatient(lName, fName, mName, mAddress,  hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, fDoctor,
-                  insCarrier, insAcc, insGNum, keys[0], keys[1])
-    elif(mode == '3'):
-        prescriptions = []
-        notes = []
-        procedures = []
-        fName = input("Enter Patient's First Name\n")
-        mName = input("Enter Patient's Middle Name\n")
-        lName = input("Enter Patient's Last Name\n")
-        admissionDateTime = input("Enter Admission Date and Time (YYYY-MM-DD HH:MM:SS)\n")
-        admissionReason = input("Enter Patient's Reason for Admission\n")
-        releaseDateTime = input("Enter Release Date and Time (YYYY-MM-DD HH:MM:SS)\n")
-        hospitalFacility = input("Enter Hospital Facility of Patient's Stay\n")
-        hospitalFloor = input("Enter Floor of Patient's Stay\n")
-        hospitalRoom = input("Enter Room Number of Patient's Stay\n")
-        hospitalBed = input("Enter Bed Number of Patient's Stay\n")
-        prescriptionsYesNo = input("Did the Patient have any Prescriptions Administered During Stay? (Y/N)\n")
-        if(prescriptionsYesNo.lower() == "y"):
-            while(True):
-                prescriptionName = input("Enter Name of Prescription\n")
-                prescriptionAmount = input("Enter Amount of Prescription Administered\n")
-                prescriptionSchedule = input("Enter the Prescription Schedule\n")
-                prescription = {'name': prescriptionName, 'amount': prescriptionAmount, 'schedule': prescriptionSchedule}
-                prescriptions.append(prescription)
-                anotherPrescription = input("Add Another Prescription? (Y/N)\n")
-                if(anotherPrescription.lower() == "n"):
-                    break
-        else:
-            print("No Prescriptions Administered\n")
-        notesYesNo = input("Are There Any Notes on the Admission? (Y/N)\n")
-        if(notesYesNo.lower() == 'y'):
-            while(True):
-                noteAuthor = input("Enter the Author's Username\n")
-                noteType = input("Nurse's of Doctor's Note? (Doctor/Nurse)\n")
-                noteText = input("Enter Contents of Note\n")
-                timestamp = datetime.datetime.now()
-                note = {'author': noteAuthor, 'type': noteType, 'text': noteText, 'time' : timestamp}
-                notes.append(note)
-                anotherNote = input("Add Another Note? (Y/N)\n")
-                if(anotherNote.lower() == "n"):
-                    break
-        else:
-            print("No Notes Entered\n")
-        proceduresYesNo = input("Does the Patient Require any Procedures? (Y/N)\n")
-        if(proceduresYesNo.lower() == 'y'):
-            while(True):
-                procedureName = input("Enter the Procedure's Name\n")
-                procedureDate = input("Enter the Procedure Date (YYYY-MM-DD HH:MM:SS)\n")
-                procedure = {'name': procedureName, 'date': procedureDate}
-                procedures.append(procedure)
-                anotherProcedure = input("Add Another Procedure? (Y/N)\n")
-                if(anotherProcedure.lower() == "n"):
-                    break
-        else:
-            print("No Procedures Entered\n")
-        billingTotal = input("Enter the Total Dollar Amount Owed\n")
-        billingPaid = input("Enter the Dollar Amount Paid\n")
-        billingInsurance = input("Enter the Dollar Amount Paid by Insurance\n")
-        itemizedBill = []
+    username = input("username: ")
+    password = input("password: ")
+    if (hospitalDB.userLogin(username, password, keys[1])):
+        print(hospitalDB.getCurrentUserType())
         while(True):
-            billItem = input("Enter The Billed Item\n")
-            itemCost = input("Enter The Item's Price\n")
-            item = {'name': billItem, 'cost': float(itemCost)}
-            itemizedBill.append(item)
-            anotherItem = input("Add Another Item (Y/N)\n")
-            if(anotherItem.lower() == "n"):
-                    break
-        InsertData.insertAdmission(fName, mName, lName, admissionDateTime, admissionReason, releaseDateTime, hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, keys[0], keys[1])
-        print(cursor.fetchall())
-        if len(prescriptions) > 0:
-            InsertData.insertPrescriptions(prescriptions, keys[0])
-        if len(notes) > 0:
-            InsertData.insertNotes(notes, keys[0], keys[1])
-        if len(procedures) > 0:
-            InsertData.insertProcedures(procedures, keys[0], keys[1])
-        InsertData.insertBill(billingTotal, billingPaid, billingInsurance, itemizedBill)
-    quit = input("Would you like to make another addition? (Y/N)\n")
-    if quit.lower() == "n":
-        break
+            mode = input("""Select Application:
+                        1. Search Patient By Name
+                        2. add bill
+                        3. Register Patient
+                        4. Register Admission
+                        5. Register Staff Member
+                        6. Register Location
+                        """)
+            if mode == '1':
+                searchName = input("Enter Last Name: ")
+                results = SearchDB.searchPatientWithName(keys[1], fname=None, mname=None, lname=searchName, partial_fields={'lname'})
+                for patient in results:
+                    print(patient)
+                id = input("Enter Patient ID to View Data: ")
+                results = SearchDB.searchPatientWithID(id)
+                for item in results:
+                    print(item)
+                while(True):
+                    patientmode = input("""Select Function:
+                                        1. View Admission
+                                        2. Edit Information
+                                        """)
+                    if patientmode == '1':
+                        admissionID = input("Enter Admission ID to view: ")
+                        print(SearchDB.searchAdmissionWithID(admissionID, keys[0]))
+                        while True:
+                            admissionmode = input("""Select Function:
+                                            1. Insert Note
+                                            2. Insert Procedure
+                                            3. Insert Procedure
+                                            """)
+                            if admissionmode == '1':
+                                noteText = input("Input Note Text: ")
+                                InsertData.insertNote(results[0][0], admissionID, noteText)
+                            elif admissionmode == '2':
+                                procedureName = input("Enter Procedure Name: ")
+                                procedureSchedule = input("Enter Procedure Date and Time: ")
+                                InsertData.insertProcedure(results[0][0], admissionID, procedureName, procedureSchedule)
+                            elif admissionmode == '3':
+                                prescriptionName = input("Enter Prescription Name: ")
+                                prescriptionAmount = input("Enter Prescription Amount: ")
+                                prescriptionSchedule = input("Enter Prescription Schedule: ")
+                                InsertData.insertPrescription(results[0][0], admissionID, prescriptionName, prescriptionAmount, prescriptionSchedule)
+                            else: break
+
+            elif mode == '2':
+                InsertData.insertBilledItem('1', 'Medicine', '112.13')
+            elif mode == '3':
+                patientfname = input("First Name: ")
+                patientmname = input("Middle Name: ")
+                patientlname = input("Last Name: ")
+                patientAddress = input("Address: ")
+                for doctor in SearchDB.getDoctors(keys[0]):
+                    print(doctor)
+                patientDoctor = input("Family Doctor ID: ")
+                InsertData.insertPatient(patientfname, patientmname, patientlname, patientAddress, patientDoctor, keys[1])
+            elif mode == '4':
+                searchName = input("Enter Last Name: ")
+                results = SearchDB.searchPatientWithName(keys[1], fname=None, mname=None, lname=searchName, partial_fields={'lname'})
+                for patient in results:
+                    print(patient)
+                patientID = input("Enter PatientID to Select: ")
+                results = SearchDB.getAvailableLocations()
+                for item in results:
+                    print(item)
+                locationID = input("Select Location ID from Available Locations: ")
+                admissionReason = input("Insert Breif Reason for Admission: ")
+                InsertData.insertAdmission(patientID, locationID, hospitalDB.getCurrentUserID(), datetime.datetime.now(), admissionReason)
+            elif mode == '5':
+                staffFname = input("Enter First Name: ")
+                staffLname = input("Enter Last Name: ")
+                staffUsername = input("Enter Username: ")
+                staffPassword = input("Enter Password: ")
+                staffRole = input("Enter Staff Role: ")
+                InsertData.insertStaff(staffFname, staffLname, staffUsername, password, staffRole, keys[1])
+            elif mode == '6':
+                facility = input("Facility Name: ")
+                floor = input("Floor: ")
+                room = input("Room: ")
+                bed = input("Bed: ")
+                InsertData.insertLocation(facility, floor, room, bed)
+            else: break
