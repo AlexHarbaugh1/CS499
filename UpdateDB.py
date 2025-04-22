@@ -283,6 +283,19 @@ def addAdmissionNote(admission_id, note_data, encryption_key):
     except Exception as e:
         raise RuntimeError(f"Database error when adding note: {str(e)}")
 
+def addPrescription(admission_id, name, amount, schedule, encryption_key):
+    with get_cursor() as cursor:
+        sql = """INSERT INTO prescription (admission_id, medication_name, amount, schedule)
+                 VALUES (%s, pgp_sym_encrypt(%s, %s), pgp_sym_encrypt(%s, %s), pgp_sym_encrypt(%s, %s))"""
+        cursor.execute(sql, (admission_id, name, encryption_key, amount, encryption_key, schedule, encryption_key))
+
+def addProcedure(admission_id, name, scheduled_time, encryption_key):
+    with get_cursor() as cursor:
+        sql = """INSERT INTO scheduledprocedure (admission_id, procedure_name, scheduled_datetime)
+                 VALUES (%s, pgp_sym_encrypt(%s, %s), pgp_sym_encrypt(%s, %s))"""
+        cursor.execute(sql, (admission_id, name, encryption_key, scheduled_time, encryption_key))
+
+
 def updateBillingPayment(billing_id, payment_amount, is_insurance, payment_method):
     with get_cursor() as cursor:
         
@@ -305,6 +318,56 @@ def updateBillingPayment(billing_id, payment_amount, is_insurance, payment_metho
         
         # Log the payment in the audit log
         log_action(f"Processed {payment_type} payment of ${payment_amount:.2f} for billing #{billing_id} via {payment_method}")
+
+
+def patientUpdateInsuranceCarrierName(patient_id, carrier_name, encryption_key):
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE insurance
+            SET carrier_name = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s;
+        """, (carrier_name, encryption_key, patient_id))
+
+
+def patientUpdateInsuranceAccountNumber(patient_id, account_number, encryption_key):
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE insurance
+            SET account_number = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s;
+        """, (account_number, encryption_key, patient_id))
+
+
+def patientUpdateInsuranceGroupNumber(patient_id, new_group_number, encryption_key):
+    try:
+        with hospitalDB.get_cursor() as cursor:
+            sql = """
+            UPDATE insurance
+            SET group_number = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s;
+            """
+            cursor.execute(sql, (new_group_number, encryption_key, patient_id))
+    except Exception as e:
+        print("Error updating group number:", e)
+        raise
+
+
+def patientUpdateContactName(patient_id, contact_name, encryption_key):
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE emergencycontact
+            SET contact_name = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s AND contact_order = 1;
+        """, (contact_name, encryption_key, patient_id))
+
+
+def patientUpdateContactPhone(patient_id, contact_phone, encryption_key):
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE emergencycontact
+            SET contact_phone = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s AND contact_order = 1;
+        """, (contact_phone, encryption_key, patient_id))
 
 
 
