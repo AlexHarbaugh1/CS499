@@ -15,7 +15,7 @@ import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QTableWidget, QDialogButtonBox, QDateTimeEdit
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
 from PyQt5.QtGui import QBrush
 import csv
@@ -611,6 +611,73 @@ class AdminScreen(QDialog):
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
+    def printAllAdmissionsSummary(self):
+        try:
+            from SearchDB import getAllPatientsWithAdmissions
+            keys = EncryptionKey.getKeys()
+            encryption_key = keys[0]
+
+            patients = getAllPatientsWithAdmissions()
+            if not patients:
+                QMessageBox.information(self, "Info", "No active patients found.")
+                return
+
+            summaries = []
+            for p in patients:
+                admissions = p[-1]
+                if not admissions:
+                    continue
+
+                first = p[1]
+                middle = p[2]
+                last = p[3]
+                name = f"{first} {middle} {last}" if middle else f"{first} {last}"
+                for admission in admissions:
+                    if admission.get("admittance_discharge"):
+                        continue
+
+                    notes = admission.get("details", {}).get("notes", [])
+                    meds = admission.get("details", {}).get("prescriptions", [])
+                    procedures = admission.get("details", {}).get("procedures", [])
+
+                    notes_text = "\n\n".join([
+                        f"{n['datetime']} - {n['type']} by {n['author']}:\n{n['text']}"
+                        for n in notes
+                    ]) if notes else "No notes."
+
+                    meds_text = "\n".join([
+                        f"- {m['medication']} ({m['amount']}), schedule: {m['schedule']}"
+                        for m in meds
+                    ]) if meds else "No medications."
+
+                    proc_text = "\n".join([
+                        f"- {p['name']} scheduled for {p['scheduled']}"
+                        for p in procedures
+                    ]) if procedures else "No procedures."
+
+                    summaries.append(f"""
+                    Patient: {name}
+                    Admission ID: {admission['admission_id']}
+                    Admitted: {admission.get('admittance_date')}
+                    Reason: {admission.get('admission_reason')}
+
+                    Notes:
+                    {notes_text}
+
+                    Medications:
+                    {meds_text}
+
+                    Procedures:
+                    {proc_text}
+                    ---------------------------
+                    """)
+            final_output = "\n".join(summaries)
+            self.showPrintDialog(final_output)
+
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"Failed to print all summaries: {str(e)}")
+
 class AuditLogScreen(QDialog):
     def __init__(self):
         super(AuditLogScreen, self).__init__()
@@ -928,72 +995,6 @@ class InsertStaff(QDialog):
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex() + 1)
     
-    def printAllAdmissionsSummary(self):
-        try:
-            from SearchDB import getAllPatientsWithAdmissions
-            keys = EncryptionKey.getKeys()
-            encryption_key = keys[0]
-
-            patients = getAllPatientsWithAdmissions()
-            if not patients:
-                QMessageBox.information(self, "Info", "No active patients found.")
-                return
-
-            summaries = []
-            for p in patients:
-                admissions = p[-1]
-                if not admissions:
-                    continue
-
-                first = p[1]
-                middle = p[2]
-                last = p[3]
-                name = f"{first} {middle} {last}" if middle else f"{first} {last}"
-                for admission in admissions:
-                    if admission.get("admittance_discharge"):
-                        continue
-
-                    notes = admission.get("details", {}).get("notes", [])
-                    meds = admission.get("details", {}).get("prescriptions", [])
-                    procedures = admission.get("details", {}).get("procedures", [])
-
-                    notes_text = "\n\n".join([
-                        f"{n['datetime']} - {n['type']} by {n['author']}:\n{n['text']}"
-                        for n in notes
-                    ]) if notes else "No notes."
-
-                    meds_text = "\n".join([
-                        f"- {m['medication']} ({m['amount']}), schedule: {m['schedule']}"
-                        for m in meds
-                    ]) if meds else "No medications."
-
-                    proc_text = "\n".join([
-                        f"- {p['name']} scheduled for {p['scheduled']}"
-                        for p in procedures
-                    ]) if procedures else "No procedures."
-
-                    summaries.append(f"""
-                    Patient: {name}
-                    Admission ID: {admission['admission_id']}
-                    Admitted: {admission.get('admittance_date')}
-                    Reason: {admission.get('admission_reason')}
-
-                    Notes:
-                    {notes_text}
-
-                    Medications:
-                    {meds_text}
-
-                    Procedures:
-                    {proc_text}
-                    ---------------------------
-                    """)
-            final_output = "\n".join(summaries)
-            self.showPrintDialog(final_output)
-
-        except Exception as e:
-            traceback.print_exc()
-            QMessageBox.critical(self, "Error", f"Failed to print all summaries: {str(e)}")
 
     def showPrintDialog(self, text):
         from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
@@ -2029,7 +2030,25 @@ class PatientDetailsScreen(QDialog):
         self.num_static_tabs = self.tabs.count()  # Store default tab count
 
 
+    def reloadAdmissionDetails(self):
+        admission_id = self.current_admission_id  # or however you're storing it
+        keys = EncryptionKey.getKeys()
+        self.encryption_key = keys[0]
+        patient_data = SearchDB.searchPatientWithID(self.patient_id, keys[0])
+        self.patient_data = patient_data
+        self.loadPatientData()
+        
+        admission_data = SearchDB.searchAdmissionWithID(admission_id, self.encryption_key)
+
+        # Update internal data and UI
+        self.openAdmissionDetails(admission_data)
+
+
     def loadPatientData(self):
+        keys = EncryptionKey.getKeys()
+        self.encryption_key = keys[0]
+        self.fixed_salt = keys[1]
+
         try:
             # Get data using the search function
             patient_data = SearchDB.searchPatientWithID(self.patient_id)
@@ -2171,7 +2190,7 @@ class PatientDetailsScreen(QDialog):
         self.contacts_tab.setLayout(contacts_layout)
         
         # Get all admissions for billing data
-        admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
+        admissions = SearchDB.searchAdmissionWithID(self.patient_id, encryption_key)
         
         # Load billing data
         self.loadBillingData(admissions)
@@ -2487,7 +2506,7 @@ class PatientDetailsScreen(QDialog):
             visitors_layout.addWidget(historical_group)
             
             self.visitors_tab.setLayout(visitors_layout)
-            admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
+            admissions = SearchDB.searchAdmissionWithID(self.patient_id, encryption_key)
         
             self.loadBillingData(admissions)
     
@@ -2499,6 +2518,7 @@ class PatientDetailsScreen(QDialog):
 
         admission = self.admissions_data[index]
         admission_id = admission.get('admission_id', 'N/A')
+        self.current_admission_id = admission_id  # store for later use
         tab_title = f"Admission #{admission_id}"
 
         # Check if this tab already exists
@@ -2558,6 +2578,17 @@ class PatientDetailsScreen(QDialog):
         )
         layout.addWidget(discharge_btn)
 
+        # Add Medication Button
+        add_meds_btn = QPushButton("Add Medication")
+        add_meds_btn.clicked.connect(lambda: self.addMedication(admission_id))
+        layout.addWidget(add_meds_btn)
+
+        add_proc_btn = QPushButton("Add Procedure")
+        add_proc_btn.clicked.connect(lambda: self.addProcedure(admission_id))
+        layout.addWidget(add_proc_btn)
+
+
+
         close_button = QPushButton("✕")
         close_button.setFixedSize(18, 18)
         close_button.setStyleSheet("""
@@ -2574,6 +2605,83 @@ class PatientDetailsScreen(QDialog):
 
         # Set button on the tab
         self.tabs.tabBar().setTabButton(new_index, QTabBar.RightSide, close_button)
+
+    def addMedication(self, admission_id):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Medication")
+        layout = QFormLayout(dialog)
+
+        name_input = QLineEdit()
+        amount_input = QLineEdit()
+        schedule_input = QLineEdit()
+
+        layout.addRow("Medication Name:", name_input)
+        layout.addRow("Amount:", amount_input)
+        layout.addRow("Schedule:", schedule_input)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons)
+
+        # Move submission/refresh inside accept lambda
+        def handleSubmit():
+            self.submitMedication(
+                dialog,
+                admission_id,
+                name_input.text(),
+                amount_input.text(),
+                schedule_input.text()
+            )
+            self.reloadAdmissionDetails()  # only call if medication was submitted
+
+        buttons.accepted.connect(handleSubmit)
+        buttons.rejected.connect(dialog.reject)
+
+        dialog.exec_()
+
+
+
+    def submitMedication(self, dialog, admission_id, name, amount, schedule):
+        try:
+            UpdateDB.addPrescription(admission_id, name, amount, schedule, self.encryption_key)
+            QMessageBox.information(self, "Success", "Medication added.")
+            dialog.accept()
+            self.loadPatientData()  # Refresh
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
+
+    def addProcedure(self, admission_id):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Procedure")
+        layout = QFormLayout(dialog)
+
+        name_input = QLineEdit()
+        datetime_input = QDateTimeEdit()
+        datetime_input.setCalendarPopup(True)
+        datetime_input.setDateTime(QDateTime.currentDateTime())
+
+        layout.addRow("Procedure Name:", name_input)
+        layout.addRow("Scheduled Time:", datetime_input)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons)
+
+        buttons.accepted.connect(lambda: self.submitProcedure(dialog, admission_id, name_input.text(), datetime_input.dateTime().toString(Qt.ISODate)))
+        buttons.rejected.connect(dialog.reject)
+
+        dialog.exec_()
+        self.reloadAdmissionDetails()
+
+
+    def submitProcedure(self, dialog, admission_id, name, scheduled_time):
+        try:
+            UpdateDB.addProcedure(admission_id, name, scheduled_time, self.encryption_key)
+            QMessageBox.information(self, "Success", "Procedure added.")
+            dialog.accept()
+            self.loadPatientData()  # Refresh
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
 
     def loadBillingData(self, admissions):
         """Load all billing information for the patient using the predefined BillingInformationView"""
