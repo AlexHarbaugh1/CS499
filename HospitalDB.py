@@ -230,6 +230,7 @@ def run():
       # Permissions for Inserting Data
       cursor2.execute("GRANT INSERT ON patient TO medicalpersonnel_role, physician_role, officestaff_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patient_patient_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE approvedvisitors_visitors_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE staff_user_id_seq TO administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE admission_admission_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billingdetail_billing_detail_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
@@ -238,7 +239,6 @@ def run():
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE prescription_prescription_id_seq TO physician_role;")
       cursor2.execute("GRANT INSERT ON scheduledprocedure TO physician_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE scheduledprocedure_procedure_id_seq TO physician_role;")
-
       # Create Views for Accessing Data
       # patientsearchview is the table used for the search screen, accessible to all user roles
       sql = """CREATE VIEW patientsearchview AS
@@ -324,6 +324,7 @@ def run():
                       JOIN Admission a ON b.admission_id = a.admission_id;""")
       cursor2.execute("GRANT SELECT ON billinginformationview TO physician_role, medicalpersonnel_role;")
       cursor2.execute("GRANT SELECT ON billing TO physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT INSERT, UPDATE ON billing TO officestaff_role, physician_role, medicalpersonnel_role;")
       cursor2.execute("GRANT SELECT ON billingdetail TO physician_role, medicalpersonnel_role;")
       #Activeadmissionview shows all active admissions
       cursor2.execute("""CREATE VIEW activeadmissionview AS
@@ -535,7 +536,7 @@ def run():
       cursor2.execute(sql, params)
       # Physician and Medical Personnel
       # Patient Admission View for Physicians and Medical Personnel
-      sql = """CREATE OR REPLACE VIEW PatientAdmissionOverview AS
+      sql = """CREATE VIEW PatientAdmissionOverview AS
               SELECT 
                 p.patient_id,
                 pgp_sym_decrypt(p.first_name, %s) AS first_name,
@@ -566,6 +567,14 @@ def run():
                       'admittance_date', pgp_sym_decrypt(a.admittance_datetime, %s),
                       'admission_reason', pgp_sym_decrypt(a.reason_for_admission, %s),
                       'admittance_discharge', pgp_sym_decrypt(a.discharge_datetime, %s),
+                      'approved_visitors', (
+                        SELECT ARRAY (
+                          SELECT pgp_sym_decrypt(visitor, %s)
+                          FROM unnest(v.names) AS visitor
+                        )
+                        FROM ApprovedVisitors v
+                        WHERE v.admission_id = a.admission_id
+                      ),
                       'details', jsonb_build_object(
                         'notes', (
                           SELECT jsonb_agg(
@@ -611,12 +620,11 @@ def run():
               LEFT JOIN Insurance i ON p.patient_id = i.patient_id
               GROUP BY p.patient_id, p.first_name, p.middle_name, p.last_name, p.mailing_address, 
                       i.carrier_name, i.account_number, i.group_number;"""
-      params = (keys[0],)*26
+      params = (keys[0],)*27
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
+      cursor2.execute("GRANT DELETE ON approvedvisitors TO medicalpersonnel_role, physician_role;")
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")
-      cursor2.execute("GRANT SELECT ON staff TO physician_role;")
-
       # staffwriteview allows insertion of staff members information
       sql = """CREATE VIEW staffwriteview AS
                 SELECT
@@ -812,6 +820,7 @@ def run():
                       EXECUTE FUNCTION admission_write_trigger();""")
       cursor2.execute("GRANT SELECT, UPDATE ON admissionwriteview TO officestaff_role, medicalpersonnel_role, physician_role;")
       cursor2.execute("GRANT INSERT ON admission TO physician_role, medicalpersonnel_role, officestaff_role;")
+      cursor2.execute("GRANT SELECT (admission_id, patient_id) ON admission TO physician_role, medicalpersonnel_role, officestaff_role;")
       #visitorwriteView for addind visitors to an admission
       sql = """CREATE VIEW visitorwriteview AS
             SELECT
@@ -920,10 +929,9 @@ def run():
             FROM PatientAdmissionOverview;"""
       cursor2.execute(sql)
       cursor2.execute("""GRANT INSERT ON PatientNote TO physician_role;""")
-      cursor2.execute("""GRANT SELECT, INSERT, UPDATE ON Prescription TO physician_role;""")
-      cursor2.execute("""GRANT SELECT, INSERT, UPDATE  ON ScheduledProcedure TO physician_role;""")
+      cursor2.execute("""GRANT INSERT ON Prescription TO physician_role;""")
+      cursor2.execute("""GRANT INSERT ON ScheduledProcedure TO physician_role;""")
       cursor2.execute("""GRANT SELECT, UPDATE ON PhysicianWriteView TO physician_role;""")
-
       # Function for Inserting physician notes, procedures, and prescriptions into database
       sql = """CREATE OR REPLACE FUNCTION physician_write_trigger()
               RETURNS TRIGGER AS $$
