@@ -235,7 +235,10 @@ def run():
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billingdetail_billing_detail_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billing_billing_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE auditlog_log_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role, volunteer_role;")
-      
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE prescription_prescription_id_seq TO physician_role;")
+      cursor2.execute("GRANT INSERT ON scheduledprocedure TO physician_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE scheduledprocedure_procedure_id_seq TO physician_role;")
+
       # Create Views for Accessing Data
       # patientsearchview is the table used for the search screen, accessible to all user roles
       sql = """CREATE VIEW patientsearchview AS
@@ -917,9 +920,10 @@ def run():
             FROM PatientAdmissionOverview;"""
       cursor2.execute(sql)
       cursor2.execute("""GRANT INSERT ON PatientNote TO physician_role;""")
-      cursor2.execute("""GRANT INSERT ON Prescription TO physician_role;""")
-      cursor2.execute("""GRANT INSERT ON ScheduledProcedure TO physician_role;""")
+      cursor2.execute("""GRANT SELECT, INSERT, UPDATE ON Prescription TO physician_role;""")
+      cursor2.execute("""GRANT SELECT, INSERT, UPDATE  ON ScheduledProcedure TO physician_role;""")
       cursor2.execute("""GRANT SELECT, UPDATE ON PhysicianWriteView TO physician_role;""")
+
       # Function for Inserting physician notes, procedures, and prescriptions into database
       sql = """CREATE OR REPLACE FUNCTION physician_write_trigger()
               RETURNS TRIGGER AS $$
