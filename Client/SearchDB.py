@@ -175,6 +175,13 @@ def searchStaffWithID(userID, encryptionKey):
         staffData = cursor.fetchone()
 
     return staffData
+
+def getAllPatientsWithAdmissions():
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute("SELECT * FROM patientadmissionoverview;")
+        patients = cursor.fetchall()
+    return patients
+
 def getAdmissionsWithPatientID(patientID):
     try:
         with hospitalDB.get_cursor() as cursor:

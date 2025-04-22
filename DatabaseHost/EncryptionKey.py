@@ -1,6 +1,7 @@
 import requests
 import os
 import subprocess
+import sys
 from dotenv import load_dotenv
 
 def getKeys():
@@ -29,10 +30,10 @@ def getKeys():
             raise ValueError("No access token received")
     except subprocess.CalledProcessError as e:
             print(f"PowerShell Error: {e.stderr}")
-            exit(1)
+            sys.exit(1)
     except Exception as e:
         print(f"Error: {str(e)}")
-        exit(1)
+        sys.exit(1)
     keys = [] 
 
     if not token:

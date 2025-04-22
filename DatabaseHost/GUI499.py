@@ -15,15 +15,40 @@ import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
+from PyQt5.QtWidgets import QDialog, QDateTimeEdit, QDialogButtonBox, QApplication, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime, QCoreApplication
 from PyQt5.QtGui import QBrush
 import csv
+import os
 from decimal import Decimal
 import json
 import string
 import EncryptionKey
 import SearchDB
+def locate_ui_file(ui_filename):
+    """
+    Locate a UI file, works for both development and packaged environments
+    """
+    # If running as frozen executable
+    if getattr(sys, 'frozen', False):
+        base_path = os.path.dirname(sys.executable)
+        # Try in the executable directory
+        if os.path.exists(os.path.join(base_path, ui_filename)):
+            return os.path.join(base_path, ui_filename)
+        # Try in the base directory of the executable
+        if os.path.exists(ui_filename):
+            return ui_filename
+    else:
+        # If running as script, use the original path
+        if os.path.exists(ui_filename):
+            return ui_filename
+    
+    # If UI file still not found, print out available files for debugging
+    print(f"UI file not found: {ui_filename}")
+    print("Available files in current directory:", os.listdir('.'))
+    
+    # Return the original filename and let PyQt raise a proper error
+    return ui_filename
 keys = EncryptionKey.getKeys()
 encryption_key = keys[0]
 fixed_salt = keys[1]
@@ -492,7 +517,7 @@ class AdminScreen(QDialog):
         self.regAdmission.clicked.connect(self.registerAdmissionFunction)
         self.auditLog.clicked.connect(self.viewAuditLog)
         self.logout.clicked.connect(self.logoutFunction)
-        
+        self.printAllAdmissions.clicked.connect(self.printAllAdmissionsSummary)
         # Apply button styling
         self.styleButtons()
 
@@ -561,7 +586,7 @@ class AdminScreen(QDialog):
         
         # Apply style to all operation buttons
         for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
-                      self.regLocation, self.regAdmission, self.auditLog]:
+                      self.regLocation, self.regAdmission, self.auditLog, self.printAllAdmissions]:
             button.setStyleSheet(button_style)
             button.setMinimumHeight(60)
             
@@ -610,6 +635,84 @@ class AdminScreen(QDialog):
         login = LoginScreen()
         widget.addWidget(login)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+
+    def printAllAdmissionsSummary(self):
+        try:
+            from SearchDB import getAllPatientsWithAdmissions
+            keys = EncryptionKey.getKeys()
+            encryption_key = keys[0]
+
+            patients = getAllPatientsWithAdmissions()
+            if not patients:
+                QMessageBox.information(self, "Info", "No active patients found.")
+                return
+
+            summaries = []
+            for p in patients:
+                admissions = p[-1]
+                if not admissions:
+                    continue
+
+                first = p[1]
+                middle = p[2]
+                last = p[3]
+                name = f"{first} {middle} {last}" if middle else f"{first} {last}"
+                for admission in admissions:
+                    if admission.get("admittance_discharge"):
+                        continue
+
+                    notes = admission.get("details", {}).get("notes", [])
+                    meds = admission.get("details", {}).get("prescriptions", [])
+                    procedures = admission.get("details", {}).get("procedures", [])
+
+                    notes_text = "\n\n".join([
+                        f"{n['datetime']} - {n['type']} by {n['author']}:\n{n['text']}"
+                        for n in notes
+                    ]) if notes else "No notes."
+
+                    meds_text = "\n".join([
+                        f"- {m['medication']} ({m['amount']}), schedule: {m['schedule']}"
+                        for m in meds
+                    ]) if meds else "No medications."
+
+                    proc_text = "\n".join([
+                        f"- {p['name']} scheduled for {p['scheduled']}"
+                        for p in procedures
+                    ]) if procedures else "No procedures."
+
+                    summaries.append(f"""
+                    Patient: {name}
+                    Admission ID: {admission['admission_id']}
+                    Admitted: {admission.get('admittance_date')}
+                    Reason: {admission.get('admission_reason')}
+
+                    Notes:
+                    {notes_text}
+
+                    Medications:
+                    {meds_text}
+
+                    Procedures:
+                    {proc_text}
+                    ---------------------------
+                    """)
+            final_output = "\n".join(summaries)
+            self.showPrintDialog(final_output)
+
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"Failed to print all summaries: {str(e)}")
+
+    def showPrintDialog(self, text):
+        from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+        from PyQt5.QtGui import QTextDocument
+
+        printer = QPrinter()
+        dialog = QPrintDialog(printer, self)
+        if dialog.exec_() == QPrintDialog.Accepted:
+            doc = QTextDocument()
+            doc.setPlainText(text)
+            doc.print_(printer)    
 
 class AuditLogScreen(QDialog):
     def __init__(self):
@@ -927,6 +1030,19 @@ class InsertStaff(QDialog):
         admin = AdminScreen()
         widget.addWidget(admin)
         widget.setCurrentIndex(widget.currentIndex() + 1)
+    
+
+    def showPrintDialog(self, text):
+        from PyQt5.QtPrintSupport import QPrinter, QPrintDialog
+        from PyQt5.QtGui import QTextDocument
+
+        printer = QPrinter()
+        dialog = QPrintDialog(printer, self)
+        if dialog.exec_() == QPrintDialog.Accepted:
+            doc = QTextDocument()
+            doc.setPlainText(text)
+            doc.print_(printer)
+
 
 class InsertPatient(QDialog):
     def __init__(self):
@@ -1910,6 +2026,19 @@ class PatientDetailsScreen(QDialog):
             self.middleNameEdit = QLineEdit()
             self.lastNameEdit = QLineEdit()
             self.addressEdit = QTextEdit()
+            # Insurance tab inputs
+            self.insurance_provider_input = QLineEdit()
+            self.policy_number_input = QLineEdit()
+            self.group_number_input = QLineEdit()
+
+
+            # Contacts tab inputs
+            self.emergency_contact_name_input = QLineEdit()
+            self.emergency_contact_phone_input = QLineEdit()
+            for widget in [self.insurance_provider_input, self.policy_number_input,
+               self.emergency_contact_name_input, self.emergency_contact_phone_input, self.group_number_input]:
+                widget.setDisabled(True)
+
 
             self.firstNameEdit.setReadOnly(True)
             self.middleNameEdit.setReadOnly(True)
@@ -1920,6 +2049,28 @@ class PatientDetailsScreen(QDialog):
             layout.addRow("Middle Name:", self.middleNameEdit)
             layout.addRow("Last Name:", self.lastNameEdit)
             layout.addRow("Mailing Address:", self.addressEdit)
+
+                        # Insurance Fields
+            self.insuranceProviderEdit = QLineEdit()
+            self.insuranceProviderEdit.setReadOnly(True)
+            self.policyNumberEdit = QLineEdit()
+            self.policyNumberEdit.setReadOnly(True)
+            self.groupNumberEdit = QLineEdit()
+            self.groupNumberEdit.setReadOnly(True)
+            layout.addRow("Insurance Provider:", self.insuranceProviderEdit)
+            layout.addRow("Policy Number:", self.policyNumberEdit)
+            layout.addRow("Group Number:", self.groupNumberEdit)
+
+
+            # Emergency Contact Fields
+            self.emergencyNameEdit = QLineEdit()
+            self.emergencyNameEdit.setReadOnly(True)
+            self.emergencyPhoneEdit = QLineEdit()
+            self.emergencyPhoneEdit.setReadOnly(True)
+            layout.addRow("Emergency Contact Name:", self.emergencyNameEdit)
+            layout.addRow("Emergency Contact Phone:", self.emergencyPhoneEdit)
+
+
 
             self.editBasicInfoBtn = QPushButton("Edit")
             self.saveBasicInfoBtn = QPushButton("Save")
@@ -1946,6 +2097,71 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.billing_tab, "Billing")  # Add billing tab for Medical Personnel and Physicians
 
         self.num_static_tabs = self.tabs.count()  # Store default tab count
+
+
+ # 👇 Add the new slot functions here
+    def enableInsuranceEdit(self):
+        self.groupNumberEdit.setReadOnly(False)
+        self.insuranceProviderEdit.setReadOnly(False)
+        self.policyNumberEdit.setReadOnly(False)
+        self.editInsuranceBtn.setEnabled(False)
+        self.saveInsuranceBtn.setEnabled(True)
+
+    def saveInsurance(self):
+        provider = self.insuranceProviderEdit.text()
+        policy = self.policyNumberEdit.text()
+        # TODO: save to database
+        self.insuranceProviderEdit.setReadOnly(True)
+        self.policyNumberEdit.setReadOnly(True)
+        self.groupNumberEdit.setReadOnly(True)
+        self.editInsuranceBtn.setEnabled(True)
+        self.saveInsuranceBtn.setEnabled(False)
+
+    def enableContactsEdit(self):
+        self.emergencyNameEdit.setReadOnly(False)
+        self.emergencyPhoneEdit.setReadOnly(False)
+        self.editContactsBtn.setEnabled(False)
+        self.saveContactsBtn.setEnabled(True)
+
+    def saveContacts(self):
+        name = self.emergencyNameEdit.text()
+        phone = self.emergencyPhoneEdit.text()
+        # TODO: save to database
+        self.emergencyNameEdit.setReadOnly(True)
+        self.emergencyPhoneEdit.setReadOnly(True)
+        self.editContactsBtn.setEnabled(True)
+        self.saveContactsBtn.setEnabled(False)
+
+    def reloadAdmissionDetails(self):
+        try:
+            patient_data = SearchDB.searchPatientWithID(self.patient_id)
+            self.patient_data = patient_data
+
+            # Re-load all tabs for the patient
+            self.loadPatientData()
+
+            # Look for the dynamic admission tab by its title
+            if hasattr(self, 'current_admission_id'):
+                admissions = patient_data[15]
+                for idx, admission in enumerate(admissions):
+                    if admission.get("admission_id") == self.current_admission_id:
+                        tab_title = f"Admission #{self.current_admission_id}"
+                        
+                        # Remove tab if it already exists
+                        for i in range(self.tabs.count()):
+                            if self.tabs.tabText(i) == tab_title:
+                                self.tabs.removeTab(i)
+                                break
+                        
+                        # Reopen the updated tab
+                        admission_id = self.admissions_data[idx].get('admission_id')
+                        self.openAdmissionDetails(admission_id)
+                        break
+
+        except Exception as e:
+            print("Error reloading admission details:", e)
+            traceback.print_exc()
+
 
 
     def loadPatientData(self):
@@ -1976,15 +2192,28 @@ class PatientDetailsScreen(QDialog):
         self.middleNameEdit.setReadOnly(False)
         self.lastNameEdit.setReadOnly(False)
         self.addressEdit.setReadOnly(False)
+        self.insuranceProviderEdit.setReadOnly(False)
+        self.policyNumberEdit.setReadOnly(False)
+        self.emergencyNameEdit.setReadOnly(False)
+        self.emergencyPhoneEdit.setReadOnly(False)
+        self.editBasicInfoBtn.setEnabled(False)
         self.saveBasicInfoBtn.setEnabled(True)
+        self.groupNumberEdit.setReadOnly(False)
+
 
     def saveBasicInfo(self):
-         first = self.firstNameEdit.text().strip()
-         middle = self.middleNameEdit.text().strip()
-         last = self.lastNameEdit.text().strip()
-         address = self.addressEdit.toPlainText().strip()
- 
-         try:
+        first = self.firstNameEdit.text().strip()
+        middle = self.middleNameEdit.text().strip()
+        last = self.lastNameEdit.text().strip()
+        address = self.addressEdit.toPlainText().strip()
+        
+        group_number = self.groupNumberEdit.text().strip()
+        insurance_provider = self.insuranceProviderEdit.text().strip()
+        policy_number = self.policyNumberEdit.text().strip()
+        emergency_name = self.emergencyNameEdit.text().strip()
+        emergency_phone = self.emergencyPhoneEdit.text().strip()
+
+        try:
             if first != self.original_data['first_name']:
                 UpdateDB.patientUpdateFirstName(self.patient_id, first, fixed_salt)
             if middle != self.original_data['middle_name']:
@@ -1993,14 +2222,37 @@ class PatientDetailsScreen(QDialog):
                 UpdateDB.patientUpdateLastName(self.patient_id, last, fixed_salt)
             if address != self.original_data['address']:
                 UpdateDB.patientUpdateAddress(self.patient_id, address)
+
+            # Insurance updates
+            if insurance_provider != self.original_data.get('insurance_provider', ''):
+                UpdateDB.patientUpdateInsuranceCarrierName(self.patient_id, insurance_provider, encryption_key)
+            if policy_number != self.original_data.get('policy_number', ''):
+                UpdateDB.patientUpdateInsuranceAccountNumber(self.patient_id, policy_number, encryption_key)
+            if group_number != self.original_data.get('group_number', ''):
+                UpdateDB.patientUpdateInsuranceGroupNumber(self.patient_id, group_number, encryption_key)
+
+            # Emergency contact updates
+            if emergency_name != self.original_data.get('emergency_name', ''):
+                UpdateDB.patientUpdateContactName(self.patient_id, emergency_name, encryption_key)
+            if emergency_phone != self.original_data.get('emergency_phone', ''):
+                UpdateDB.patientUpdateContactPhone(self.patient_id, emergency_phone, encryption_key)
+
             QMessageBox.information(self, "Success", "Patient info updated.")
             self.firstNameEdit.setReadOnly(True)
             self.middleNameEdit.setReadOnly(True)
             self.lastNameEdit.setReadOnly(True)
             self.addressEdit.setReadOnly(True)
+            self.insuranceProviderEdit.setReadOnly(True)
+            self.policyNumberEdit.setReadOnly(True)
+            self.emergencyNameEdit.setReadOnly(True)
+            self.emergencyPhoneEdit.setReadOnly(True)
+            self.groupNumberEdit.setReadOnly(True)
+
             self.saveBasicInfoBtn.setEnabled(False)
-         except Exception as e:
-             QMessageBox.critical(self, "Error", f"Failed to update info: {e}")
+            self.editBasicInfoBtn.setEnabled(True)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to update info: {e}")
     def loadVolunteerData(self, data):
         """Load data for Volunteer view"""
         # Volunteer view has: patient_id, first_name, middle_name, last_name, 
@@ -2471,6 +2723,17 @@ class PatientDetailsScreen(QDialog):
         )
         layout.addWidget(discharge_btn)
 
+        # Add Medication Button
+        add_meds_btn = QPushButton("Add Medication")
+        add_meds_btn.clicked.connect(lambda: self.addMedication(admission_id))
+        layout.addWidget(add_meds_btn)
+
+        add_proc_btn = QPushButton("Add Procedure")
+        add_proc_btn.clicked.connect(lambda: self.addProcedure(admission_id))
+        layout.addWidget(add_proc_btn)
+
+
+
         close_button = QPushButton("✕")
         close_button.setFixedSize(18, 18)
         close_button.setStyleSheet("""
@@ -2487,6 +2750,83 @@ class PatientDetailsScreen(QDialog):
 
         # Set button on the tab
         self.tabs.tabBar().setTabButton(new_index, QTabBar.RightSide, close_button)
+
+    def addMedication(self, admission_id):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Medication")
+        layout = QFormLayout(dialog)
+
+        name_input = QLineEdit()
+        amount_input = QLineEdit()
+        schedule_input = QLineEdit()
+
+        layout.addRow("Medication Name:", name_input)
+        layout.addRow("Amount:", amount_input)
+        layout.addRow("Schedule:", schedule_input)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons)
+
+        # Move submission/refresh inside accept lambda
+        def handleSubmit():
+            self.submitMedication(
+                dialog,
+                admission_id,
+                name_input.text(),
+                amount_input.text(),
+                schedule_input.text()
+            )
+            self.reloadAdmissionDetails()  # only call if medication was submitted
+
+        buttons.accepted.connect(handleSubmit)
+        buttons.rejected.connect(dialog.reject)
+
+        dialog.exec_()
+
+
+
+    def submitMedication(self, dialog, admission_id, name, amount, schedule):
+        try:
+            InsertData.insertPrescription(admission_id, name, amount, schedule)
+            QMessageBox.information(self, "Success", "Medication added.")
+            dialog.accept()
+            self.loadPatientData()  # Refresh
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
+
+    def addProcedure(self, admission_id):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Procedure")
+        layout = QFormLayout(dialog)
+
+        name_input = QLineEdit()
+        datetime_input = QDateTimeEdit()
+        datetime_input.setCalendarPopup(True)
+        datetime_input.setDateTime(QDateTime.currentDateTime())
+
+        layout.addRow("Procedure Name:", name_input)
+        layout.addRow("Scheduled Time:", datetime_input)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons)
+
+        buttons.accepted.connect(lambda: self.submitProcedure(dialog, admission_id, name_input.text(), datetime_input.dateTime().toString(Qt.ISODate)))
+        buttons.rejected.connect(dialog.reject)
+
+        dialog.exec_()
+        self.reloadAdmissionDetails()
+
+
+    def submitProcedure(self, dialog, admission_id, name, scheduled_time):
+        try:
+            InsertData.insertProcedure(admission_id, name, scheduled_time)
+            QMessageBox.information(self, "Success", "Procedure added.")
+            dialog.accept()
+            self.loadPatientData()  # Refresh
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
 
     def loadBillingData(self, admissions):
         """Load all billing information for the patient using the predefined BillingInformationView"""
@@ -3747,7 +4087,7 @@ app.setStyleSheet("""
         outline: none;
     }
     QWidget {
-        font-size: 16px;
+        font-size: 32px;
         font-family: Arial, sans-serif;
     }
     QLabel {

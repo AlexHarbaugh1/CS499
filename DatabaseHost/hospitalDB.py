@@ -625,7 +625,7 @@ def run():
       params = (keys[0],)*27
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
-      cursor2.execute("GRANT DELETE ON approvedvisitors TO medicalpersonnel_role, physician_role;")
+      cursor2.execute("GRANT SELECT, DELETE ON approvedvisitors TO medicalpersonnel_role, physician_role, officestaff_role;")
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")
       # staffwriteview allows insertion of staff members information
       sql = """CREATE VIEW staffwriteview AS
@@ -849,7 +849,7 @@ def run():
                       INSTEAD OF UPDATE ON visitorwriteview
                       FOR EACH ROW
                       EXECUTE FUNCTION visitor_write_trigger();""")
-      cursor2.execute("""GRANT SELECT, UPDATE ON visitorwriteview TO officestaff_role;""")
+      cursor2.execute("""GRANT SELECT, UPDATE ON visitorwriteview TO physician_role, medicalpersonnel_role, officestaff_role;""")
       #NurseWriteView for adding nurse notes to an admission
       sql = """CREATE VIEW NurseWriteView AS
             SELECT

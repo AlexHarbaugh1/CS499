@@ -125,7 +125,61 @@ def patientUpdateFamilyDoctor(patientID, newDoctor):
             patientID
         )
         cursor.execute(sql, params)
-        
+
+def patientUpdateInsuranceCarrierName(patient_id, carrier_name, encryption_key):
+    with get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE insurance
+            SET carrier_name = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s;
+        """, (carrier_name, encryption_key, patient_id))
+        log_action(f"Update Patient ID: {patient_id} Insurance")
+
+
+def patientUpdateInsuranceAccountNumber(patient_id, account_number, encryption_key):
+    with get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE insurance
+            SET account_number = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s;
+        """, (account_number, encryption_key, patient_id))
+        log_action(f"Update Patient ID: {patient_id} Insurance")
+
+
+def patientUpdateInsuranceGroupNumber(patient_id, new_group_number, encryption_key):
+    try:
+        with get_cursor() as cursor:
+            sql = """
+            UPDATE insurance
+            SET group_number = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s;
+            """
+            cursor.execute(sql, (new_group_number, encryption_key, patient_id))
+            log_action(f"Update Patient ID: {patient_id} Insurance")
+    except Exception as e:
+        print("Error updating group number:", e)
+        raise
+
+
+def patientUpdateContactName(patient_id, contact_name, encryption_key):
+    with get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE emergencycontact
+            SET contact_name = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s AND contact_order = 1;
+        """, (contact_name, encryption_key, patient_id))
+        log_action(f"Update Patient ID: {patient_id} Emergency Contact")
+
+
+def patientUpdateContactPhone(patient_id, contact_phone, encryption_key):
+    with get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE emergencycontact
+            SET contact_phone = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s AND contact_order = 1;
+        """, (contact_phone, encryption_key, patient_id))
+        log_action(f"Update Patient ID: {patient_id} Emergency Contact")
+       
 def patientUpdateInsurance(patientID, newCarrierName, newAccNum, newGroupNum):
     with get_cursor() as cursor:
         sql = """UPDATE officestaffview
