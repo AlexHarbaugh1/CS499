@@ -15,7 +15,7 @@ import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QTableWidget, QDialogButtonBox, QDateTimeEdit
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QTableWidget, QDialogButtonBox, QDateTimeEdit, QListWidgetItem
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
 from PyQt5.QtGui import QBrush
 import csv
@@ -2031,17 +2031,35 @@ class PatientDetailsScreen(QDialog):
 
 
     def reloadAdmissionDetails(self):
-        admission_id = self.current_admission_id  # or however you're storing it
-        keys = EncryptionKey.getKeys()
-        self.encryption_key = keys[0]
-        patient_data = SearchDB.searchPatientWithID(self.patient_id, keys[0])
-        self.patient_data = patient_data
-        self.loadPatientData()
-        
-        admission_data = SearchDB.searchAdmissionWithID(admission_id, self.encryption_key)
+        try:
+            patient_data = SearchDB.searchPatientWithID(self.patient_id)
+            self.patient_data = patient_data
 
-        # Update internal data and UI
-        self.openAdmissionDetails(admission_data)
+            # Re-load all tabs for the patient
+            self.loadPatientData()
+
+            # Look for the dynamic admission tab by its title
+            if hasattr(self, 'current_admission_id'):
+                admissions = patient_data[15]
+                for idx, admission in enumerate(admissions):
+                    if admission.get("admission_id") == self.current_admission_id:
+                        tab_title = f"Admission #{self.current_admission_id}"
+                        
+                        # Remove tab if it already exists
+                        for i in range(self.tabs.count()):
+                            if self.tabs.tabText(i) == tab_title:
+                                self.tabs.removeTab(i)
+                                break
+                        
+                        # Reopen the updated tab
+                        admission_id = self.admissions_data[idx].get('admission_id')
+                        self.openAdmissionDetails(admission_id)
+                        break
+
+        except Exception as e:
+            print("Error reloading admission details:", e)
+            traceback.print_exc()
+
 
 
     def loadPatientData(self):
@@ -2518,7 +2536,6 @@ class PatientDetailsScreen(QDialog):
 
         admission = self.admissions_data[index]
         admission_id = admission.get('admission_id', 'N/A')
-        self.current_admission_id = admission_id  # store for later use
         tab_title = f"Admission #{admission_id}"
 
         # Check if this tab already exists
@@ -2534,6 +2551,7 @@ class PatientDetailsScreen(QDialog):
         layout.addWidget(QLabel(f"<b>Admission Date:</b> {admission.get('admittance_date', '')}"))
         layout.addWidget(QLabel(f"<b>Discharge Date:</b> {admission.get('admittance_discharge', 'Not yet discharged')}"))
         layout.addWidget(QLabel(f"<b>Reason:</b> {admission.get('admission_reason', '')}"))
+
 
         # Medications
         meds_group = QGroupBox("Medications")
