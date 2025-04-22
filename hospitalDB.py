@@ -322,6 +322,7 @@ def run():
                       JOIN Admission a ON b.admission_id = a.admission_id;""")
       cursor2.execute("GRANT SELECT ON billinginformationview TO physician_role, medicalpersonnel_role;")
       cursor2.execute("GRANT SELECT ON billing TO physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT INSERT ON billing TO officestaff_role, physician_role, medicalpersonnel_role;")
       cursor2.execute("GRANT SELECT ON billingdetail TO physician_role, medicalpersonnel_role;")
       #Activeadmissionview shows all active admissions
       cursor2.execute("""CREATE VIEW activeadmissionview AS
@@ -817,6 +818,7 @@ def run():
                       EXECUTE FUNCTION admission_write_trigger();""")
       cursor2.execute("GRANT SELECT, UPDATE ON admissionwriteview TO officestaff_role, medicalpersonnel_role, physician_role;")
       cursor2.execute("GRANT INSERT ON admission TO physician_role, medicalpersonnel_role, officestaff_role;")
+      cursor2.execute("GRANT SELECT (admission_id, patient_id) ON admission TO physician_role, medicalpersonnel_role, officestaff_role;")
       #visitorwriteView for addind visitors to an admission
       sql = """CREATE VIEW visitorwriteview AS
             SELECT

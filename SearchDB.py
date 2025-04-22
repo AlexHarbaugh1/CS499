@@ -175,6 +175,24 @@ def searchStaffWithID(userID, encryptionKey):
         staffData = cursor.fetchone()
 
     return staffData
+def getAdmissionsWithPatientID(patientID):
+    try:
+        with hospitalDB.get_cursor() as cursor:
+            sql = """SELECT admission_id
+                    FROM admission 
+                    WHERE patient_id = %s;"""
+            params = (patientID,)
+            cursor.execute(sql, params)
+            admission_rows = cursor.fetchall()
+            
+            # Format the data as expected
+            admissions = []
+            for row in admission_rows:
+                admissions.append({'admission_id': row[0]})
+            
+            return admissions
+    except Exception as e:
+        print(f"Error fetching admissions: {e}")
 # searchBillingWithAdmission takes the admissionID and returns all billing information and Itemized Bill
 # returns tuple with price owed, price paid, price paid by insurance
 # returns a list of tuples with billed item, cost
@@ -189,8 +207,32 @@ def searchBillingWithAdmission(admissionID):
         )
         cursor.execute(sql, params)
         billDetails = cursor.fetchone()
-
+        print(billDetails)
     return billDetails
+
+def getBillingDetails(billingID):
+    """
+    Get detailed billing information including itemized entries
+    
+    Args:
+        billingID (int): ID of the billing record
+        
+    Returns:
+        tuple: Billing information or None if not found
+    """
+    with hospitalDB.get_cursor() as cursor:
+        try:
+            # Use the BillingInformationView
+            sql = """SELECT *
+                     FROM BillingInformationView
+                     WHERE billing_id = %s;"""
+            cursor.execute(sql, (billingID,))
+            details = cursor.fetchone()
+            print(details)
+            return details
+        except Exception as e:
+            print(f"Error retrieving billing details: {e}")
+            return None
 # searchAdmissionWithID takes the admission ID and returns all associated admissionData
 # Returns tuple with tuple of admittance date, release date, reason for admission
 # tuple of facility, floor, room number, bed number

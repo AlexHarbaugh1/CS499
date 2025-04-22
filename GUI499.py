@@ -14,10 +14,13 @@ import traceback
 import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
-from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
+from PyQt5 import QtWidgets, QtGui
+from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
+from PyQt5.QtGui import QBrush
 import csv
+from decimal import Decimal
+import json
 import string
 import EncryptionKey
 import SearchDB
@@ -1867,6 +1870,7 @@ class PatientDetailsScreen(QDialog):
         self.location_tab = QWidget()
         self.admissions_tab = QWidget()
         self.visitors_tab = QWidget()
+        self.billing_tab = QWidget()  # Add billing tab
         
         # Only add the relevant tabs based on user type
         self.setupTabs()
@@ -1929,6 +1933,7 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
+            self.tabs.addTab(self.billing_tab, "Billing")  # Add billing tab for Office Staff
             
         elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
@@ -1939,15 +1944,9 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.medications_tab, "Medications")
             self.tabs.addTab(self.procedures_tab, "Procedures")
             self.tabs.addTab(self.visitors_tab, "Approved Visitors")
-
+            self.tabs.addTab(self.billing_tab, "Billing")  # Add billing tab for Medical Personnel and Physicians
 
         self.num_static_tabs = self.tabs.count()  # Store default tab count
-    def closeTab(self, index):
-        # Prevent closing the default tabs (index < num_static_tabs)
-        if index < self.num_static_tabs:
-            QMessageBox.information(self, "Protected Tab", "You cannot close the default patient tabs.")
-            return
-        self.tabs.removeTab(index)
 
 
     def loadPatientData(self):
@@ -2044,11 +2043,11 @@ class PatientDetailsScreen(QDialog):
         # Office staff view has: patient_id, first_name, middle_name, last_name, 
         # mailing_address, insurance, phones, emergency contacts
         self.original_data = {
-        'first_name': data[1],
-        'middle_name': data[2],
-        'last_name': data[3],
-        'address': data[4]
-    }
+            'first_name': data[1],
+            'middle_name': data[2],
+            'last_name': data[3],
+            'address': data[4]
+        }
         # Set header
         name = f"{data[1]} {data[2]} {data[3]}"
         self.patient_info_label.setText(f"Patient: {name}")
@@ -2090,6 +2089,13 @@ class PatientDetailsScreen(QDialog):
         contacts_layout.addWidget(ec_group)
         
         self.contacts_tab.setLayout(contacts_layout)
+        
+        # Get all admissions for billing data
+        admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
+        
+        # Load billing data
+        self.loadBillingData(admissions)
+        
 
     def loadMedicalData(self, data):
         """Load data for Medical Personnel and Physician view"""
@@ -2401,6 +2407,9 @@ class PatientDetailsScreen(QDialog):
             visitors_layout.addWidget(historical_group)
             
             self.visitors_tab.setLayout(visitors_layout)
+            admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
+        
+            self.loadBillingData(admissions)
     
     def openAdmissionDetails(self, item):
         index = self.admissions_list_widget.row(item)
@@ -2486,123 +2495,861 @@ class PatientDetailsScreen(QDialog):
         # Set button on the tab
         self.tabs.tabBar().setTabButton(new_index, QTabBar.RightSide, close_button)
 
-    def printPatientDetails(self):
-            """Print patient details to a file"""
-            try:
-                # Get the patient data again
-                patient_data = SearchDB.searchPatientWithID(self.patient_id)
+    def loadBillingData(self, admissions):
+        """Load all billing information for the patient using the predefined BillingInformationView"""
+        # Create the billing tab layout
+        billing_layout = QVBoxLayout()
+        
+        # Container widget for billing info
+        billing_list_container = QGroupBox("Billing Information")
+        billing_list_layout = QVBoxLayout()
+        
+        # Create a table for billing info
+        self.billing_table = QTableWidget()
+        self.billing_table.setColumnCount(5)
+        self.billing_table.setHorizontalHeaderLabels(["Admission ID", "Total Amount", "Paid", "Insurance Paid", "Balance"])
+        self.billing_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)  # Make sure table is not editable
+        self.billing_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        self.billing_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        
+        # Initialize an empty billing data list
+        self.billing_data = []
+        
+        # Check if any admission has billing info
+        has_billing = False
+        
+        if admissions:
+            row = 0
+            for admission in admissions:
+                # Make sure we have the admission_id
+                admission_id = None
                 
-                if not patient_data or len(patient_data) == 0:
-                    QMessageBox.warning(self, "No Data", "No patient data to print.")
+                # Handle different possible formats of admission data
+                if isinstance(admission, dict) and 'admission_id' in admission:
+                    admission_id = admission['admission_id']
+                elif hasattr(admission, 'get'):
+                    admission_id = admission.get('admission_id')
+                    if admission_id is None and isinstance(admission, dict) and len(admission) > 0:
+                        # Try to get the first item if it's a dict without 'admission_id'
+                        admission_id = list(admission.values())[0]
+                elif isinstance(admission, (list, tuple)) and len(admission) > 0:
+                    admission_id = admission[0]
+                
+                if admission_id is None:
+                    continue
+                
+                # Use the predefined searchBillingWithAdmission function
+                try:
+                    billing = SearchDB.searchBillingWithAdmission(admission_id)
+                    
+                    if billing:  # If billing info exists
+                        has_billing = True
+                        self.billing_table.insertRow(row)
+                        
+                        # Admission ID
+                        self.billing_table.setItem(row, 0, QTableWidgetItem(str(billing[1])))
+                        
+                        # Total Amount Owed
+                        self.billing_table.setItem(row, 1, QTableWidgetItem(f"${float(billing[2]):.2f}"))
+                        
+                        # Amount Paid
+                        self.billing_table.setItem(row, 2, QTableWidgetItem(f"${float(billing[3]):.2f}"))
+                        
+                        # Insurance Paid
+                        self.billing_table.setItem(row, 3, QTableWidgetItem(f"${float(billing[4]):.2f}"))
+                        
+                        # Balance Due
+                        balance = float(billing[5])
+                        balance_item = QTableWidgetItem(f"${balance:.2f}")
+                        if balance > 0:
+                            balance_item.setForeground(QtGui.QBrush(QtGui.QColor("red")))
+                        self.billing_table.setItem(row, 4, balance_item)
+                        
+                        # Store billing data for reference
+                        bill_items = []
+                        if billing[6]:  # billing_items from BillingInformationView
+                            if isinstance(billing[6], str):
+                                # If it's returned as a string, parse it as JSON
+                                try:
+                                    bill_items = json.loads(billing[6])
+                                except:
+                                    bill_items = []
+                            else:
+                                # It might already be a list/dict
+                                bill_items = billing[6]
+                        
+                        self.billing_data.append({
+                            'billing_id': billing[0],
+                            'admission_id': billing[1],
+                            'total': float(billing[2]),
+                            'paid': float(billing[3]),
+                            'insurance_paid': float(billing[4]),
+                            'balance': float(billing[5]),
+                            'items': bill_items
+                        })
+                        
+                        row += 1
+                except Exception as e:
+                    print(f"Error fetching billing data for admission {admission_id}: {e}")
+                    continue
+        
+        if has_billing:
+            # Double click to view details
+            self.billing_table.cellDoubleClicked.connect(self.openBillingDetails)
+            billing_list_layout.addWidget(self.billing_table)
+            
+            # Add payment processing button
+            payment_button = QPushButton("Process Payment")
+            payment_button.clicked.connect(self.processPayment)
+            billing_list_layout.addWidget(payment_button)
+        else:
+            no_billing_label = QLabel("No billing information found")
+            no_billing_label.setAlignment(Qt.AlignCenter)
+            billing_list_layout.addWidget(no_billing_label)
+        
+        billing_list_container.setLayout(billing_list_layout)
+        billing_layout.addWidget(billing_list_container)
+        
+        # Add buttons for adding new billing items
+        buttons_layout = QHBoxLayout()
+        
+        if self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
+            add_bill_button = QPushButton("Add Billing Item")
+            add_bill_button.clicked.connect(self.addBillingItem)
+            buttons_layout.addWidget(add_bill_button)
+        
+        billing_layout.addLayout(buttons_layout)
+        
+        # Set the layout to the billing tab
+        self.billing_tab.setLayout(billing_layout)
+
+
+    # 2. Now let's add the processPayment method to handle payment processing
+    # Add this to the PatientDetailsScreen class
+
+    def processPayment(self):
+        """Process a payment for a selected billing record"""
+        selected_rows = self.billing_table.selectionModel().selectedRows()
+        
+        if not selected_rows:
+            QMessageBox.warning(self, "No Selection", "Please select a billing record to process payment.")
+            return
+        
+        selected_row = selected_rows[0].row()
+        
+        if selected_row < 0 or selected_row >= len(self.billing_data):
+            QMessageBox.warning(self, "Invalid Selection", "Please select a valid billing record.")
+            return
+        
+        billing_data = self.billing_data[selected_row]
+        billing_id = billing_data['billing_id']
+        admission_id = billing_data['admission_id']
+        total_owed = billing_data['total']
+        current_paid = billing_data['paid']
+        current_insurance = billing_data['insurance_paid']
+        remaining_balance = billing_data['balance']
+        
+        if remaining_balance <= 0:
+            QMessageBox.information(self, "No Balance Due", "This bill has been fully paid.")
+            return
+        
+        # Create payment dialog
+        payment_dialog = QDialog(self)
+        payment_dialog.setWindowTitle("Process Payment")
+        payment_dialog.setMinimumWidth(400)
+        
+        dialog_layout = QVBoxLayout()
+        
+        # Summary information
+        summary_group = QGroupBox("Billing Summary")
+        summary_layout = QFormLayout()
+        summary_layout.addRow("Billing ID:", QLabel(f"{billing_id}"))
+        summary_layout.addRow("Admission ID:", QLabel(f"{admission_id}"))
+        summary_layout.addRow("Total Amount:", QLabel(f"${total_owed:.2f}"))
+        summary_layout.addRow("Amount Paid:", QLabel(f"${current_paid:.2f}"))
+        summary_layout.addRow("Insurance Paid:", QLabel(f"${current_insurance:.2f}"))
+        
+        balance_label = QLabel(f"${remaining_balance:.2f}")
+        if remaining_balance > 0:
+            balance_label.setStyleSheet("color: red; font-weight: bold;")
+        summary_layout.addRow("Balance Due:", balance_label)
+        
+        summary_group.setLayout(summary_layout)
+        dialog_layout.addWidget(summary_group)
+        
+        # Payment form
+        payment_group = QGroupBox("Payment Information")
+        payment_form = QFormLayout()
+        
+        # Payment type selection
+        payment_type = QComboBox()
+        payment_type.addItems(["Patient Payment", "Insurance Payment"])
+        
+        # Amount input
+        amount_input = QLineEdit()
+        amount_input.setPlaceholderText("0.00")
+        amount_input.setValidator(QtGui.QDoubleValidator(0.01, remaining_balance, 2))
+        amount_input.setText(f"{remaining_balance:.2f}")  # Default to full balance
+        
+        # Payment method (for patient payments)
+        payment_method = QComboBox()
+        payment_method.addItems(["Cash", "Credit Card", "Check", "Electronic Transfer"])
+        
+        # Reference number
+        reference_input = QLineEdit()
+        reference_input.setPlaceholderText("Confirmation/Check #")
+        
+        # Add widgets to form
+        payment_form.addRow("Payment Type:", payment_type)
+        payment_form.addRow("Amount ($):", amount_input)
+        payment_form.addRow("Payment Method:", payment_method)
+        payment_form.addRow("Reference #:", reference_input)
+        
+        # Set up conditional display for payment method
+        def onPaymentTypeChanged(index):
+            is_patient = index == 0  # Patient Payment
+            payment_method.setEnabled(is_patient)
+            payment_method_label = payment_form.labelForField(payment_method)
+            if payment_method_label:
+                payment_method_label.setEnabled(is_patient)
+        
+        payment_type.currentIndexChanged.connect(onPaymentTypeChanged)
+        
+        payment_group.setLayout(payment_form)
+        dialog_layout.addWidget(payment_group)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        cancel_button = QPushButton("Cancel")
+        process_button = QPushButton("Process Payment")
+        process_button.setDefault(True)
+        
+        button_layout.addWidget(cancel_button)
+        button_layout.addWidget(process_button)
+        
+        dialog_layout.addLayout(button_layout)
+        
+        payment_dialog.setLayout(dialog_layout)
+        
+        # Connect buttons
+        cancel_button.clicked.connect(payment_dialog.reject)
+        
+        def processPaymentAction():
+            payment_amount_text = amount_input.text().strip()
+            reference = reference_input.text().strip()
+            is_insurance = payment_type.currentIndex() == 1
+            method = payment_method.currentText() if payment_method.isEnabled() else "Insurance"
+            
+            try:
+                payment_amount = float(payment_amount_text)
+                
+                if payment_amount <= 0:
+                    QMessageBox.warning(self, "Invalid Amount", "Payment amount must be greater than zero.")
+                    return
+                    
+                if payment_amount > remaining_balance:
+                    QMessageBox.warning(self, "Invalid Amount", f"Payment amount cannot exceed remaining balance (${remaining_balance:.2f}).")
                     return
                 
-                data = patient_data[0]
-                lines = []
-                lines.append("PATIENT DETAILS REPORT")
-                lines.append("=" * 50)
+                # Update the database with the payment
+                self.updateBillingPayment(billing_id, payment_amount, is_insurance, method, reference)
                 
-                # Format based on user type
-                if self.usertype == "Volunteer":
-                    name = f"{data['first_name']} {data.get('middle_name', '')} {data['last_name']}"
-                    lines.append(f"Patient: {name}")
-                    lines.append(f"Location: {data[4]}, Floor {data[5]}, Room {data[6]}, Bed {data[7]}")
-                    lines.append("\nApproved Visitors:")
-                    if data[8] and len(data[8]) > 0:
-                        for visitor in data[8]:
-                            lines.append(f"- {visitor}")
-                    else:
-                        lines.append("No approved visitors")
+                payment_dialog.accept()
+                
+                # Refresh the billing data
+                self.refreshBillingTab()
+                
+            except ValueError:
+                QMessageBox.warning(self, "Invalid Amount", "Please enter a valid payment amount.")
+        
+        process_button.clicked.connect(processPaymentAction)
+        
+        # Show dialog
+        payment_dialog.exec_()
+
+
+    # 3. Add the updateBillingPayment method to update the database with payment information
+
+    def updateBillingPayment(self, billing_id, payment_amount, is_insurance, payment_method, reference_number):
+        """Update billing record with new payment information"""
+        try:
+            # Determine which payment field to update
+            with hospitalDB.get_cursor() as cursor:
+                if is_insurance:
+                    # Update insurance_paid
+                    sql = """UPDATE Billing SET 
+                            insurance_paid = insurance_paid + %s
+                            WHERE billing_id = %s;"""
+                    cursor.execute(sql, (payment_amount, billing_id))
+                    payment_type = "Insurance"
+                else:
+                    # Update total_amount_paid
+                    sql = """UPDATE Billing SET 
+                            total_amount_paid = total_amount_paid + %s
+                            WHERE billing_id = %s;"""
+                    cursor.execute(sql, (payment_amount, billing_id))
+                    payment_type = "Patient"
+                
+                # Log the payment in the audit log
+                InsertData.log_action(f"Processed {payment_type} payment of ${payment_amount:.2f} for billing #{billing_id} via {payment_method} (Ref: {reference_number})")
+                
+            QMessageBox.information(self, "Success", f"{payment_type} payment of ${payment_amount:.2f} processed successfully.")
+            return True
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to process payment: {str(e)}")
+            return False
+
+
+    # 4. Let's modify the openBillingDetails method to ensure all fields are not editable
+
+    def openBillingDetails(self, row, column):
+        if row < 0 or row >= len(self.billing_data):
+            QMessageBox.warning(self, "Error", "Invalid billing selected.")
+            return
+
+        billing = self.billing_data[row]
+        billing_id = billing.get('billing_id')
+        admission_id = billing.get('admission_id')
+        tab_title = f"Bill #{billing_id}"
+
+        # Check if this tab already exists
+        for i in range(self.tabs.count()):
+            if self.tabs.tabText(i) == tab_title:
+                self.tabs.setCurrentIndex(i)
+                return
+
+        # Create new tab content
+        tab = QWidget()
+        layout = QVBoxLayout()
+
+        # Billing overview
+        overview_group = QGroupBox("Billing Overview")
+        overview_layout = QFormLayout()
+        overview_layout.addRow("Admission ID:", QLabel(f"{admission_id}"))
+        overview_layout.addRow("Total Amount:", QLabel(f"${billing['total']:.2f}"))
+        overview_layout.addRow("Amount Paid:", QLabel(f"${billing['paid']:.2f}"))
+        overview_layout.addRow("Insurance Paid:", QLabel(f"${billing['insurance_paid']:.2f}"))
+        
+        balance_label = QLabel(f"${billing['balance']:.2f}")
+        if billing['balance'] > 0:
+            balance_label.setStyleSheet("color: red;")
+        overview_layout.addRow("Balance Due:", balance_label)
+        
+        overview_group.setLayout(overview_layout)
+        layout.addWidget(overview_group)
+
+        # Itemized bill
+        items_group = QGroupBox("Itemized Bill")
+        items_layout = QVBoxLayout()
+        
+        items_table = QTableWidget()
+        items_table.setColumnCount(3)
+        items_table.setHorizontalHeaderLabels(["ID", "Description", "Amount"])
+        items_table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        items_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)  # Ensure table is not editable
+        
+        if billing['items'] and len(billing['items']) > 0:
+            items_table.setRowCount(len(billing['items']))
+            total_amount = 0.0
+            
+            for row, item in enumerate(billing['items']):
+                # BillingInformationView returns items with these field names
+                item_id = item.get('item_id', 'N/A')
+                description = item.get('description', 'N/A')
+                amount = item.get('charge', 0.0)
+                
+                items_table.setItem(row, 0, QTableWidgetItem(str(item_id)))
+                items_table.setItem(row, 1, QTableWidgetItem(str(description)))
+                items_table.setItem(row, 2, QTableWidgetItem(f"${float(amount):.2f}"))
+                
+                total_amount += float(amount)
+                
+            # Add total row
+            items_table.insertRow(len(billing['items']))
+            items_table.setItem(len(billing['items']), 0, QTableWidgetItem(""))
+            items_table.setItem(len(billing['items']), 1, QTableWidgetItem("Total"))
+            total_item = QTableWidgetItem(f"${total_amount:.2f}")
+            total_item.setFont(QtGui.QFont("MS Shell Dlg 2", 10, QtGui.QFont.Bold))
+            items_table.setItem(len(billing['items']), 2, total_item)
+        else:
+            items_table.setRowCount(1)
+            items_table.setItem(0, 0, QTableWidgetItem(""))
+            items_table.setItem(0, 1, QTableWidgetItem("No items found"))
+            items_table.setItem(0, 2, QTableWidgetItem("$0.00"))
+        
+        items_layout.addWidget(items_table)
+        
+        # Add payment button to this view as well
+        if billing['balance'] > 0:
+            payment_button = QPushButton("Process Payment")
+            payment_button.clicked.connect(lambda: self.processPaymentForBilling(billing))
+            items_layout.addWidget(payment_button)
+        
+        items_group.setLayout(items_layout)
+        layout.addWidget(items_group)
+
+        # Finalize layout and tab
+        tab.setLayout(layout)
+        new_index = self.tabs.addTab(tab, tab_title)
+        self.tabs.setCurrentWidget(tab)
+
+        # Add a close button
+        close_button = QPushButton("✕")
+        close_button.setFixedSize(18, 18)
+        close_button.setStyleSheet("""
+            QPushButton {
+                border: none;
+                color: #666;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                color: red;
+            }
+        """)
+        close_button.clicked.connect(lambda _, tab=tab: self.tabs.removeTab(self.tabs.indexOf(tab)))
+
+        # Set button on the tab
+        self.tabs.tabBar().setTabButton(new_index, QTabBar.RightSide, close_button)
+
+
+    # 5. Add helper method to process payment from the billing details tab
+
+    def processPaymentForBilling(self, billing_data):
+        """Process payment for a specific billing record from the details view"""
+        billing_id = billing_data['billing_id']
+        admission_id = billing_data['admission_id']
+        total_owed = billing_data['total']
+        current_paid = billing_data['paid']
+        current_insurance = billing_data['insurance_paid']
+        remaining_balance = billing_data['balance']
+        
+        if remaining_balance <= 0:
+            QMessageBox.information(self, "No Balance Due", "This bill has been fully paid.")
+            return
+        
+        # Create payment dialog
+        payment_dialog = QDialog(self)
+        payment_dialog.setWindowTitle("Process Payment")
+        payment_dialog.setMinimumWidth(400)
+        
+        dialog_layout = QVBoxLayout()
+        
+        # Summary information
+        summary_group = QGroupBox("Billing Summary")
+        summary_layout = QFormLayout()
+        summary_layout.addRow("Billing ID:", QLabel(f"{billing_id}"))
+        summary_layout.addRow("Admission ID:", QLabel(f"{admission_id}"))
+        summary_layout.addRow("Total Amount:", QLabel(f"${total_owed:.2f}"))
+        summary_layout.addRow("Amount Paid:", QLabel(f"${current_paid:.2f}"))
+        summary_layout.addRow("Insurance Paid:", QLabel(f"${current_insurance:.2f}"))
+        
+        balance_label = QLabel(f"${remaining_balance:.2f}")
+        if remaining_balance > 0:
+            balance_label.setStyleSheet("color: red; font-weight: bold;")
+        summary_layout.addRow("Balance Due:", balance_label)
+        
+        summary_group.setLayout(summary_layout)
+        dialog_layout.addWidget(summary_group)
+        
+        # Payment form
+        payment_group = QGroupBox("Payment Information")
+        payment_form = QFormLayout()
+        
+        # Payment type selection
+        payment_type = QComboBox()
+        payment_type.addItems(["Patient Payment", "Insurance Payment"])
+        
+        # Amount input
+        amount_input = QLineEdit()
+        amount_input.setPlaceholderText("0.00")
+        amount_input.setValidator(QtGui.QDoubleValidator(0.01, remaining_balance, 2))
+        amount_input.setText(f"{remaining_balance:.2f}")  # Default to full balance
+        
+        # Payment method (for patient payments)
+        payment_method = QComboBox()
+        payment_method.addItems(["Cash", "Credit Card", "Check", "Electronic Transfer"])
+        
+        # Reference number
+        reference_input = QLineEdit()
+        reference_input.setPlaceholderText("Confirmation/Check #")
+        
+        # Add widgets to form
+        payment_form.addRow("Payment Type:", payment_type)
+        payment_form.addRow("Amount ($):", amount_input)
+        payment_form.addRow("Payment Method:", payment_method)
+        payment_form.addRow("Reference #:", reference_input)
+        
+        # Set up conditional display for payment method
+        def onPaymentTypeChanged(index):
+            is_patient = index == 0  # Patient Payment
+            payment_method.setEnabled(is_patient)
+            payment_method_label = payment_form.labelForField(payment_method)
+            if payment_method_label:
+                payment_method_label.setEnabled(is_patient)
+        
+        payment_type.currentIndexChanged.connect(onPaymentTypeChanged)
+        
+        payment_group.setLayout(payment_form)
+        dialog_layout.addWidget(payment_group)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        cancel_button = QPushButton("Cancel")
+        process_button = QPushButton("Process Payment")
+        process_button.setDefault(True)
+        
+        button_layout.addWidget(cancel_button)
+        button_layout.addWidget(process_button)
+        
+        dialog_layout.addLayout(button_layout)
+        
+        payment_dialog.setLayout(dialog_layout)
+        
+        # Connect buttons
+        cancel_button.clicked.connect(payment_dialog.reject)
+        
+        def processPaymentAction():
+            payment_amount_text = amount_input.text().strip()
+            reference = reference_input.text().strip()
+            is_insurance = payment_type.currentIndex() == 1
+            method = payment_method.currentText() if payment_method.isEnabled() else "Insurance"
+            
+            try:
+                payment_amount = float(payment_amount_text)
+                
+                if payment_amount <= 0:
+                    QMessageBox.warning(self, "Invalid Amount", "Payment amount must be greater than zero.")
+                    return
+                    
+                if payment_amount > remaining_balance:
+                    QMessageBox.warning(self, "Invalid Amount", f"Payment amount cannot exceed remaining balance (${remaining_balance:.2f}).")
+                    return
+                
+                # Update the database with the payment
+                self.updateBillingPayment(billing_id, payment_amount, is_insurance, method, reference)
+                
+                payment_dialog.accept()
+                
+                # Refresh tabs
+                self.refreshBillingTab()
+                
+            except ValueError:
+                QMessageBox.warning(self, "Invalid Amount", "Please enter a valid payment amount.")
+        
+        process_button.clicked.connect(processPaymentAction)
+        
+        # Show dialog
+        payment_dialog.exec_()
+    def addBillingItem(self):
+        # Show dialog to select an admission
+        admission_dialog = QDialog(self)
+        admission_dialog.setWindowTitle("Add Billing Item")
+        admission_dialog.setMinimumWidth(400)
+        
+        dialog_layout = QVBoxLayout()
+        
+        # Get all admissions for this patient
+        admissions = []
+        with hospitalDB.get_cursor() as cursor:
+            sql = """SELECT a.admission_id,
+                    pgp_sym_decrypt(a.admittance_datetime, %s) AS admit_date
+                FROM admission a
+                WHERE a.patient_id = %s
+                ORDER BY a.admission_id DESC;"""
+            params = (EncryptionKey.getKeys()[0], self.patient_id)
+            cursor.execute(sql, params)
+            admissions = cursor.fetchall()
+        
+        # Create form
+        form_layout = QFormLayout()
+        
+        admission_combo = QComboBox()
+        for admission in admissions:
+            admission_combo.addItem(f"Admission #{admission[0]} - {admission[1]}", admission[0])
+        
+        item_description = QLineEdit()
+        item_amount = QLineEdit()
+        item_amount.setPlaceholderText("0.00")
+        item_amount.setValidator(QtGui.QDoubleValidator(0.01, 9999999.99, 2))
+        
+        form_layout.addRow("Admission:", admission_combo)
+        form_layout.addRow("Item Description:", item_description)
+        form_layout.addRow("Amount ($):", item_amount)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        cancel_button = QPushButton("Cancel")
+        add_button = QPushButton("Add Item")
+        add_button.setDefault(True)
+        
+        button_layout.addWidget(cancel_button)
+        button_layout.addWidget(add_button)
+        
+        dialog_layout.addLayout(form_layout)
+        dialog_layout.addLayout(button_layout)
+        
+        admission_dialog.setLayout(dialog_layout)
+        
+        # Connect buttons
+        cancel_button.clicked.connect(admission_dialog.reject)
+        
+        def addItem():
+            admission_id = admission_combo.currentData()
+            description = item_description.text().strip()
+            amount_text = item_amount.text().strip()
+            
+            if not admission_id:
+                QMessageBox.warning(self, "Error", "Please select an admission.")
+                return
+                
+            if not description:
+                QMessageBox.warning(self, "Error", "Please enter an item description.")
+                return
+                
+            if not amount_text:
+                QMessageBox.warning(self, "Error", "Please enter an amount.")
+                return
+                
+            try:
+                amount = float(amount_text)
+                if amount <= 0:
+                    QMessageBox.warning(self, "Error", "Amount must be greater than zero.")
+                    return
+                    
+                # Add the billing item to the database
+                self.addBillingItemToDatabase(admission_id, description, amount)
+                
+                admission_dialog.accept()
+                
+                # Refresh the data
+                self.loadPatientData()
+                
+            except ValueError:
+                QMessageBox.warning(self, "Error", "Invalid amount.")
+        
+        add_button.clicked.connect(addItem)
+        
+        # Show dialog
+        admission_dialog.exec_()
+    def addBillingItemToDatabase(self, admission_id, description, amount):
+        try:
+            # Use the existing InsertData.insertBilledItem function
+            InsertData.insertBilledItem(admission_id, description, amount)
+            
+            # Log the billing action
+            InsertData.log_action(f"Added billing item '{description}' for ${amount:.2f} to admission #{admission_id}")
+            
+            # Refresh the billing tab
+            self.refreshBillingTab()
+            
+            QMessageBox.information(self, "Success", f"Billing item '{description}' added successfully.")
+            return True
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to add billing item: {str(e)}")
+            return False
+        
+    def refreshBillingTab(self):
+        # Remove the old billing tab
+        for i in range(self.tabs.count()):
+            if self.tabs.tabText(i) == "Billing":
+                # Clear the layout of the existing tab instead of removing and recreating
+                if self.billing_tab.layout():
+                    # Save a reference to the old layout
+                    old_layout = self.billing_tab.layout()
+                    
+                    # Remove all items from the old layout
+                    while old_layout.count():
+                        item = old_layout.takeAt(0)
+                        widget = item.widget()
+                        if widget:
+                            widget.deleteLater()
+                    
+                    # Delete the old layout itself
+                    self.billing_tab.setLayout(None)
+                    old_layout.deleteLater()
+                
+                # Get fresh admissions data 
+                admissions = [] 
+                with hospitalDB.get_cursor() as cursor:
+                    sql = """SELECT a.admission_id 
+                            FROM admission a 
+                            WHERE a.patient_id = %s;"""
+                    params = (self.patient_id,)
+                    cursor.execute(sql, params)
+                    admission_ids = cursor.fetchall()
+                    
+                    for admission_id in admission_ids:
+                        # Use the billing view directly
+                        sql = """SELECT * FROM BillingInformationView 
+                                WHERE admission_id = %s;"""
+                        cursor.execute(sql, (admission_id[0],))
+                        billing = cursor.fetchone()
+                        if billing:
+                            admissions.append({'admission_id': admission_id[0]})
+                
+                # Load billing data with fresh information
+                self.loadBillingData(admissions)
+                
+                # Set the current tab to the billing tab
+                self.tabs.setCurrentIndex(i)
+                break
+    def closeTab(self, index):
+        # Prevent closing the default tabs (index < num_static_tabs)
+        if index < self.num_static_tabs:
+            QMessageBox.information(self, "Protected Tab", "You cannot close the default patient tabs.")
+            return
+        self.tabs.removeTab(index)
+
+    def printPatientDetails(self):
+        """Print patient details to a file"""
+        try:
+            # Get the patient data again
+            patient_data = SearchDB.searchPatientWithID(self.patient_id)
+            
+            if not patient_data or len(patient_data) == 0:
+                QMessageBox.warning(self, "No Data", "No patient data to print.")
+                return
+            
+            lines = []
+            lines.append("PATIENT DETAILS REPORT")
+            lines.append("=" * 50)
+            
+            # Format based on user type
+            if self.usertype == "Volunteer":
+                name = f"{patient_data[1]} {patient_data[2]} {patient_data[3]}"
+                lines.append(f"Patient: {name}")
+                lines.append(f"Location: {patient_data[4]}, Floor {patient_data[5]}, Room {patient_data[6]}, Bed {patient_data[7]}")
+                lines.append("\nApproved Visitors:")
+                if patient_data[8] and len(patient_data[8]) > 0:
+                    for visitor in patient_data[8]:
+                        lines.append(f"- {visitor}")
+                else:
+                    lines.append("No approved visitors")
+                    
+            elif self.usertype == "Office Staff":
+                name = f"{patient_data[1]} {patient_data[2]} {patient_data[3]}"
+                lines.append(f"Patient: {name}")
+                lines.append(f"Mailing Address: {patient_data[4] or 'Not provided'}")
+                lines.append("\nInsurance Information:")
+                lines.append(f"Carrier: {patient_data[5] or 'Not provided'}")
+                lines.append(f"Account #: {patient_data[6] or 'Not provided'}")
+                lines.append(f"Group #: {patient_data[7] or 'Not provided'}")
+                lines.append("\nPhone Numbers:")
+                lines.append(f"Home: {patient_data[8] or 'Not provided'}")
+                lines.append(f"Work: {patient_data[9] or 'Not provided'}")
+                lines.append(f"Mobile: {patient_data[10] or 'Not provided'}")
+                lines.append("\nEmergency Contacts:")
+                lines.append(f"Contact 1: {patient_data[11] or 'Not provided'} - {patient_data[12] or 'Not provided'}")
+                lines.append(f"Contact 2: {patient_data[13] or 'Not provided'} - {patient_data[14] or 'Not provided'}")
+                
+                # Add billing information
+                if hasattr(self, 'billing_data') and self.billing_data:
+                    lines.append("\nBilling Information:")
+                    for billing in self.billing_data:
+                        lines.append(f"Billing #{billing['billing_id']} (Admission #{billing['admission_id']})")
+                        lines.append(f"  Total Amount: ${billing['total']:.2f}")
+                        lines.append(f"  Amount Paid: ${billing['paid']:.2f}")
+                        lines.append(f"  Insurance Paid: ${billing['insurance_paid']:.2f}")
+                        lines.append(f"  Balance Due: ${billing['balance']:.2f}")
                         
-                elif self.usertype == "Office Staff":
-                    name = f"{data['first_name']} {data.get('middle_name', '')} {data['last_name']}"
-                    lines.append(f"Patient: {name}")
-                    lines.append(f"Mailing Address: {data[4] or 'Not provided'}")
-                    lines.append("\nInsurance Information:")
-                    lines.append(f"Carrier: {data[5] or 'Not provided'}")
-                    lines.append(f"Account #: {data[6] or 'Not provided'}")
-                    lines.append(f"Group #: {data[7] or 'Not provided'}")
-                    lines.append("\nPhone Numbers:")
-                    lines.append(f"Home: {data[8] or 'Not provided'}")
-                    lines.append(f"Work: {data[9] or 'Not provided'}")
-                    lines.append(f"Mobile: {data[10] or 'Not provided'}")
-                    lines.append("\nEmergency Contacts:")
-                    lines.append(f"Contact 1: {data[11] or 'Not provided'} - {data[12] or 'Not provided'}")
-                    lines.append(f"Contact 2: {data[13] or 'Not provided'} - {data[14] or 'Not provided'}")
-                    
-                elif self.usertype in ["Medical Personnel", "Physician"]:
-                    name = f"{data['first_name']} {data.get('middle_name', '')} {data['last_name']}"
-                    lines.append(f"Patient: {name}")
-                    lines.append(f"Mailing Address: {data[4] or 'Not provided'}")
-                    
-                    lines.append("\nInsurance Information:")
-                    lines.append(f"Carrier: {data[5] or 'Not provided'}")
-                    lines.append(f"Account #: {data[6] or 'Not provided'}")
-                    lines.append(f"Group #: {data[7] or 'Not provided'}")
-                    
-                    lines.append("\nPhone Numbers:")
-                    lines.append(f"Home: {data[8] or 'Not provided'}")
-                    lines.append(f"Work: {data[9] or 'Not provided'}")
-                    lines.append(f"Mobile: {data[10] or 'Not provided'}")
-                    
-                    lines.append("\nEmergency Contacts:")
-                    lines.append(f"Contact 1: {data[11] or 'Not provided'} - {data[12] or 'Not provided'}")
-                    lines.append(f"Contact 2: {data[13] or 'Not provided'} - {data[14] or 'Not provided'}")
-                    
-                    admissions = data.get('admissions', [])
-                    lines.append("\nAdmissions:")
-                    
-                    if admissions and len(admissions) > 0:
-                        for admission in admissions:
-                            admission_id = admission.get('admission_id', '')
-                            admit_date = admission.get('admittance_date', '')
-                            reason = admission.get('admission_reason', '')
-                            discharge = admission.get('admittance_discharge', '')
-                            
-                            lines.append(f"\nAdmission #{admission_id}")
-                            lines.append(f"Date: {admit_date}")
-                            lines.append(f"Reason: {reason}")
-                            if discharge and discharge.lower() != 'none':
-                                lines.append(f"Discharged: {discharge}")
-                            
-                            # Notes
-                            if 'details' in admission and 'notes' in admission['details'] and admission['details']['notes']:
-                                lines.append("\n  Notes:")
-                                for note in admission['details']['notes']:
-                                    note_text = note.get('text', '')
-                                    note_type = note.get('type', '')
-                                    note_author = note.get('author', '')
-                                    note_datetime = note.get('datetime', '')
-                                    lines.append(f"  - {note_datetime} {note_type} by {note_author}: {note_text}")
-                            
-                            # Medications
-                            if 'details' in admission and 'prescriptions' in admission['details'] and admission['details']['prescriptions']:
-                                lines.append("\n  Medications:")
-                                for med in admission['details']['prescriptions']:
-                                    medication = med.get('medication', '')
-                                    amount = med.get('amount', '')
-                                    schedule = med.get('schedule', '')
-                                    lines.append(f"  - {medication}, {amount}, {schedule}")
-                            
-                            # Procedures
-                            if 'details' in admission and 'procedures' in admission['details'] and admission['details']['procedures']:
-                                lines.append("\n  Procedures:")
-                                for proc in admission['details']['procedures']:
-                                    name = proc.get('name', '')
-                                    scheduled = proc.get('scheduled', '')
-                                    lines.append(f"  - {name}, Scheduled for {scheduled}")
-                    else:
-                        lines.append("No admissions found")
+                        if 'items' in billing and billing['items']:
+                            lines.append("  Itemized Bill:")
+                            for item in billing['items']:
+                                lines.append(f"    - {item['description']}: ${float(item['charge']):.2f}")
                 
-                # Write to file
-                filename = f"patient_{self.patient_id}_details.txt"
-                with open(filename, 'w') as f:
-                    f.write("\n".join(lines))
+            elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
+                name = f"{patient_data[1]} {patient_data[2]} {patient_data[3]}"
+                lines.append(f"Patient: {name}")
+                lines.append(f"Mailing Address: {patient_data[4] or 'Not provided'}")
                 
-                QMessageBox.information(self, "Success", f"Patient details saved to {filename}")
+                lines.append("\nInsurance Information:")
+                lines.append(f"Carrier: {patient_data[5] or 'Not provided'}")
+                lines.append(f"Account #: {patient_data[6] or 'Not provided'}")
+                lines.append(f"Group #: {patient_data[7] or 'Not provided'}")
                 
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error printing patient data: {str(e)}")
-                print(f"Error: {e}")
+                lines.append("\nPhone Numbers:")
+                lines.append(f"Home: {patient_data[8] or 'Not provided'}")
+                lines.append(f"Work: {patient_data[9] or 'Not provided'}")
+                lines.append(f"Mobile: {patient_data[10] or 'Not provided'}")
+                
+                lines.append("\nEmergency Contacts:")
+                lines.append(f"Contact 1: {patient_data[11] or 'Not provided'} - {patient_data[12] or 'Not provided'}")
+                lines.append(f"Contact 2: {patient_data[13] or 'Not provided'} - {patient_data[14] or 'Not provided'}")
+                
+                admissions = patient_data[15] if len(patient_data) > 15 else []
+                lines.append("\nAdmissions:")
+                
+                if admissions and len(admissions) > 0:
+                    for admission in admissions:
+                        admission_id = admission.get('admission_id', '')
+                        admit_date = admission.get('admittance_date', '')
+                        reason = admission.get('admission_reason', '')
+                        discharge = admission.get('admittance_discharge', '')
+                        
+                        lines.append(f"\nAdmission #{admission_id}")
+                        lines.append(f"Date: {admit_date}")
+                        lines.append(f"Reason: {reason}")
+                        if discharge and discharge.lower() != 'none':
+                            lines.append(f"Discharged: {discharge}")
+                        
+                        # Notes
+                        if 'details' in admission and 'notes' in admission['details'] and admission['details']['notes']:
+                            lines.append("\n  Notes:")
+                            for note in admission['details']['notes']:
+                                note_text = note.get('text', '')
+                                note_type = note.get('type', '')
+                                note_author = note.get('author', '')
+                                note_datetime = note.get('datetime', '')
+                                lines.append(f"  - {note_datetime} {note_type} by {note_author}: {note_text}")
+                        
+                        # Medications
+                        if 'details' in admission and 'prescriptions' in admission['details'] and admission['details']['prescriptions']:
+                            lines.append("\n  Medications:")
+                            for med in admission['details']['prescriptions']:
+                                medication = med.get('medication', '')
+                                amount = med.get('amount', '')
+                                schedule = med.get('schedule', '')
+                                lines.append(f"  - {medication}, {amount}, {schedule}")
+                        
+                        # Procedures
+                        if 'details' in admission and 'procedures' in admission['details'] and admission['details']['procedures']:
+                            lines.append("\n  Procedures:")
+                            for proc in admission['details']['procedures']:
+                                name = proc.get('name', '')
+                                scheduled = proc.get('scheduled', '')
+                                lines.append(f"  - {name}, Scheduled for {scheduled}")
+                else:
+                    lines.append("No admissions found")
+                
+                # Add billing information
+                if hasattr(self, 'billing_data') and self.billing_data:
+                    lines.append("\nBilling Information:")
+                    for billing in self.billing_data:
+                        lines.append(f"Billing #{billing['billing_id']} (Admission #{billing['admission_id']})")
+                        lines.append(f"  Total Amount: ${billing['total']:.2f}")
+                        lines.append(f"  Amount Paid: ${billing['paid']:.2f}")
+                        lines.append(f"  Insurance Paid: ${billing['insurance_paid']:.2f}")
+                        lines.append(f"  Balance Due: ${billing['balance']:.2f}")
+                        
+                        if 'items' in billing and billing['items']:
+                            lines.append("  Itemized Bill:")
+                            for item in billing['items']:
+                                # Use the correct field names from BillingInformationView
+                                description = item.get('description')
+                                amount = item.get('charge')
+                                lines.append(f"    - {description}: ${float(amount):.2f}")
+            
+            # Write to file
+            filename = f"patient_{self.patient_id}_details.txt"
+            with open(filename, 'w') as f:
+                f.write("\n".join(lines))
+            
+            QMessageBox.information(self, "Success", f"Patient details saved to {filename}")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error printing patient data: {str(e)}")
+            print(f"Error: {e}")
+
     def dischargePatient(self, admission_id):
         from datetime import datetime
         discharge_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2729,3 +3476,4 @@ try:
     sys.exit(app.exec())
 except:
     print("Exiting")
+    
