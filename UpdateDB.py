@@ -223,7 +223,30 @@ def staffUpdateType(userID, newType):
             newType,
             userID)
         cursor.execute(sql, params)
+
+def updateVisitors(admissionID, visitorNames, encryptionKey):
+    with  get_cursor() as cursor:
+        # First, delete existing visitors
+        sql = """DELETE FROM approvedvisitors WHERE admission_id = %s;"""
+        cursor.execute(sql, (admissionID,))
         
+        # Then insert the new visitors
+        if visitorNames:
+            encryptedNames = []
+            for name in visitorNames:
+                sql = "SELECT pgp_sym_encrypt(%s, %s) AS encrypted_name;"
+                params = (name, encryptionKey)
+                cursor.execute(sql, params)
+                encryptedNames.append(cursor.fetchone()[0])
+            
+            sql = """INSERT INTO approvedvisitors (admission_id, names)
+                    VALUES (%s, %s);"""
+            params = (
+                admissionID,
+                encryptedNames
+            )
+            cursor.execute(sql, params)
+
 def admissionUpdateDischarge(admissionID, dischargeTime, encryptionkey):
     with get_cursor() as cursor:
         sql = """UPDATE admission
@@ -260,6 +283,28 @@ def addAdmissionNote(admission_id, note_data, encryption_key):
     except Exception as e:
         raise RuntimeError(f"Database error when adding note: {str(e)}")
 
+def updateBillingPayment(billing_id, payment_amount, is_insurance, payment_method):
+    with get_cursor() as cursor:
+        
+        # Now update the payment information
+        if is_insurance:
+            # Update insurance_paid
+            sql = """UPDATE Billing SET 
+                    insurance_paid = insurance_paid + %s
+                    WHERE billing_id = %s;"""
+            cursor.execute(sql, (payment_amount, billing_id))
+            payment_type = "Insurance"
+        else:
+            # Update total_amount_paid
+            sql = """UPDATE Billing SET 
+                    total_amount_paid = total_amount_paid + %s
+                    WHERE billing_id = %s;"""
+            cursor.execute(sql, (payment_amount, billing_id))
+            payment_type = "Patient"
+            
+        
+        # Log the payment in the audit log
+        log_action(f"Processed {payment_type} payment of ${payment_amount:.2f} for billing #{billing_id} via {payment_method}")
 
 
 
