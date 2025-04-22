@@ -16,7 +16,7 @@ from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
-from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
+from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime, QCoreApplication
 from PyQt5.QtGui import QBrush
 import csv
 from decimal import Decimal
@@ -3729,7 +3729,23 @@ def lockScreen():
     widget.addWidget(lock)
     widget.setCurrentIndex(widget.currentIndex() + 1)
 
+class ApplicationCleanup:
+    def __init__(self):
+        # Connect to the aboutToQuit signal
+        QCoreApplication.instance().aboutToQuit.connect(self.cleanup)
+        
+    def cleanup(self):
+        # This function will be called when the app is closing
+        print("Application closing, cleaning up user session...")
+        try:
+            # Check if any user is logged in
+            if hospitalDB.getCurrentUsername():
+                hospitalDB.userLogout()
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+
 app = QApplication(sys.argv)
+cleanup_handler = ApplicationCleanup()
 app.setStyleSheet("""
     QPushButton {
         outline: none;

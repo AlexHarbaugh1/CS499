@@ -174,7 +174,11 @@ def run():
                       item_description TEXT NOT NULL,
                       charge_amount DECIMAL(10, 2) NOT NULL);"""
                       )
-      # 15. Audit Log
+      # 15. Active User
+      cursor2.execute("""CREATE TABLE activeuser (
+                      user_id INT,
+                      username_hash TEXT);""")
+      # 16. Audit Log
       cursor2.execute("""CREATE TABLE auditlog (
                         log_id SERIAL PRIMARY KEY,
                         username VARCHAR(50) NOT NULL,
@@ -1129,44 +1133,65 @@ def userLogin(username, password, fixedSalt):
       
       return False
     else:
-      sql = """SELECT set_config(
-            'app.current_user', 
-            %s,
-            false
-          );"""
-      params = (
-        username,
-      )
+
+      sql = """SELECT EXISTS (SELECT 1 FROM activeuser WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex'));"""
+      params = (username, fixedSalt)
       cursor.execute(sql, params)
-      sql = """SELECT set_config(
-            'app.current_user_id', 
-            (SELECT user_id::TEXT FROM staff 
-            WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
-            LIMIT 1),
-            false
-          );"""
-      params = (
-        username, fixedSalt
-      )
-      cursor.execute(sql, params)
-      sql = """SELECT set_config(
-            'app.current_user_type', 
-            (SELECT type_name FROM staff NATURAL JOIN usertype WHERE user_id::TEXT = (SELECT current_setting('app.current_user_id', true))
-            LIMIT 1),
-            false
-          );"""
-      cursor.execute(sql)
-      usertype = cursor.fetchone()[0]
-      role = usertype.lower().replace(" ", "") + "_role"
-      sql = """SET ROLE %s;"""
-      params = (role,)
-      cursor.execute(sql, params)
-      log_action("Logged In")
-      print("Successfully Signed In")
-    return True
+      if not cursor.fetchone()[0]:  # Fixed this line to access the boolean value
+          sql = """SELECT set_config(
+                'app.current_user', 
+                %s,
+                false
+              );"""
+          params = (
+            username,
+          )
+          cursor.execute(sql, params)
+          sql = """SELECT set_config(
+                'app.current_user_id', 
+                (SELECT user_id::TEXT FROM staff 
+                WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
+                LIMIT 1),
+                false
+              );"""
+          params = (
+            username, fixedSalt
+          )
+          cursor.execute(sql, params)
+          
+          # Get user ID after setting the config
+          sql = """SELECT current_setting('app.current_user_id', true)::INT;"""
+          cursor.execute(sql)
+          current_user_id = cursor.fetchone()[0]
+          
+          # Insert both user_id and username_hash
+          sql = """INSERT INTO activeuser(user_id, username_hash)
+                  VALUES (%s, encode(digest(%s || %s, 'sha256'), 'hex'));"""
+          params = (current_user_id, username, fixedSalt)
+          cursor.execute(sql, params)
+          
+          sql = """SELECT set_config(
+                'app.current_user_type', 
+                (SELECT type_name FROM staff NATURAL JOIN usertype WHERE user_id::TEXT = (SELECT current_setting('app.current_user_id', true))
+                LIMIT 1),
+                false
+              );"""
+          cursor.execute(sql)
+          usertype = getCurrentUserType()  # Changed to call the function instead
+          role = usertype.lower().replace(" ", "") + "_role"
+          sql = """SET ROLE %s;"""
+          params = (role,)
+          cursor.execute(sql, params)
+          log_action("Logged In")
+          print("Successfully Signed In")
+          return True
+      else:
+          print("User Already Logged In On A Machine")
+          return False
 
 def userLogout():
   with get_cursor() as cursor:
+    userID = getCurrentUserID()
     username = getCurrentUsername()
     sql = """SELECT set_config(
             'app.current_user', 
@@ -1188,6 +1213,10 @@ def userLogout():
     cursor.execute(sql)
     sql = """SET ROLE administrator_role;"""
     cursor.execute(sql)
+    sql = """DELETE FROM activeuser
+              WHERE user_id = %s;"""
+    params = (userID,)
+    cursor.execute(sql, params)
     log_action(f"{username} Logged Out")
     print("User Logged Out")
 

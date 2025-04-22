@@ -16,7 +16,7 @@ from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets, QtGui
 from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget
-from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
+from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime, QCoreApplication
 from PyQt5.QtGui import QBrush
 import csv
 from decimal import Decimal
@@ -2063,7 +2063,6 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
-            self.tabs.addTab(self.billing_tab, "Billing")  # Add billing tab for Office Staff
             
         elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
@@ -2220,11 +2219,6 @@ class PatientDetailsScreen(QDialog):
         
         self.contacts_tab.setLayout(contacts_layout)
         
-        # Get all admissions for billing data
-        admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
-        
-        # Load billing data
-        self.loadBillingData(admissions)
         
 
     def loadMedicalData(self, data):
@@ -3858,8 +3852,22 @@ def lockScreen():
     lock = LockScreen(LogOut, widget, eventFilter, hospitalDB.getCurrentUserID())
     widget.addWidget(lock)
     widget.setCurrentIndex(widget.currentIndex() + 1)
-
+class ApplicationCleanup:
+    def __init__(self):
+        # Connect to the aboutToQuit signal
+        QCoreApplication.instance().aboutToQuit.connect(self.cleanup)
+        
+    def cleanup(self):
+        # This function will be called when the app is closing
+        print("Application closing, cleaning up user session...")
+        try:
+            # Check if any user is logged in
+            if hospitalDB.getCurrentUsername():
+                hospitalDB.userLogout()
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
 app = QApplication(sys.argv)
+cleanup_handler = ApplicationCleanup()
 app.setStyleSheet("""
     QPushButton {
         outline: none;

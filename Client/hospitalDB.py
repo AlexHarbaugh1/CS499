@@ -105,101 +105,128 @@ def createConnection():
         raise
 
 def userLogin(username, password, fixedSalt):
-    with get_cursor() as cursor:
-        sql = """SELECT (password_hash = crypt(%s, password_hash)) AS password_match
-        FROM Staff WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex');"""
-        params = (
-            password,
-            username, fixedSalt
-        )
-        cursor.execute(sql, params)
-        results = cursor.fetchone()
-        if (not results) or (not results[0]):
-            print("Incorrect Username or Password")
-            return False
-        else:
-            sql = """SELECT set_config(
+  with get_cursor() as cursor:
+    sql = """SELECT (password_hash = crypt(%s, password_hash)) AS password_match
+    FROM Staff WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex');"""
+    params = (
+        password,
+        username, fixedSalt
+    )
+    cursor.execute(sql, params)
+    results = cursor.fetchone()
+    if (not results) or (not results[0]):
+      print("Incorrect Username or Password")
+      
+      return False
+    else:
+
+      sql = """SELECT EXISTS (SELECT 1 FROM activeuser WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex'));"""
+      params = (username, fixedSalt)
+      cursor.execute(sql, params)
+      if not cursor.fetchone()[0]:  # Fixed this line to access the boolean value
+          sql = """SELECT set_config(
                 'app.current_user', 
                 %s,
                 false
               );"""
-            params = (
-                username,
-            )
-            cursor.execute(sql, params)
-            sql = """SELECT set_config(
+          params = (
+            username,
+          )
+          cursor.execute(sql, params)
+          sql = """SELECT set_config(
                 'app.current_user_id', 
                 (SELECT user_id::TEXT FROM staff 
                 WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
                 LIMIT 1),
                 false
               );"""
-            params = (
-                username, fixedSalt
-            )
-            cursor.execute(sql, params)
-            sql = """SELECT set_config(
+          params = (
+            username, fixedSalt
+          )
+          cursor.execute(sql, params)
+          
+          # Get user ID after setting the config
+          sql = """SELECT current_setting('app.current_user_id', true)::INT;"""
+          cursor.execute(sql)
+          current_user_id = cursor.fetchone()[0]
+          
+          # Insert both user_id and username_hash
+          sql = """INSERT INTO activeuser(user_id, username_hash)
+                  VALUES (%s, encode(digest(%s || %s, 'sha256'), 'hex'));"""
+          params = (current_user_id, username, fixedSalt)
+          cursor.execute(sql, params)
+          
+          sql = """SELECT set_config(
                 'app.current_user_type', 
                 (SELECT type_name FROM staff NATURAL JOIN usertype WHERE user_id::TEXT = (SELECT current_setting('app.current_user_id', true))
                 LIMIT 1),
                 false
               );"""
-            cursor.execute(sql)
-            usertype = cursor.fetchone()[0]
-            role = usertype.lower().replace(" ", "") + "_role"
-            sql = """SET ROLE %s;"""
-            params = (role,)
-            cursor.execute(sql, params)
-            log_action("Logged In")
-            print("Successfully Signed In")
-        return True
+          cursor.execute(sql)
+          usertype = getCurrentUserType()  # Changed to call the function instead
+          role = usertype.lower().replace(" ", "") + "_role"
+          sql = """SET ROLE %s;"""
+          params = (role,)
+          cursor.execute(sql, params)
+          log_action("Logged In")
+          print("Successfully Signed In")
+          return True
+      else:
+          print("User Already Logged In On A Machine")
+          return False
 
 def userLogout():
-    with get_cursor() as cursor:
-        username = getCurrentUsername()
-        sql = """SELECT set_config(
-                'app.current_user', 
-                NULL,
-                false
-              );"""
-        cursor.execute(sql)
-        sql = """SELECT set_config(
-                'app.current_user_id', 
-                NULL,
-                false
-              );"""
-        cursor.execute(sql)
-        sql = """SELECT set_config(
-                'app.current_user_type', 
-                NULL,
-                false
-              );"""
-        cursor.execute(sql)
-        sql = """SET ROLE administrator_role;"""
-        cursor.execute(sql)
-        log_action(f"{username} Logged Out")
-        print("User Logged Out")
+  with get_cursor() as cursor:
+    userID = getCurrentUserID()
+    username = getCurrentUsername()
+    sql = """SELECT set_config(
+            'app.current_user', 
+            NULL,
+            false
+          );"""
+    cursor.execute(sql)
+    sql = """SELECT set_config(
+            'app.current_user_id', 
+            NULL,
+            false
+          );"""
+    cursor.execute(sql)
+    sql = """SELECT set_config(
+            'app.current_user_type', 
+            NULL,
+            false
+          );"""
+    cursor.execute(sql)
+    sql = """SET ROLE administrator_role;"""
+    cursor.execute(sql)
+    sql = """DELETE FROM activeuser
+              WHERE user_id = %s;"""
+    params = (userID,)
+    cursor.execute(sql, params)
+    log_action(f"{username} Logged Out")
+    print("User Logged Out")
 
 def getCurrentUserType():
-    with get_cursor() as cursor:
-        cursor.execute("SELECT current_setting('app.current_user_type', true) AS user_type;")
-        results = cursor.fetchone()[0]
-        
-    return results
+  with get_cursor() as cursor:
+    cursor.execute("SELECT current_setting('app.current_user_type', true) AS user_type;")
+    results = cursor.fetchone()[0]
+    
+  return results
 
 def getCurrentUsername():
-    with get_cursor() as cursor:
-        cursor.execute("SELECT current_setting('app.current_user', true) AS user_type;")
-        results = cursor.fetchone()[0]
-        
-    return results
+  with get_cursor() as cursor:
+    cursor.execute("SELECT current_setting('app.current_user', true) AS user_type;")
+    results = cursor.fetchone()[0]
+    
+  return results
 
 def getCurrentUserID():
-    with get_cursor() as cursor:
-        cursor.execute("SELECT current_setting('app.current_user_id', true) AS user_type;")
-        results = cursor.fetchone()[0]
-        
-    return results
+  with get_cursor() as cursor:
+    cursor.execute("SELECT current_setting('app.current_user_id', true) AS user_type;")
+    results = cursor.fetchone()[0]
+    
+  return results
+
 
 # Import this here to avoid circular import
 from InsertData import log_action
