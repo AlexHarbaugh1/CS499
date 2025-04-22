@@ -1783,11 +1783,16 @@ class SearchScreen(QDialog):
         else:
             df = None
 
-            # Check whether checkbox for last name or first name is checked
-            if firstBox:
-                partials.add('fname')
-            if lastBox:
-                partials.add('lname')
+            # Check whether last name or first name end with *
+
+            if len(firstName) != 0:
+                if firstName[-1] == "*":
+                    partials.add('fname')
+                    firstName = firstName.rstrip("*")
+            if len(lastName) != 0:
+                if lastName[-1] == "*":
+                    partials.add('lname')
+                    lastName = lastName.rstrip("*")
 
             df = pd.DataFrame(SearchDB.searchPatientWithName(fixed_salt, 
                                                         fname=firstName.title() if firstName else None,
@@ -3407,7 +3412,6 @@ def LogOut():
     widget.setCurrentIndex(widget.currentIndex() + 1)
 
 def lockScreen():
-    print("here")
     eventFilter.enabled = False
     lock = LockScreen(LogOut, widget, eventFilter, hospitalDB.getCurrentUserID())
     widget.addWidget(lock)
