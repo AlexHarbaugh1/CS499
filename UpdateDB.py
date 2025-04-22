@@ -222,7 +222,30 @@ def staffUpdateType(userID, newType):
             newType,
             userID)
         cursor.execute(sql, params)
+
+def updateVisitors(admissionID, visitorNames, encryptionKey):
+    with  get_cursor() as cursor:
+        # First, delete existing visitors
+        sql = """DELETE FROM approvedvisitors WHERE admission_id = %s;"""
+        cursor.execute(sql, (admissionID,))
         
+        # Then insert the new visitors
+        if visitorNames:
+            encryptedNames = []
+            for name in visitorNames:
+                sql = "SELECT pgp_sym_encrypt(%s, %s) AS encrypted_name;"
+                params = (name, encryptionKey)
+                cursor.execute(sql, params)
+                encryptedNames.append(cursor.fetchone()[0])
+            
+            sql = """INSERT INTO approvedvisitors (admission_id, names)
+                    VALUES (%s, %s);"""
+            params = (
+                admissionID,
+                encryptedNames
+            )
+            cursor.execute(sql, params)
+           
 def admissionUpdateDischarge(admissionID, dischargeTime, encryptionkey):
     with get_cursor() as cursor:
         sql = """UPDATE admission
@@ -234,7 +257,41 @@ def admissionUpdateDischarge(admissionID, dischargeTime, encryptionkey):
         cursor.execute(sql, params)
         log_action(f"Discharge Admission ID: {admissionID}")
         
-        
+def updateBillingPayment(billingID, amount, isInsurance):
+    with get_cursor() as cursor:
+        try:
+            # First get the current billing information
+            sql = """SELECT billing_id, total_amount_owed, total_amount_paid, insurance_paid 
+                     FROM Billing 
+                     WHERE billing_id = %s;"""
+            cursor.execute(sql, (billingID,))
+            billing = cursor.fetchone()
+            
+            if not billing:
+                print(f"Billing record {billingID} not found")
+                return False
+            
+            # Update the appropriate payment field
+            if isInsurance:
+                sql = """UPDATE Billing
+                         SET insurance_paid = insurance_paid + %s
+                         WHERE billing_id = %s;"""
+            else:
+                sql = """UPDATE Billing
+                         SET total_amount_paid = total_amount_paid + %s
+                         WHERE billing_id = %s;"""
+                         
+            params = (amount, billingID)
+            cursor.execute(sql, params)
+            
+            # Log the action
+            log_action(f"Added {'insurance' if isInsurance else 'patient'} payment of ${amount:.2f} to billing #{billingID}")
+            
+            return True
+        except Exception as e:
+            print(f"Error updating billing payment: {e}")
+            return False
+              
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     
