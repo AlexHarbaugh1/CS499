@@ -26,6 +26,11 @@ Var PostgreSQLPassword
 Var PostgreSQLPasswordText
 Var PostgreSQLPort
 Var PostgreSQLPortText
+Var HCPPage
+Var HCPClientID
+Var HCPClientIDText
+Var HCPClientSecret
+Var HCPClientSecretText
 
 ; Interface Settings
 !define MUI_ABORTWARNING
@@ -38,9 +43,6 @@ Var PostgreSQLPortText
 ; Welcome page
 !insertmacro MUI_PAGE_WELCOME
 
-; License page
-;!insertmacro MUI_PAGE_LICENSE "license.txt"  ; Include your license file
-
 ; Components page
 !insertmacro MUI_PAGE_COMPONENTS
 
@@ -49,6 +51,9 @@ Var PostgreSQLPortText
 
 ; Custom PostgreSQL configuration page
 Page custom pgSQLConfigPage pgSQLConfigPageLeave
+
+; Custom HCP configuration page
+Page custom hcpConfigPage hcpConfigPageLeave
 
 ; Install files page
 !insertmacro MUI_PAGE_INSTFILES
@@ -113,6 +118,43 @@ Function pgSQLConfigPageLeave
     ${NSD_GetText} $PostgreSQLPasswordText $PostgreSQLPassword
 FunctionEnd
 
+; HCP Configuration Page
+Function hcpConfigPage
+    !insertmacro MUI_HEADER_TEXT "HashiCorp Cloud Platform Configuration" "Configure HCP credentials for encryption keys"
+    
+    nsDialogs::Create 1018
+    Pop $HCPPage
+    
+    ${If} $HCPPage == error
+        Abort
+    ${EndIf}
+    
+    ; HCP Client ID
+    ${NSD_CreateLabel} 10 20 120u 12u "HCP Client ID:"
+    Pop $0
+    
+    ${NSD_CreateText} 140 18 250u 12u ""
+    Pop $HCPClientIDText
+    
+    ; HCP Client Secret
+    ${NSD_CreateLabel} 10 50 120u 12u "HCP Client Secret:"
+    Pop $0
+    
+    ${NSD_CreatePassword} 140 48 250u 12u ""
+    Pop $HCPClientSecretText
+    
+    ; Instructions
+    ${NSD_CreateLabel} 10 90 380u 40u "These credentials are used to securely retrieve encryption keys from HashiCorp Cloud Platform. If you don't have HCP credentials, contact your system administrator."
+    Pop $0
+    
+    nsDialogs::Show
+FunctionEnd
+
+Function hcpConfigPageLeave
+    ${NSD_GetText} $HCPClientIDText $HCPClientID
+    ${NSD_GetText} $HCPClientSecretText $HCPClientSecret
+FunctionEnd
+
 ; Main sections
 Section "Hospital Management System Server (required)" SecMain
     SectionIn RO
@@ -122,6 +164,9 @@ Section "Hospital Management System Server (required)" SecMain
     
     ; Add all files from the PyInstaller distribution
     File /r "dist\HospitalManagementSystem_Server\*.*"
+    
+    ; Create data directory
+    CreateDirectory "$INSTDIR\data"
     
     ; Create database configuration file
     FileOpen $0 "$INSTDIR\config.ini" w
@@ -135,6 +180,13 @@ Section "Hospital Management System Server (required)" SecMain
     FileWrite $0 "[Application]$\r$\n"
     FileWrite $0 "log_level=INFO$\r$\n"
     FileWrite $0 "data_directory=$INSTDIR\data$\r$\n"
+    FileClose $0
+    
+    ; Create .env file with HCP credentials
+    FileOpen $0 "$INSTDIR\.env" w
+    FileWrite $0 "# Environment variables for HCP authentication$\r$\n"
+    FileWrite $0 "HCP_CLIENT_ID=$HCPClientID$\r$\n"
+    FileWrite $0 "HCP_CLIENT_SECRET=$HCPClientSecret$\r$\n"
     FileClose $0
     
     ; Create uninstaller

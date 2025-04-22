@@ -241,6 +241,9 @@ def run():
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billing_billing_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE auditlog_log_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role, volunteer_role;")
       
+      cursor.execute("GRANT USAGE, SELECT ON SEQUENCE insurance_insurance_id_seq TO officestaff_role;")
+      cursor.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON emergencycontact TO officestaff_role;")
+      cursor.execute("GRANT USAGE, SELECT ON SEQUENCE emergencycontact_contact_id_seq TO officestaff_role;")
       # Create Views for Accessing Data
       # patientsearchview is the table used for the search screen, accessible to all user roles
       sql = """CREATE VIEW patientsearchview AS
