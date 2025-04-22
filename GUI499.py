@@ -1978,7 +1978,7 @@ class PatientDetailsScreen(QDialog):
     
     def setupTabs(self):
         self.num_static_tabs = 0  # Initialize count
-
+    
         if self.usertype == "Volunteer":
             self.tabs.addTab(self.basic_info_tab, "Patient Info")
             self.tabs.addTab(self.location_tab, "Location")
@@ -1991,6 +1991,19 @@ class PatientDetailsScreen(QDialog):
             self.middleNameEdit = QLineEdit()
             self.lastNameEdit = QLineEdit()
             self.addressEdit = QTextEdit()
+            # Insurance tab inputs
+            self.insurance_provider_input = QLineEdit()
+            self.policy_number_input = QLineEdit()
+            self.group_number_input = QLineEdit()
+
+
+            # Contacts tab inputs
+            self.emergency_contact_name_input = QLineEdit()
+            self.emergency_contact_phone_input = QLineEdit()
+            for widget in [self.insurance_provider_input, self.policy_number_input,
+               self.emergency_contact_name_input, self.emergency_contact_phone_input, self.group_number_input]:
+                widget.setDisabled(True)
+
 
             self.firstNameEdit.setReadOnly(True)
             self.middleNameEdit.setReadOnly(True)
@@ -2001,6 +2014,27 @@ class PatientDetailsScreen(QDialog):
             layout.addRow("Middle Name:", self.middleNameEdit)
             layout.addRow("Last Name:", self.lastNameEdit)
             layout.addRow("Mailing Address:", self.addressEdit)
+
+                        # Insurance Fields
+            self.insuranceProviderEdit = QLineEdit()
+            self.insuranceProviderEdit.setReadOnly(True)
+            self.policyNumberEdit = QLineEdit()
+            self.policyNumberEdit.setReadOnly(True)
+            self.groupNumberEdit = QLineEdit()
+            self.groupNumberEdit.setReadOnly(True)
+            layout.addRow("Insurance Provider:", self.insuranceProviderEdit)
+            layout.addRow("Policy Number:", self.policyNumberEdit)
+            layout.addRow("Group Number:", self.groupNumberEdit)
+
+
+            # Emergency Contact Fields
+            self.emergencyNameEdit = QLineEdit()
+            self.emergencyNameEdit.setReadOnly(True)
+            self.emergencyPhoneEdit = QLineEdit()
+            self.emergencyPhoneEdit.setReadOnly(True)
+            layout.addRow("Emergency Contact Name:", self.emergencyNameEdit)
+            layout.addRow("Emergency Contact Phone:", self.emergencyPhoneEdit)
+
 
             self.editBasicInfoBtn = QPushButton("Edit")
             self.saveBasicInfoBtn = QPushButton("Save")
@@ -2029,6 +2063,38 @@ class PatientDetailsScreen(QDialog):
 
         self.num_static_tabs = self.tabs.count()  # Store default tab count
 
+    # 👇 Add the new slot functions here
+    def enableInsuranceEdit(self):
+        self.groupNumberEdit.setReadOnly(False)
+        self.insuranceProviderEdit.setReadOnly(False)
+        self.policyNumberEdit.setReadOnly(False)
+        self.editInsuranceBtn.setEnabled(False)
+        self.saveInsuranceBtn.setEnabled(True)
+
+    def saveInsurance(self):
+        provider = self.insuranceProviderEdit.text()
+        policy = self.policyNumberEdit.text()
+        # TODO: save to database
+        self.insuranceProviderEdit.setReadOnly(True)
+        self.policyNumberEdit.setReadOnly(True)
+        self.groupNumberEdit.setReadOnly(True)
+        self.editInsuranceBtn.setEnabled(True)
+        self.saveInsuranceBtn.setEnabled(False)
+
+    def enableContactsEdit(self):
+        self.emergencyNameEdit.setReadOnly(False)
+        self.emergencyPhoneEdit.setReadOnly(False)
+        self.editContactsBtn.setEnabled(False)
+        self.saveContactsBtn.setEnabled(True)
+
+    def saveContacts(self):
+        name = self.emergencyNameEdit.text()
+        phone = self.emergencyPhoneEdit.text()
+        # TODO: save to database
+        self.emergencyNameEdit.setReadOnly(True)
+        self.emergencyPhoneEdit.setReadOnly(True)
+        self.editContactsBtn.setEnabled(True)
+        self.saveContactsBtn.setEnabled(False)
 
     def reloadAdmissionDetails(self):
         try:
@@ -2070,7 +2136,6 @@ class PatientDetailsScreen(QDialog):
         try:
             # Get data using the search function
             patient_data = SearchDB.searchPatientWithID(self.patient_id)
-            print("DEBUG - Patient data:", patient_data)
 
             if not patient_data:
                 QMessageBox.warning(self, "No Data", "No patient data found.")
@@ -2094,15 +2159,28 @@ class PatientDetailsScreen(QDialog):
         self.middleNameEdit.setReadOnly(False)
         self.lastNameEdit.setReadOnly(False)
         self.addressEdit.setReadOnly(False)
+        self.insuranceProviderEdit.setReadOnly(False)
+        self.policyNumberEdit.setReadOnly(False)
+        self.emergencyNameEdit.setReadOnly(False)
+        self.emergencyPhoneEdit.setReadOnly(False)
+        self.editBasicInfoBtn.setEnabled(False)
         self.saveBasicInfoBtn.setEnabled(True)
+        self.groupNumberEdit.setReadOnly(False)
+
 
     def saveBasicInfo(self):
-         first = self.firstNameEdit.text().strip()
-         middle = self.middleNameEdit.text().strip()
-         last = self.lastNameEdit.text().strip()
-         address = self.addressEdit.toPlainText().strip()
- 
-         try:
+        first = self.firstNameEdit.text().strip()
+        middle = self.middleNameEdit.text().strip()
+        last = self.lastNameEdit.text().strip()
+        address = self.addressEdit.toPlainText().strip()
+        
+        group_number = self.groupNumberEdit.text().strip()
+        insurance_provider = self.insuranceProviderEdit.text().strip()
+        policy_number = self.policyNumberEdit.text().strip()
+        emergency_name = self.emergencyNameEdit.text().strip()
+        emergency_phone = self.emergencyPhoneEdit.text().strip()
+
+        try:
             if first != self.original_data['first_name']:
                 UpdateDB.patientUpdateFirstName(self.patient_id, first, fixed_salt)
             if middle != self.original_data['middle_name']:
@@ -2111,14 +2189,39 @@ class PatientDetailsScreen(QDialog):
                 UpdateDB.patientUpdateLastName(self.patient_id, last, fixed_salt)
             if address != self.original_data['address']:
                 UpdateDB.patientUpdateAddress(self.patient_id, address)
+
+            # Insurance updates
+            if insurance_provider != self.original_data.get('insurance_provider', ''):
+                UpdateDB.patientUpdateInsuranceCarrierName(self.patient_id, insurance_provider, encryption_key)
+            if policy_number != self.original_data.get('policy_number', ''):
+                UpdateDB.patientUpdateInsuranceAccountNumber(self.patient_id, policy_number, encryption_key)
+            if group_number != self.original_data.get('group_number', ''):
+                UpdateDB.patientUpdateInsuranceGroupNumber(self.patient_id, group_number, encryption_key)
+
+            # Emergency contact updates
+            if emergency_name != self.original_data.get('emergency_name', ''):
+                UpdateDB.patientUpdateContactName(self.patient_id, emergency_name, encryption_key)
+            if emergency_phone != self.original_data.get('emergency_phone', ''):
+                UpdateDB.patientUpdateContactPhone(self.patient_id, emergency_phone, encryption_key)
+
             QMessageBox.information(self, "Success", "Patient info updated.")
+
+            # Set everything back to read-only
             self.firstNameEdit.setReadOnly(True)
             self.middleNameEdit.setReadOnly(True)
             self.lastNameEdit.setReadOnly(True)
             self.addressEdit.setReadOnly(True)
+            self.insuranceProviderEdit.setReadOnly(True)
+            self.policyNumberEdit.setReadOnly(True)
+            self.emergencyNameEdit.setReadOnly(True)
+            self.emergencyPhoneEdit.setReadOnly(True)
+            self.groupNumberEdit.setReadOnly(True)
+
             self.saveBasicInfoBtn.setEnabled(False)
-         except Exception as e:
-             QMessageBox.critical(self, "Error", f"Failed to update info: {e}")
+            self.editBasicInfoBtn.setEnabled(True)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to update info: {e}")
     def loadVolunteerData(self, data):
         """Load data for Volunteer view"""
         # Volunteer view has: patient_id, first_name, middle_name, last_name, 
@@ -2208,7 +2311,7 @@ class PatientDetailsScreen(QDialog):
         self.contacts_tab.setLayout(contacts_layout)
         
         # Get all admissions for billing data
-        admissions = SearchDB.searchAdmissionWithID(self.patient_id, encryption_key)
+        admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
         
         # Load billing data
         self.loadBillingData(admissions)
@@ -2524,7 +2627,7 @@ class PatientDetailsScreen(QDialog):
             visitors_layout.addWidget(historical_group)
             
             self.visitors_tab.setLayout(visitors_layout)
-            admissions = SearchDB.searchAdmissionWithID(self.patient_id, encryption_key)
+            admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
         
             self.loadBillingData(admissions)
     
