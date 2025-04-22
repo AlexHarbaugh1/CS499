@@ -1933,7 +1933,6 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
-            self.tabs.addTab(self.billing_tab, "Billing")  # Add billing tab for Office Staff
             
         elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
@@ -2089,13 +2088,7 @@ class PatientDetailsScreen(QDialog):
         contacts_layout.addWidget(ec_group)
         
         self.contacts_tab.setLayout(contacts_layout)
-        
-        # Get all admissions for billing data
-        admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
-        
-        # Load billing data
-        self.loadBillingData(admissions)
-        
+
 
     def loadMedicalData(self, data):
         """Load data for Medical Personnel and Physician view"""
