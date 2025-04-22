@@ -3377,20 +3377,17 @@ class LockScreen(QtWidgets.QDialog):
         loadUi("lockScreen.ui", self)
         self.exitAction = exitAction
         self.widget = widget
+        self.user = currentUser
         self.eventFilter = eventFilter
-        self.usernameField.setText(currentUser)
+        self.usernameField.setText(hospitalDB.getCurrentUsername())
         self.passwordField.setEchoMode(QtWidgets.QLineEdit.Password)
         self.resumeButton.clicked.connect(self.resumePressed)
         self.exitButton.clicked.connect(self.exitPressed)
-        self.setWindowFlag(True)
-        self.setWindowModality(True)
-        # self.setFixedSize(400, 150)
         self.label.setAlignment(Qt.AlignCenter)
 
     def resumePressed(self):
-        user = self.usernameField.text()
         password = self.passwordField.text()
-        result_pass = SearchDB.passwordMatch(user, password)
+        result_pass = SearchDB.passwordMatch(self.user, password)
         if result_pass:
             self.errorMsg.setText("")
             self.eventFilter.enabled = True
