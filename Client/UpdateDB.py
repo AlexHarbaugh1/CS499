@@ -125,7 +125,61 @@ def patientUpdateFamilyDoctor(patientID, newDoctor):
             patientID
         )
         cursor.execute(sql, params)
-        
+
+def patientUpdateInsuranceCarrierName(patient_id, carrier_name, encryption_key):
+    with get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE insurance
+            SET carrier_name = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s;
+        """, (carrier_name, encryption_key, patient_id))
+        log_action(f"Update Patient ID: {patient_id} Insurance")
+
+
+def patientUpdateInsuranceAccountNumber(patient_id, account_number, encryption_key):
+    with get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE insurance
+            SET account_number = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s;
+        """, (account_number, encryption_key, patient_id))
+        log_action(f"Update Patient ID: {patient_id} Insurance")
+
+
+def patientUpdateInsuranceGroupNumber(patient_id, new_group_number, encryption_key):
+    try:
+        with get_cursor() as cursor:
+            sql = """
+            UPDATE insurance
+            SET group_number = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s;
+            """
+            cursor.execute(sql, (new_group_number, encryption_key, patient_id))
+            log_action(f"Update Patient ID: {patient_id} Insurance")
+    except Exception as e:
+        print("Error updating group number:", e)
+        raise
+
+
+def patientUpdateContactName(patient_id, contact_name, encryption_key):
+    with get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE emergencycontact
+            SET contact_name = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s AND contact_order = 1;
+        """, (contact_name, encryption_key, patient_id))
+        log_action(f"Update Patient ID: {patient_id} Emergency Contact")
+
+
+def patientUpdateContactPhone(patient_id, contact_phone, encryption_key):
+    with get_cursor() as cursor:
+        cursor.execute("""
+            UPDATE emergencycontact
+            SET contact_phone = pgp_sym_encrypt(%s, %s)
+            WHERE patient_id = %s AND contact_order = 1;
+        """, (contact_phone, encryption_key, patient_id))
+        log_action(f"Update Patient ID: {patient_id} Emergency Contact")
+       
 def patientUpdateInsurance(patientID, newCarrierName, newAccNum, newGroupNum):
     with get_cursor() as cursor:
         sql = """UPDATE officestaffview
@@ -257,41 +311,29 @@ def admissionUpdateDischarge(admissionID, dischargeTime, encryptionkey):
         cursor.execute(sql, params)
         log_action(f"Discharge Admission ID: {admissionID}")
         
-def updateBillingPayment(billingID, amount, isInsurance):
+def updateBillingPayment(billing_id, payment_amount, is_insurance, payment_method):
     with get_cursor() as cursor:
-        try:
-            # First get the current billing information
-            sql = """SELECT billing_id, total_amount_owed, total_amount_paid, insurance_paid 
-                     FROM Billing 
-                     WHERE billing_id = %s;"""
-            cursor.execute(sql, (billingID,))
-            billing = cursor.fetchone()
+        
+        # Now update the payment information
+        if is_insurance:
+            # Update insurance_paid
+            sql = """UPDATE Billing SET 
+                    insurance_paid = insurance_paid + %s
+                    WHERE billing_id = %s;"""
+            cursor.execute(sql, (payment_amount, billing_id))
+            payment_type = "Insurance"
+        else:
+            # Update total_amount_paid
+            sql = """UPDATE Billing SET 
+                    total_amount_paid = total_amount_paid + %s
+                    WHERE billing_id = %s;"""
+            cursor.execute(sql, (payment_amount, billing_id))
+            payment_type = "Patient"
             
-            if not billing:
-                print(f"Billing record {billingID} not found")
-                return False
-            
-            # Update the appropriate payment field
-            if isInsurance:
-                sql = """UPDATE Billing
-                         SET insurance_paid = insurance_paid + %s
-                         WHERE billing_id = %s;"""
-            else:
-                sql = """UPDATE Billing
-                         SET total_amount_paid = total_amount_paid + %s
-                         WHERE billing_id = %s;"""
-                         
-            params = (amount, billingID)
-            cursor.execute(sql, params)
-            
-            # Log the action
-            log_action(f"Added {'insurance' if isInsurance else 'patient'} payment of ${amount:.2f} to billing #{billingID}")
-            
-            return True
-        except Exception as e:
-            print(f"Error updating billing payment: {e}")
-            return False
-              
+        
+        # Log the payment in the audit log
+        log_action(f"Processed {payment_type} payment of ${payment_amount:.2f} for billing #{billing_id} via {payment_method}")
+
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     
