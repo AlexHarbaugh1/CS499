@@ -1950,7 +1950,6 @@ class SearchScreen(QDialog):
         self.activeAdmissionsBox = QtWidgets.QCheckBox("Only Active Admissions")
         self.activeAdmissionsBox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
         self.gridLayoutWidget.layout().addWidget(self.activeAdmissionsBox, 3, 2)
-        self.notes_list = QListWidget()
         usertype = hospitalDB.getCurrentUserType()
         if usertype == "Volunteer":
             self.activeAdmissionsBox.hide()
@@ -2553,8 +2552,9 @@ class PatientDetailsScreen(QDialog):
             
             if all_notes:
                 for _, note_text in all_notes:
-                    self.notes_list.addItem(note_text)
-                notes_layout.addWidget(self.notes_list)
+                    notes_list = QListWidget()
+                    notes_list.addItem(note_text)
+                notes_layout.addWidget(notes_list)
             else:
                 notes_layout.addWidget(QLabel("No notes found"))
             
@@ -2578,7 +2578,7 @@ class PatientDetailsScreen(QDialog):
 
                 try:
                     InsertData.insertNote(admission_id, note_text)
-                    self.notes_list.addItem(f"New Note: {note_text}")
+                    notes_list.addItem(f"New Note: {note_text}")
                     QMessageBox.information(self, "Success", "Note added successfully!")
                     note_text_edit.clear()
                 except Exception as e:

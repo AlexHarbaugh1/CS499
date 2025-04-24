@@ -25,10 +25,10 @@ import json
 import string
 import EncryptionKey
 import SearchDB
-def locate_ui_file(ui_filename):
-    """
+"""def locate_ui_file(ui_filename):
+
     Locate a UI file, works for both development and packaged environments
-    """
+
     # If running as frozen executable
     if getattr(sys, 'frozen', False):
         base_path = os.path.dirname(sys.executable)
@@ -63,14 +63,15 @@ def locate_ui_file(ui_filename):
     print("Available files in current directory:", os.listdir('.'))
     
     # Return the original filename and let PyQt raise a proper error
-    return ui_filename
+    return ui_filename"""
 keys = EncryptionKey.getKeys()
 encryption_key = keys[0]
 fixed_salt = keys[1]
 class MainScreen(QDialog):
      def __init__(self):
          super(MainScreen, self).__init__()
-         loadUi(locate_ui_file("MainScreen.ui"), self)
+         #loadUi(locate_ui_file("MainScreen.ui"), self)
+         loadUi("MainScreen.ui", self)
          #self.enterApplication = QPushButton("Enter Application", self)
          
          # Get screen dimensions
@@ -140,8 +141,8 @@ class MainScreen(QDialog):
 class InitializeDatabaseScreen(QDialog):
     def __init__(self, widget):
         super(InitializeDatabaseScreen, self).__init__()
-        loadUi(locate_ui_file("setup.ui"), self)
-        
+        #loadUi(locate_ui_file("setup.ui"), self)
+        loadUi("setup.ui", self)
         # Store the widget reference
         self.widget = widget
         
@@ -236,8 +237,8 @@ class InitializeDatabaseScreen(QDialog):
 class LoginScreen(QDialog):
     def __init__(self):
         super(LoginScreen, self).__init__()
-        loadUi(locate_ui_file("login1.ui"), self)
-        
+        #loadUi(locate_ui_file("login1.ui"), self)
+        loadUi("login1.ui", self)
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()
@@ -397,7 +398,8 @@ class LoginScreen(QDialog):
 class ApplicationScreen(QDialog):
     def __init__(self):
         super(ApplicationScreen, self).__init__()
-        loadUi(locate_ui_file("ApplicationScreen.ui"), self)
+        #loadUi(locate_ui_file("ApplicationScreen.ui"), self)
+        loadUi("ApplicationScreen.ui", self)
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()
@@ -510,7 +512,8 @@ class ApplicationScreen(QDialog):
 class AdminScreen(QDialog):
     def __init__(self):
         super(AdminScreen, self).__init__()
-        loadUi(locate_ui_file("admin.ui"), self)
+        #loadUi(locate_ui_file("admin.ui"), self)
+        loadUi("admin.ui", self)
 
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -732,7 +735,8 @@ class AdminScreen(QDialog):
 class AuditLogScreen(QDialog):
     def __init__(self):
         super(AuditLogScreen, self).__init__()
-        loadUi(locate_ui_file("auditlog.ui"), self)
+        #loadUi(locate_ui_file("auditlog.ui"), self)
+        loadUi("auditlog.ui", self)
         
         # Get screen dimensions
         screen_size = QtWidgets.QApplication.primaryScreen().availableGeometry()
@@ -942,8 +946,8 @@ class AuditLogScreen(QDialog):
 class InsertStaff(QDialog):
     def __init__(self):
         super(InsertStaff, self).__init__()
-        loadUi(locate_ui_file("insertstaff.ui"), self)
-
+        #loadUi(locate_ui_file("insertstaff.ui"), self)
+        loadUi("insertstaff.ui", self)
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -1062,8 +1066,8 @@ class InsertStaff(QDialog):
 class InsertPatient(QDialog):
     def __init__(self):
         super(InsertPatient, self).__init__()
-        loadUi(locate_ui_file("insertpat.ui"), self)  # Load the new UI file
-        
+        #loadUi(locate_ui_file("insertpat.ui"), self)  # Load the new UI file
+        loadUi("insertpat.ui", self)
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -1272,8 +1276,8 @@ class InsertPatient(QDialog):
 class RegisterLocation(QDialog):
     def __init__(self):
         super(RegisterLocation, self).__init__()
-        loadUi(locate_ui_file("registerlocation.ui"), self)
-
+        #loadUi(locate_ui_file("registerlocation.ui"), self)
+        loadUi("registerlocation.ui", self)
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -1388,8 +1392,8 @@ class RegisterLocation(QDialog):
 class RegisterAdmission(QDialog):
     def __init__(self):
         super(RegisterAdmission, self).__init__()
-        loadUi(locate_ui_file("registeradmission.ui"), self)
-
+        #loadUi(locate_ui_file("registeradmission.ui"), self)
+        loadUi("registeradmission.ui", self)
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -1595,8 +1599,8 @@ class RegisterAdmission(QDialog):
 class SearchStaff(QDialog):
     def __init__(self):
         super(SearchStaff, self).__init__()
-        loadUi(locate_ui_file("stafflookup.ui"), self)
-        
+        #loadUi(locate_ui_file("stafflookup.ui"), self)
+        loadUi("stafflookup.ui", self)
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -1819,8 +1823,8 @@ class StaffDetailsScreen(QDialog):
 class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
-        loadUi(locate_ui_file("patientsearch.ui"), self)
-        
+        #loadUi(locate_ui_file("patientsearch.ui"), self)
+        loadUi("patientsearch.ui", self)
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -1850,7 +1854,6 @@ class SearchScreen(QDialog):
         self.activeAdmissionsBox = QtWidgets.QCheckBox("Only Active Admissions")
         self.activeAdmissionsBox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
         self.gridLayoutWidget.layout().addWidget(self.activeAdmissionsBox, 3, 2)
-        self.notes_list = QListWidget()
         usertype = hospitalDB.getCurrentUserType()
         if usertype == "Volunteer":
             self.activeAdmissionsBox.hide()
@@ -2455,8 +2458,9 @@ class PatientDetailsScreen(QDialog):
             
             if all_notes:
                 for _, note_text in all_notes:
-                    self.notes_list.addItem(note_text)
-                notes_layout.addWidget(self.notes_list)
+                    notes_list = QListWidget()
+                    notes_list.addItem(note_text)
+                notes_layout.addWidget(notes_list)
             else:
                 notes_layout.addWidget(QLabel("No notes found"))
             
@@ -2480,7 +2484,7 @@ class PatientDetailsScreen(QDialog):
 
                 try:
                     InsertData.insertNote(admission_id, note_text)
-                    self.notes_list.addItem(f"New Note: {note_text}")
+                    notes_list.addItem(f"New Note: {note_text}")
                     QMessageBox.information(self, "Success", "Note added successfully!")
                     note_text_edit.clear()
                 except Exception as e:
@@ -4036,7 +4040,8 @@ class PatientDetailsScreen(QDialog):
 class LockScreen(QtWidgets.QDialog):
     def __init__(self, exitAction, widget, eventFilter, currentUser):
         super(LockScreen, self).__init__()
-        loadUi(locate_ui_file("lockScreen.ui"), self)
+        #loadUi(locate_ui_file("lockScreen.ui"), self)
+        loadUi("lockScreen.ui", self)
         self.exitAction = exitAction
         self.widget = widget
         self.eventFilter = eventFilter
