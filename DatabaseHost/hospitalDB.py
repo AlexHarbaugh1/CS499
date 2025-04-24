@@ -236,14 +236,17 @@ def run():
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patient_patient_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE approvedvisitors_visitors_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE staff_user_id_seq TO administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE location_location_id_seq TO administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE admission_admission_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billingdetail_billing_detail_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billing_billing_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE auditlog_log_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role, volunteer_role;")
-      
-      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE insurance_insurance_id_seq TO officestaff_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE insurance_insurance_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE prescription_prescription_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE scheduledprocedure_procedure_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patientnote_note_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
       cursor2.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON emergencycontact TO officestaff_role;")
-      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE emergencycontact_contact_id_seq TO officestaff_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE emergencycontact_contact_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       # Create Views for Accessing Data
       # patientsearchview is the table used for the search screen, accessible to all user roles
       sql = """CREATE VIEW patientsearchview AS
