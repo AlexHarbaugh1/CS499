@@ -505,9 +505,25 @@ class ApplicationScreen(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
 class AdminScreen(QDialog):
     def __init__(self):
@@ -650,9 +666,25 @@ class AdminScreen(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
     def printAllAdmissionsSummary(self):
         try:
@@ -930,18 +962,58 @@ class AuditLogScreen(QDialog):
             QMessageBox.warning(self, "Export Error", f"An error occurred while exporting the data: {str(e)}")
     
     def goBack(self):
-        admin = AdminScreen()
-        widget = self.parent()
-        widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
     
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
-        widget = self.parent()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
 class InsertStaff(QDialog):
     def __init__(self):
@@ -1038,10 +1110,35 @@ class InsertStaff(QDialog):
                     self.errorMsg.setText(f"Error: {error_message}")
 
     def goBack(self):
-        # Navigate back to the admin screen
-        admin = AdminScreen()
-        widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
     
 
     def showPrintDialog(self, text):
@@ -1253,18 +1350,35 @@ class InsertPatient(QDialog):
         self.doctorCombo.setCurrentIndex(0)
     
     def goBack(self):
-        # Get the current user type
-        usertype = hospitalDB.getCurrentUserType()
+        # Get the current index
+        current_index = widget.currentIndex()
         
-        # Navigate based on user type
-        if usertype == "Administrator":
-            admin = AdminScreen()
-            widget.addWidget(admin)
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
         else:
-            application = ApplicationScreen()
-            widget.addWidget(application)
-        
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class RegisterLocation(QDialog):
     def __init__(self):
@@ -1375,10 +1489,35 @@ class RegisterLocation(QDialog):
                 self.errorMsg.setText(f"Error: {error_message}")
 
     def goBack(self):
-        # Navigate back to the admin screen
-        admin = AdminScreen()
-        widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class RegisterAdmission(QDialog):
     def __init__(self):
@@ -1574,18 +1713,35 @@ class RegisterAdmission(QDialog):
             self.errorMsg.setText(f"Error: {str(e)}")
 
     def goBack(self):
-        # Get the current user type
-        usertype = hospitalDB.getCurrentUserType()
+        # Get the current index
+        current_index = widget.currentIndex()
         
-        # Navigate based on user type
-        if usertype == "Administrator":
-            admin = AdminScreen()
-            widget.addWidget(admin)
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
         else:
-            application = ApplicationScreen()
-            widget.addWidget(application)
-        
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class SearchStaff(QDialog):
     def __init__(self):
@@ -1661,9 +1817,25 @@ class SearchStaff(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
     def searchFunction(self):
         lastName = self.lastField.text()
@@ -1710,19 +1882,35 @@ class SearchStaff(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def goBack(self):
-        # Get the current user type
-        usertype = hospitalDB.getCurrentUserType()
+        # Get the current index
+        current_index = widget.currentIndex()
         
-        # For InsertStaff, we might always want to go back to the admin screen
-        # since only administrators can access this screen, but let's check anyway
-        if usertype == "Administrator":
-            admin = AdminScreen()
-            widget.addWidget(admin)
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
         else:
-            application = ApplicationScreen()
-            widget.addWidget(application)
-        
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class StaffDetailsScreen(QDialog):
     def __init__(self, staff_id):
@@ -1807,9 +1995,35 @@ class StaffDetailsScreen(QDialog):
             print(f"Error: {e}")
 
     def goBack(self):
-        search_staff = SearchStaff()
-        widget.addWidget(search_staff)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class SearchScreen(QDialog):
     def __init__(self):
@@ -1945,22 +2159,56 @@ class SearchScreen(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
     def goBack(self):
-        # Get the current user type
-        usertype = hospitalDB.getCurrentUserType()
+        # Get the current index
+        current_index = widget.currentIndex()
         
-        # Navigate based on user type
-        if usertype == "Administrator":
-            admin = AdminScreen()
-            widget.addWidget(admin)
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
         else:
-            application = ApplicationScreen()
-            widget.addWidget(application)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class PatientDetailsScreen(QDialog):
     def __init__(self, patient_id):
@@ -2105,7 +2353,7 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.medications_tab, "Medications")
             self.tabs.addTab(self.procedures_tab, "Procedures")
             self.tabs.addTab(self.visitors_tab, "Approved Visitors")
-              # Add billing tab for Medical Personnel and Physicians
+            self.tabs.addTab(self.billing_tab, "Billing")
 
         self.num_static_tabs = self.tabs.count()  # Store default tab count
 
@@ -2668,6 +2916,7 @@ class PatientDetailsScreen(QDialog):
             visitors_layout.addWidget(historical_group)
             
             self.visitors_tab.setLayout(visitors_layout)
+
             admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
         
             self.loadBillingData(admissions)
@@ -4029,9 +4278,35 @@ class PatientDetailsScreen(QDialog):
         self.loadPatientData()
 
     def goBack(self):
-        search_screen = SearchScreen()
-        widget.addWidget(search_screen)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class LockScreen(QtWidgets.QDialog):
     def __init__(self, exitAction, widget, eventFilter, currentUser):
@@ -4068,9 +4343,25 @@ class LockScreen(QtWidgets.QDialog):
 def LogOut():
     eventFilter.enabled = False
     hospitalDB.userLogout()
-    home = MainScreen()
-    widget.addWidget(home)
-    widget.setCurrentIndex(widget.currentIndex() + 1)
+    
+    # Clear all widgets from the stack except the first one
+    while widget.count() > 1:
+        # Remove the last widget in the stack
+        last_widget = widget.widget(widget.count() - 1)
+        widget.removeWidget(last_widget)
+        
+        # Free up resources by scheduling widget for deletion
+        last_widget.deleteLater()
+    
+    # Create a new login screen
+    login = LoginScreen()
+    widget.addWidget(login)
+    widget.setCurrentIndex(1)
+    
+    # Remove the initial screen now that we have login in position 1
+    first_widget = widget.widget(0)
+    widget.removeWidget(first_widget)
+    first_widget.deleteLater()
 
 def lockScreen():
     print("here")

@@ -1121,24 +1121,18 @@ class InsertStaff(QDialog):
                 self.usernameField.clear()
                 self.passwordField.clear()
                 self.staffTypeCombo.setCurrentIndex(0)
-            except psycopg2.errors.UniqueViolation:
+            except Exception as e:
                 self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Username already exists. Please choose a different username.")
-            except psycopg2.errors.NotNullViolation:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Missing required information. Please fill all fields.")
-            except psycopg2.errors.ForeignKeyViolation:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Invalid staff type selected.")
-            except psycopg2.OperationalError:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Connection to database failed. Please try again later.")
-            except ValueError as e:
-                self.errorMsg.setStyleSheet("color: red;")
-                if "Invalid staff type" in str(e):
-                    self.errorMsg.setText("Please select a valid staff type.")
+                # Check for specific error types
+                error_message = str(e)
+                if "duplicate key value violates unique constraint" in error_message:
+                    self.errorMsg.setText("Username already exists. Please choose a different username.")
+                elif "not-null constraint" in error_message:
+                    self.errorMsg.setText("Missing required information. Please fill all fields.")
+                elif "foreign key constraint" in error_message:
+                    self.errorMsg.setText("Invalid staff type selected.")
                 else:
-                    self.errorMsg.setText("Invalid input data. Please check your entries.")
+                    self.errorMsg.setText(f"Error: {error_message}")
 
     def goBack(self):
         # Navigate back to the admin screen
@@ -1466,18 +1460,16 @@ class RegisterLocation(QDialog):
             self.roomField.clear()
             self.bedField.clear()
             
-        except psycopg2.errors.UniqueViolation:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("This location already exists. Please try a different combination.")
-        except psycopg2.errors.NotNullViolation:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("Missing required information. Please fill all fields.")
-        except psycopg2.OperationalError:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("Connection to database failed. Please try again later.")
         except Exception as e:
             self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText(f"Error: {str(e)}")
+            error_message = str(e)
+            # Check for specific error patterns in the exception message
+            if "duplicate key value violates unique constraint" in error_message or "unique_location" in error_message:
+                self.errorMsg.setText("This location already exists. Please try a different combination.")
+            elif "not-null constraint" in error_message:
+                self.errorMsg.setText("Missing required information. Please fill all fields.")
+            else:
+                self.errorMsg.setText(f"Error: {error_message}")
 
     def goBack(self):
         # Navigate back to the admin screen
@@ -2198,6 +2190,7 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
+            self.tabs.addTab(self.billing_tab, "Billing")
             
         elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
@@ -2453,8 +2446,11 @@ class PatientDetailsScreen(QDialog):
         contacts_layout.addWidget(ec_group)
         
         self.contacts_tab.setLayout(contacts_layout)
+
+        admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
         
-        
+        self.loadBillingData(admissions)
+
 
     def loadMedicalData(self, data):
         """Load data for Medical Personnel and Physician view"""

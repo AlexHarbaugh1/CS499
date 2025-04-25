@@ -146,7 +146,8 @@ def getDoctors(encryptionKey):
     with hospitalDB.get_cursor() as cursor:
         sql = """SELECT user_id, username, first_name, last_name
                 FROM staffsearchview
-                WHERE type_name = 'Physician';"""
+                WHERE type_name = 'Physician'
+                ORDER BY last_name ASC;"""
         params = (
             encryptionKey,
         )*3
