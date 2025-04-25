@@ -330,10 +330,10 @@ def run():
                       FROM 
                         Billing b
                       JOIN Admission a ON b.admission_id = a.admission_id;""")
-      cursor2.execute("GRANT SELECT ON billinginformationview TO physician_role, medicalpersonnel_role;")
-      cursor2.execute("GRANT SELECT ON billing TO physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT SELECT ON billinginformationview TO officestaff_role, physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT SELECT ON billing TO officestaff_role, physician_role, medicalpersonnel_role;")
       cursor2.execute("GRANT INSERT, UPDATE ON billing TO officestaff_role, physician_role, medicalpersonnel_role;")
-      cursor2.execute("GRANT SELECT ON billingdetail TO physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT SELECT ON billingdetail TO officestaff_role, physician_role, medicalpersonnel_role;")
       #Activeadmissionview shows all active admissions
       cursor2.execute("""CREATE VIEW activeadmissionview AS
                       SELECT admission_id, location_id FROM admission WHERE discharge_datetime IS NULL;""")
@@ -365,7 +365,16 @@ def run():
               MAX(CASE WHEN ec.contact_order = 1 THEN pgp_sym_decrypt(ec.contact_name, %s) END) AS ec1_name,
               MAX(CASE WHEN ec.contact_order = 1 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec1_phone,
               MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_name, %s) END) AS ec2_name,
-              MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec2_phone
+              MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec2_phone,
+              (
+                SELECT jsonb_agg(
+                  jsonb_build_object(
+                    'admission_id', a.admission_id
+                  ) ORDER BY a.admittance_datetime DESC
+                )
+                FROM Admission a
+                WHERE a.patient_id = p.patient_id
+              ) AS admissions
             FROM Patient p
             LEFT JOIN Insurance i ON p.patient_id = i.patient_id
             LEFT JOIN PhoneNumber pn ON p.patient_id = pn.patient_id
