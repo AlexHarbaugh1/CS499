@@ -20,3 +20,4 @@ dbconfig.py
 db_migration.py
 config_handler.py
 build_packages.py
+projectConnection.session.sql

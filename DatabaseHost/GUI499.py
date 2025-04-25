@@ -2103,6 +2103,7 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
+            self.tabs.addTab(self.billing_tab, "Billing")
             
         elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
@@ -2113,7 +2114,7 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.medications_tab, "Medications")
             self.tabs.addTab(self.procedures_tab, "Procedures")
             self.tabs.addTab(self.visitors_tab, "Approved Visitors")
-            self.tabs.addTab(self.billing_tab, "Billing")  # Add billing tab for Medical Personnel and Physicians
+              # Add billing tab for Medical Personnel and Physicians
 
         self.num_static_tabs = self.tabs.count()  # Store default tab count
 
@@ -2359,6 +2360,10 @@ class PatientDetailsScreen(QDialog):
         contacts_layout.addWidget(ec_group)
         
         self.contacts_tab.setLayout(contacts_layout)
+
+        admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
+        
+        self.loadBillingData(admissions)
 
 
     def loadMedicalData(self, data):
