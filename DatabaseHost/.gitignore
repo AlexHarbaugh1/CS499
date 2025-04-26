@@ -1,0 +1,4 @@
+.env
+projectConnection.session.sql
+/__pycache__
+testDataframe.py
