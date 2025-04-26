@@ -102,16 +102,13 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <rect>
       <x>180</x>
       <y>290</y>
-      <width>401</width>
+      <width>515</width>
       <height>151</height>
      </rect>
     </property>
     <layout class="QGridLayout" name="gridLayout">
      <item row="0" column="1">
       <widget class="QLineEdit" name="lastField"/>
-     </item>
-     <item row="1" column="1">
-      <widget class="QLineEdit" name="firstField"/>
      </item>
      <item row="1" column="0">
       <widget class="QLabel" name="labelFirstName">
@@ -133,17 +130,16 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
        </property>
       </widget>
      </item>
-     <item row="0" column="2">
-      <widget class="QCheckBox" name="lastBox">
-       <property name="text">
-        <string>Partial Search</string>
-       </property>
-      </widget>
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="firstField"/>
      </item>
-     <item row="1" column="2">
-      <widget class="QCheckBox" name="firstBox">
+     <item row="2" column="1">
+      <widget class="QLabel" name="infoLabel">
+       <property name="styleSheet">
+        <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
+       </property>
        <property name="text">
-        <string>Partial Search</string>
+        <string>Enter MAR* to search all names starting with MAR</string>
        </property>
       </widget>
      </item>

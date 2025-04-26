@@ -94,6 +94,32 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      </rect>
     </property>
     <layout class="QGridLayout" name="gridLayout">
+     <item row="2" column="1">
+      <widget class="QLineEdit" name="midField"/>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="labelFirstName">
+       <property name="styleSheet">
+        <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
+       </property>
+       <property name="text">
+        <string>First Name:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="label_2">
+       <property name="styleSheet">
+        <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
+       </property>
+       <property name="text">
+        <string>Middle Name:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="firstField"/>
+     </item>
      <item row="0" column="0">
       <widget class="QLabel" name="labelLastName">
        <property name="styleSheet">
@@ -107,43 +133,13 @@ background-color:qlineargradient(spread:pad, x1:1, y1:0.982409, x2:1, y2:0, stop
      <item row="0" column="1">
       <widget class="QLineEdit" name="lastField"/>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="labelFirstName">
+     <item row="3" column="1">
+      <widget class="QLabel" name="infoLabel">
        <property name="styleSheet">
         <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
        </property>
        <property name="text">
-        <string>First Name:</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QLineEdit" name="firstField"/>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="label_2">
-       <property name="styleSheet">
-        <string notr="true">font: 14pt &quot;MS Shell Dlg 2&quot;;</string>
-       </property>
-       <property name="text">
-        <string>Middle Name:</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QLineEdit" name="midField"/>
-     </item>
-     <item row="0" column="2">
-      <widget class="QCheckBox" name="lastBox">
-       <property name="text">
-        <string>Partial Search</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="2">
-      <widget class="QCheckBox" name="firstBox">
-       <property name="text">
-        <string>Partial Search</string>
+        <string>Enter MAR* to search all names starting with MAR</string>
        </property>
       </widget>
      </item>

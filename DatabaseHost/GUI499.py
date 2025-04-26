@@ -1619,10 +1619,8 @@ class SearchStaff(QDialog):
             field.setMinimumHeight(35)
             field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
             
-        # Style checkboxes
-        for checkbox in [self.lastBox, self.firstBox]:
-            checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
-    
+        self.infoLabel.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
+
         # Connect event handlers
         self.search.clicked.connect(self.searchFunction)
         self.logout.clicked.connect(self.logoutFunction)
@@ -1678,8 +1676,6 @@ class SearchStaff(QDialog):
     def searchFunction(self):
         lastName = self.lastField.text()
         firstName = self.firstField.text()
-        firstBox = self.firstBox.isChecked()
-        lastBox = self.lastBox.isChecked()
         partials = set()
         
         if len(lastName) == 0 and len(firstName) == 0:
@@ -1687,16 +1683,21 @@ class SearchStaff(QDialog):
         else:
             df = None
 
-            # Check whether checkbox for last name or first name is checked
-            if lastBox:
-                partials.add('lname')
-            if firstBox:
-                partials.add('fname')
+            # Check whether last name or first name end with *
+
+            if len(firstName) != 0:
+                if firstName[-1] == "*":
+                    partials.add('fname')
+                    firstName = firstName.rstrip("*")
+            if len(lastName) != 0:
+                if lastName[-1] == "*":
+                    partials.add('lname')
+                    lastName = lastName.rstrip("*")
 
             df = pd.DataFrame(SearchDB.searchStaffWithName(fixed_salt,
-                                                          firstName if firstName else None,
-                                                          lastName if lastName else None,
-                                                          partials))
+                                                          fname=firstName.title() if firstName else None,
+                                                          lname=lastName.title() if lastName else None,
+                                                          partial_fields=partials))
 
             if df.empty:
                 self.error.setText("No results found.")
@@ -1843,9 +1844,7 @@ class SearchScreen(QDialog):
             field.setMinimumHeight(35)
             field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
             
-        # Style checkboxes
-        for checkbox in [self.lastBox, self.firstBox]:
-            checkbox.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
+        self.infoLabel.setStyleSheet("font: 11pt \"MS Shell Dlg 2\";")
     
         # Connect event handlers
         self.search.clicked.connect(self.searchFunction)
@@ -1903,8 +1902,6 @@ class SearchScreen(QDialog):
         lastName = self.lastField.text()
         firstName = self.firstField.text()
         middleName = self.midField.text()
-        lastBox = self.lastBox.isChecked()
-        firstBox = self.firstBox.isChecked()
         activeAdmissionsOnly = False
         
         # Check if the activeAdmissionsBox exists and is visible
