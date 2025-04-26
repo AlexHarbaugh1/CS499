@@ -15,8 +15,8 @@ import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtWidgets import QDialog, QApplication, QWidget, QTableWidgetItem, QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QTableWidget, QDialogButtonBox, QDateTimeEdit, QListWidgetItem
-from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime
+from PyQt5.QtWidgets import QDialog, QDateTimeEdit, QDialogButtonBox, QApplication, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QListWidgetItem
+from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime, QCoreApplication
 from PyQt5.QtGui import QBrush
 import csv
 import os
@@ -68,81 +68,81 @@ keys = EncryptionKey.getKeys()
 encryption_key = keys[0]
 fixed_salt = keys[1]
 class MainScreen(QDialog):
-    def __init__(self):
-        super(MainScreen, self).__init__()
-        #loadUi(locate_ui_file("MainScreen.ui"), self)
-        loadUi("MainScreen.ui", self)
+     def __init__(self):
+         super(MainScreen, self).__init__()
+         #loadUi(locate_ui_file("MainScreen.ui"), self)
+         loadUi("MainScreen.ui", self)
          #self.enterApplication = QPushButton("Enter Application", self)
+         
+         # Get screen dimensions
+         screen_size = QApplication.primaryScreen().availableGeometry()
+         screen_width = screen_size.width()
+         screen_height = screen_size.height()
+         
+         # Set main widget to fill the entire screen
+         self.widget.setGeometry(0, 0, screen_width, screen_height)
+         
+         # Center the UI elements
+         self.centerUI(screen_width, screen_height)
+         
+         # Style the enter button
+         self.styleElements()
+         
+         # Connect button
+         self.enterApplication.clicked.connect(self.openLogin)
         
-        # Get screen dimensions
-        screen_size = QApplication.primaryScreen().availableGeometry()
-        screen_width = screen_size.width()
-        screen_height = screen_size.height()
-        
-        # Set main widget to fill the entire screen
-        self.widget.setGeometry(0, 0, screen_width, screen_height)
-        
-        # Center the UI elements
-        self.centerUI(screen_width, screen_height)
-        
-        # Style the enter button
-        self.styleElements()
-        
-        # Connect button
-        self.enterApplication.clicked.connect(self.openLogin)
-
-    
-    def centerUI(self, screen_width, screen_height):
-        """Center all UI elements properly"""
-        # Center the welcome message
-        label_width = 600
-        self.label_3.setGeometry((screen_width - label_width) // 2, 
-                                 screen_height // 3, 
-                                 label_width, 100)
-        
-        # Center the enter button and make it appropriately sized
-        button_width = 250
-        button_height = 60
-        self.enterApplication.setGeometry((screen_width - button_width) // 2, 
-                                          (screen_height // 2) + 50, 
-                                          button_width, button_height)
-    
-    def styleElements(self):
-        """Apply consistent styling to elements"""
-        # Style for the welcome message
-        self.label_3.setStyleSheet("""
-            font: bold 24pt "MS Shell Dlg 2";
-            color: #333333;
-        """)
-        
-        # Style for the enter button
-        self.enterApplication.setStyleSheet("""
-            QPushButton {
-                background-color: #e0e0e0;
-                color: black;
-                border: 1px solid #aaa;
-                border-radius: 4px;
-                padding: 10px;
-                font: bold 14pt "MS Shell Dlg 2";
-            }
-            QPushButton:hover {
-                background-color: #d6d6d6;
-            }
-            QPushButton:pressed {
-                background-color: #c0c0c0;
-            }
-        """)
-
-    def openLogin(self):
-        login = LoginScreen()
-        widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+ 
+     def centerUI(self, screen_width, screen_height):
+         """Center all UI elements properly"""
+         # Center the welcome message
+         label_width = 600
+         self.label_3.setGeometry((screen_width - label_width) // 2, 
+                                  screen_height // 3, 
+                                  label_width, 100)
+         
+         # Center the enter button and make it appropriately sized
+         button_width = 250
+         button_height = 60
+         self.enterApplication.setGeometry((screen_width - button_width) // 2, 
+                                           (screen_height // 2) + 50, 
+                                           button_width, button_height)
+     
+     def styleElements(self):
+         """Apply consistent styling to elements"""
+         # Style for the welcome message
+         self.label_3.setStyleSheet("""
+             font: bold 24pt "MS Shell Dlg 2";
+             color: #333333;
+         """)
+         
+         # Style for the enter button
+         self.enterApplication.setStyleSheet("""
+             QPushButton {
+                 background-color: #e0e0e0;
+                 color: black;
+                 border: 1px solid #aaa;
+                 border-radius: 4px;
+                 padding: 10px;
+                 font: bold 14pt "MS Shell Dlg 2";
+             }
+             QPushButton:hover {
+                 background-color: #d6d6d6;
+             }
+             QPushButton:pressed {
+                 background-color: #c0c0c0;
+             }
+         """)
+ 
+     def openLogin(self):
+         login = LoginScreen()
+         widget.addWidget(login)
+         widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class InitializeDatabaseScreen(QDialog):
     def __init__(self, widget):
         super(InitializeDatabaseScreen, self).__init__()
+        #loadUi(locate_ui_file("setup.ui"), self)
         loadUi("setup.ui", self)
-        
         # Store the widget reference
         self.widget = widget
         
@@ -237,8 +237,8 @@ class InitializeDatabaseScreen(QDialog):
 class LoginScreen(QDialog):
     def __init__(self):
         super(LoginScreen, self).__init__()
+        #loadUi(locate_ui_file("login1.ui"), self)
         loadUi("login1.ui", self)
-        
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()
@@ -260,110 +260,110 @@ class LoginScreen(QDialog):
         self.login.clicked.connect(self.loginfunction)
 
     def centerUI(self, screen_width, screen_height):
-        """Center all UI elements properly"""
-        # Calculate a container area in the center of screen
-        container_width = 400
-        container_height = 350
-        
-        # Center position of the container
-        container_x = (screen_width - container_width) // 2
-        container_y = (screen_height - container_height) // 2
-        
-        # Calculate spacing and sizes
-        field_height = 40
-        label_width = 120
-        field_width = 250
-        spacing = 20
-        
-        # Position the PIMS title at the top of container
-        self.label.setGeometry(container_x, container_y, container_width, 60)
-        
-        # Position username label and field
-        self.labelUser.setGeometry(container_x, 
-                                  container_y + 90, 
-                                  label_width, field_height)
-        
-        self.userField.setGeometry(container_x + label_width + 10, 
-                                  container_y + 90, 
-                                  field_width, field_height)
-        
-        # Position password label and field
-        self.labelPass.setGeometry(container_x, 
-                                  container_y + 90 + field_height + spacing, 
-                                  label_width, field_height)
-        
-        self.passwordField.setGeometry(container_x + label_width + 10, 
-                                      container_y + 90 + field_height + spacing, 
-                                      field_width, field_height)
-        
-        # Position login button
-        button_width = 150
-        button_height = 50
-        self.login.setGeometry((screen_width - button_width) // 2, 
-                              container_y + 90 + (field_height + spacing) * 2 + 20, 
-                              button_width, button_height)
-        
-        # Position error message
-        error_width = 400
-        self.errorMsg.setGeometry((screen_width - error_width) // 2, 
-                                 container_y + 90 + (field_height + spacing) * 2 + 20 + button_height + 20, 
-                                 error_width, 30)
-    
+         """Center all UI elements properly"""
+         # Calculate a container area in the center of screen
+         container_width = 400
+         container_height = 350
+         
+         # Center position of the container
+         container_x = (screen_width - container_width) // 2
+         container_y = (screen_height - container_height) // 2
+         
+         # Calculate spacing and sizes
+         field_height = 40
+         label_width = 120
+         field_width = 250
+         spacing = 20
+         
+         # Position the PIMS title at the top of container
+         self.label.setGeometry(container_x, container_y, container_width, 60)
+         
+         # Position username label and field
+         self.labelUser.setGeometry(container_x, 
+                                   container_y + 90, 
+                                   label_width, field_height)
+         
+         self.userField.setGeometry(container_x + label_width + 10, 
+                                   container_y + 90, 
+                                   field_width, field_height)
+         
+         # Position password label and field
+         self.labelPass.setGeometry(container_x, 
+                                   container_y + 90 + field_height + spacing, 
+                                   label_width, field_height)
+         
+         self.passwordField.setGeometry(container_x + label_width + 10, 
+                                       container_y + 90 + field_height + spacing, 
+                                       field_width, field_height)
+         
+         # Position login button
+         button_width = 150
+         button_height = 50
+         self.login.setGeometry((screen_width - button_width) // 2, 
+                               container_y + 90 + (field_height + spacing) * 2 + 20, 
+                               button_width, button_height)
+         
+         # Position error message
+         error_width = 400
+         self.errorMsg.setGeometry((screen_width - error_width) // 2, 
+                                  container_y + 90 + (field_height + spacing) * 2 + 20 + button_height + 20, 
+                                  error_width, 30)
+     
     def styleElements(self):
-        """Apply consistent styling to all elements"""
-        # Style title
-        self.label.setStyleSheet("""
-            font: bold 36pt "MS Shell Dlg 2";
-            color: #333333;
-            padding-bottom: 20px;
-        """)
-        self.label.setAlignment(Qt.AlignCenter)
-        
-        # Style for labels
-        for label in [self.labelUser, self.labelPass]:
-            label.setStyleSheet("""
-                font: 14pt "MS Shell Dlg 2";
-                padding-right: 10px;
-            """)
-            label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        
-        # Style for input fields
-        for field in [self.userField, self.passwordField]:
-            field.setStyleSheet("""
-                font: 12pt "MS Shell Dlg 2";
-                border: 1px solid #aaa;
-                border-radius: 4px;
-                padding: 5px;
-                background-color: white;
-            """)
-            field.setMinimumHeight(40)
-        
-        # Style for login button
-        self.login.setStyleSheet("""
-            QPushButton {
-                background-color: #e0e0e0;
-                color: black;
-                border: 1px solid #aaa;
-                border-radius: 4px;
-                padding: 10px;
-                font: bold 14pt "MS Shell Dlg 2";
-            }
-            QPushButton:hover {
-                background-color: #d6d6d6;
-            }
-            QPushButton:pressed {
-                background-color: #c0c0c0;
-            }
-        """)
-        
-        # Style for error message
-        self.errorMsg.setStyleSheet("""
-            font: 12pt "MS Shell Dlg 2";
-            color: rgb(255, 0, 0);
-        """)
-        self.errorMsg.setAlignment(Qt.AlignCenter)
-        self.errorMsg.setWordWrap(True)
-
+         """Apply consistent styling to all elements"""
+         # Style title
+         self.label.setStyleSheet("""
+             font: bold 36pt "MS Shell Dlg 2";
+             color: #333333;
+             padding-bottom: 20px;
+         """)
+         self.label.setAlignment(Qt.AlignCenter)
+         
+         # Style for labels
+         for label in [self.labelUser, self.labelPass]:
+             label.setStyleSheet("""
+                 font: 14pt "MS Shell Dlg 2";
+                 padding-right: 10px;
+             """)
+             label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+         
+         # Style for input fields
+         for field in [self.userField, self.passwordField]:
+             field.setStyleSheet("""
+                 font: 12pt "MS Shell Dlg 2";
+                 border: 1px solid #aaa;
+                 border-radius: 4px;
+                 padding: 5px;
+                 background-color: white;
+             """)
+             field.setMinimumHeight(40)
+         
+         # Style for login button
+         self.login.setStyleSheet("""
+             QPushButton {
+                 background-color: #e0e0e0;
+                 color: black;
+                 border: 1px solid #aaa;
+                 border-radius: 4px;
+                 padding: 10px;
+                 font: bold 14pt "MS Shell Dlg 2";
+             }
+             QPushButton:hover {
+                 background-color: #d6d6d6;
+             }
+             QPushButton:pressed {
+                 background-color: #c0c0c0;
+             }
+         """)
+         
+         # Style for error message
+         self.errorMsg.setStyleSheet("""
+             font: 12pt "MS Shell Dlg 2";
+             color: rgb(255, 0, 0);
+         """)
+         self.errorMsg.setAlignment(Qt.AlignCenter)
+         self.errorMsg.setWordWrap(True)
+ 
     def loginfunction(self):
         user = self.userField.text()
         password = self.passwordField.text()
@@ -398,7 +398,7 @@ class LoginScreen(QDialog):
 class ApplicationScreen(QDialog):
     def __init__(self):
         super(ApplicationScreen, self).__init__()
-         #loadUi(locate_ui_file("ApplicationScreen.ui"), self)
+        #loadUi(locate_ui_file("ApplicationScreen.ui"), self)
         loadUi("ApplicationScreen.ui", self)
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -425,15 +425,14 @@ class ApplicationScreen(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title and subtitle
-        title_width = 1700
-        self.label.setGeometry((screen_width - title_width) // 2, 20, title_width, 250)
-        self.label_2.setGeometry((screen_width - title_width) // 2, 150, title_width, 250)
+        title_width = 600
+        self.label.setGeometry((screen_width - title_width) // 2, 120, title_width, 61)
         
         # Position logout button in top right
-        self.logout.setGeometry(screen_width - 250, 70, 200, 100)
+        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
         
         # Center the gridLayoutWidget
-        grid_width = 1000
+        grid_width = 700
         grid_height = 400
         self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 260, grid_width, grid_height)
 
@@ -506,25 +505,9 @@ class ApplicationScreen(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
-        
-        # Clear all widgets from the stack except the first one
-        while widget.count() > 1:
-            # Remove the last widget in the stack
-            last_widget = widget.widget(widget.count() - 1)
-            widget.removeWidget(last_widget)
-            
-            # Free up resources by scheduling widget for deletion
-            last_widget.deleteLater()
-        
-        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(1)
-        
-        # Remove the initial screen now that we have login in position 1
-        first_widget = widget.widget(0)
-        widget.removeWidget(first_widget)
-        first_widget.deleteLater()
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class AdminScreen(QDialog):
     def __init__(self):
@@ -621,7 +604,7 @@ class AdminScreen(QDialog):
         
         # Apply style to all operation buttons
         for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
-                      self.regLocation, self.regAdmission, self.auditLog]:
+                      self.regLocation, self.regAdmission, self.auditLog, self.printAllAdmissions]:
             button.setStyleSheet(button_style)
             button.setMinimumHeight(60)
             
@@ -667,25 +650,9 @@ class AdminScreen(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
-        
-        # Clear all widgets from the stack except the first one
-        while widget.count() > 1:
-            # Remove the last widget in the stack
-            last_widget = widget.widget(widget.count() - 1)
-            widget.removeWidget(last_widget)
-            
-            # Free up resources by scheduling widget for deletion
-            last_widget.deleteLater()
-        
-        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(1)
-        
-        # Remove the initial screen now that we have login in position 1
-        first_widget = widget.widget(0)
-        widget.removeWidget(first_widget)
-        first_widget.deleteLater()
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def printAllAdmissionsSummary(self):
         try:
@@ -763,8 +730,8 @@ class AdminScreen(QDialog):
         if dialog.exec_() == QPrintDialog.Accepted:
             doc = QTextDocument()
             doc.setPlainText(text)
-            doc.print_(printer)
-            
+            doc.print_(printer)    
+
 class AuditLogScreen(QDialog):
     def __init__(self):
         super(AuditLogScreen, self).__init__()
@@ -963,64 +930,24 @@ class AuditLogScreen(QDialog):
             QMessageBox.warning(self, "Export Error", f"An error occurred while exporting the data: {str(e)}")
     
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
-        
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
-            
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
-                try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
-                    pass
-            
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
-        else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+        admin = AdminScreen()
+        widget = self.parent()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
     
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
-        
-        # Clear all widgets from the stack except the first one
-        while widget.count() > 1:
-            # Remove the last widget in the stack
-            last_widget = widget.widget(widget.count() - 1)
-            widget.removeWidget(last_widget)
-            
-            # Free up resources by scheduling widget for deletion
-            last_widget.deleteLater()
-        
-        # Create a new login screen
         login = LoginScreen()
+        widget = self.parent()
         widget.addWidget(login)
-        widget.setCurrentIndex(1)
-        
-        # Remove the initial screen now that we have login in position 1
-        first_widget = widget.widget(0)
-        widget.removeWidget(first_widget)
-        first_widget.deleteLater()
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class InsertStaff(QDialog):
     def __init__(self):
         super(InsertStaff, self).__init__()
+        #loadUi(locate_ui_file("insertstaff.ui"), self)
         loadUi("insertstaff.ui", self)
-
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -1075,6 +1002,7 @@ class InsertStaff(QDialog):
         self.errorMsg.setWordWrap(True)
     
     def addStaffMember(self):
+    
         firstName = self.firstNameField.text()
         lastName = self.lastNameField.text()
         username = self.usernameField.text()
@@ -1097,49 +1025,30 @@ class InsertStaff(QDialog):
                 self.usernameField.clear()
                 self.passwordField.clear()
                 self.staffTypeCombo.setCurrentIndex(0)
-            except Exception as e:
+            except psycopg2.errors.UniqueViolation:
                 self.errorMsg.setStyleSheet("color: red;")
-                # Check for specific error types
-                error_message = str(e)
-                if "duplicate key value violates unique constraint" in error_message:
-                    self.errorMsg.setText("Username already exists. Please choose a different username.")
-                elif "not-null constraint" in error_message:
-                    self.errorMsg.setText("Missing required information. Please fill all fields.")
-                elif "foreign key constraint" in error_message:
-                    self.errorMsg.setText("Invalid staff type selected.")
+                self.errorMsg.setText("Username already exists. Please choose a different username.")
+            except psycopg2.errors.NotNullViolation:
+                self.errorMsg.setStyleSheet("color: red;")
+                self.errorMsg.setText("Missing required information. Please fill all fields.")
+            except psycopg2.errors.ForeignKeyViolation:
+                self.errorMsg.setStyleSheet("color: red;")
+                self.errorMsg.setText("Invalid staff type selected.")
+            except psycopg2.OperationalError:
+                self.errorMsg.setStyleSheet("color: red;")
+                self.errorMsg.setText("Connection to database failed. Please try again later.")
+            except ValueError as e:
+                self.errorMsg.setStyleSheet("color: red;")
+                if "Invalid staff type" in str(e):
+                    self.errorMsg.setText("Please select a valid staff type.")
                 else:
-                    self.errorMsg.setText(f"Error: {error_message}")
+                    self.errorMsg.setText("Invalid input data. Please check your entries.")
 
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
-        
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
-            
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
-                try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
-                    pass
-            
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
-        else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+        # Navigate back to the admin screen
+        admin = AdminScreen()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
     
 
     def showPrintDialog(self, text):
@@ -1157,8 +1066,8 @@ class InsertStaff(QDialog):
 class InsertPatient(QDialog):
     def __init__(self):
         super(InsertPatient, self).__init__()
-        loadUi("insertpat.ui", self)  # Load the new UI file
-        
+        #loadUi(locate_ui_file("insertpat.ui"), self)  # Load the new UI file
+        loadUi("insertpat.ui", self)
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -1268,7 +1177,7 @@ class InsertPatient(QDialog):
         
         try:
             # Insert the patient
-            InsertData.insertPatient(firstName, middleInit, lastName, address, doctorID, fixed_salt)
+            InsertData.insertPatient(firstName.title(), middleInit.title() if middleInit else None, lastName.title(), address, doctorID, fixed_salt)
             
             # Get the newly inserted patient ID (most recent patient)
             with hospitalDB.get_cursor() as cursor:
@@ -1351,41 +1260,24 @@ class InsertPatient(QDialog):
         self.doctorCombo.setCurrentIndex(0)
     
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
+        # Get the current user type
+        usertype = hospitalDB.getCurrentUserType()
         
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
-            
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
-                try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
-                    pass
-            
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        # Navigate based on user type
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
         else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class RegisterLocation(QDialog):
     def __init__(self):
         super(RegisterLocation, self).__init__()
+        #loadUi(locate_ui_file("registerlocation.ui"), self)
         loadUi("registerlocation.ui", self)
-
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -1478,53 +1370,30 @@ class RegisterLocation(QDialog):
             self.roomField.clear()
             self.bedField.clear()
             
+        except psycopg2.errors.UniqueViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("This location already exists. Please try a different combination.")
+        except psycopg2.errors.NotNullViolation:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Missing required information. Please fill all fields.")
+        except psycopg2.OperationalError:
+            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setText("Connection to database failed. Please try again later.")
         except Exception as e:
             self.errorMsg.setStyleSheet("color: red;")
-            error_message = str(e)
-            # Check for specific error patterns in the exception message
-            if "duplicate key value violates unique constraint" in error_message or "unique_location" in error_message:
-                self.errorMsg.setText("This location already exists. Please try a different combination.")
-            elif "not-null constraint" in error_message:
-                self.errorMsg.setText("Missing required information. Please fill all fields.")
-            else:
-                self.errorMsg.setText(f"Error: {error_message}")
+            self.errorMsg.setText(f"Error: {str(e)}")
 
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
-        
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
-            
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
-                try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
-                    pass
-            
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
-        else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+        # Navigate back to the admin screen
+        admin = AdminScreen()
+        widget.addWidget(admin)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class RegisterAdmission(QDialog):
     def __init__(self):
         super(RegisterAdmission, self).__init__()
+        #loadUi(locate_ui_file("registeradmission.ui"), self)
         loadUi("registeradmission.ui", self)
-
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -1714,41 +1583,24 @@ class RegisterAdmission(QDialog):
             self.errorMsg.setText(f"Error: {str(e)}")
 
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
+        # Get the current user type
+        usertype = hospitalDB.getCurrentUserType()
         
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
-            
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
-                try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
-                    pass
-            
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        # Navigate based on user type
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
         else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class SearchStaff(QDialog):
     def __init__(self):
         super(SearchStaff, self).__init__()
+        #loadUi(locate_ui_file("stafflookup.ui"), self)
         loadUi("stafflookup.ui", self)
-        
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -1818,25 +1670,9 @@ class SearchStaff(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
-        
-        # Clear all widgets from the stack except the first one
-        while widget.count() > 1:
-            # Remove the last widget in the stack
-            last_widget = widget.widget(widget.count() - 1)
-            widget.removeWidget(last_widget)
-            
-            # Free up resources by scheduling widget for deletion
-            last_widget.deleteLater()
-        
-        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(1)
-        
-        # Remove the initial screen now that we have login in position 1
-        first_widget = widget.widget(0)
-        widget.removeWidget(first_widget)
-        first_widget.deleteLater()
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def searchFunction(self):
         lastName = self.lastField.text()
@@ -1883,35 +1719,19 @@ class SearchStaff(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
+        # Get the current user type
+        usertype = hospitalDB.getCurrentUserType()
         
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
-            
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
-                try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
-                    pass
-            
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        # For InsertStaff, we might always want to go back to the admin screen
+        # since only administrators can access this screen, but let's check anyway
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
         else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class StaffDetailsScreen(QDialog):
     def __init__(self, staff_id):
@@ -1996,41 +1816,15 @@ class StaffDetailsScreen(QDialog):
             print(f"Error: {e}")
 
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
-        
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
-            
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
-                try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
-                    pass
-            
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
-        else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+        search_staff = SearchStaff()
+        widget.addWidget(search_staff)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
+        #loadUi(locate_ui_file("patientsearch.ui"), self)
         loadUi("patientsearch.ui", self)
-        
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -2160,56 +1954,22 @@ class SearchScreen(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
-        
-        # Clear all widgets from the stack except the first one
-        while widget.count() > 1:
-            # Remove the last widget in the stack
-            last_widget = widget.widget(widget.count() - 1)
-            widget.removeWidget(last_widget)
-            
-            # Free up resources by scheduling widget for deletion
-            last_widget.deleteLater()
-        
-        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(1)
-        
-        # Remove the initial screen now that we have login in position 1
-        first_widget = widget.widget(0)
-        widget.removeWidget(first_widget)
-        first_widget.deleteLater()
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
+        # Get the current user type
+        usertype = hospitalDB.getCurrentUserType()
         
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
-            
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
-                try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
-                    pass
-            
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        # Navigate based on user type
+        if usertype == "Administrator":
+            admin = AdminScreen()
+            widget.addWidget(admin)
         else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+            application = ApplicationScreen()
+            widget.addWidget(application)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class PatientDetailsScreen(QDialog):
     def __init__(self, patient_id):
@@ -2272,7 +2032,7 @@ class PatientDetailsScreen(QDialog):
     
     def setupTabs(self):
         self.num_static_tabs = 0  # Initialize count
-    
+
         if self.usertype == "Volunteer":
             self.tabs.addTab(self.basic_info_tab, "Patient Info")
             self.tabs.addTab(self.location_tab, "Location")
@@ -2329,7 +2089,7 @@ class PatientDetailsScreen(QDialog):
             layout.addRow("Emergency Contact Name:", self.emergencyNameEdit)
             layout.addRow("Emergency Contact Phone:", self.emergencyPhoneEdit)
 
-            
+
 
             self.editBasicInfoBtn = QPushButton("Edit")
             self.saveBasicInfoBtn = QPushButton("Save")
@@ -2343,7 +2103,7 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
-            self.tabs.addTab(self.billing_tab, "Billing")  # Add billing tab for Office Staff
+            self.tabs.addTab(self.billing_tab, "Billing")
             
         elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
@@ -2354,12 +2114,12 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.medications_tab, "Medications")
             self.tabs.addTab(self.procedures_tab, "Procedures")
             self.tabs.addTab(self.visitors_tab, "Approved Visitors")
-            self.tabs.addTab(self.billing_tab, "Billing")  # Add billing tab for Medical Personnel and Physicians
+              # Add billing tab for Medical Personnel and Physicians
 
         self.num_static_tabs = self.tabs.count()  # Store default tab count
 
-    
-    # 👇 Add the new slot functions here
+
+ # 👇 Add the new slot functions here
     def enableInsuranceEdit(self):
         self.groupNumberEdit.setReadOnly(False)
         self.insuranceProviderEdit.setReadOnly(False)
@@ -2396,31 +2156,28 @@ class PatientDetailsScreen(QDialog):
         try:
             patient_data = SearchDB.searchPatientWithID(self.patient_id)
             self.patient_data = patient_data
+            self.admissions_data = patient_data[15]  # make sure this is the correct index!
+            
+            self.loadMedicalData()  # ✅ <- This line ensures GUI + admissions_list_widget are refreshed
 
-            # Re-load all tabs for the patient
-            self.loadPatientData()
-
-            # Look for the dynamic admission tab by its title
             if hasattr(self, 'current_admission_id'):
-                admissions = patient_data[15]
-                for idx, admission in enumerate(admissions):
+                for idx, admission in enumerate(self.admissions_data):
                     if admission.get("admission_id") == self.current_admission_id:
                         tab_title = f"Admission #{self.current_admission_id}"
-                        
-                        # Remove tab if it already exists
+
+                        # Remove existing tab
                         for i in range(self.tabs.count()):
                             if self.tabs.tabText(i) == tab_title:
                                 self.tabs.removeTab(i)
                                 break
-                        
-                        # Reopen the updated tab
-                        admission_id = self.admissions_data[idx].get('admission_id')
-                        self.openAdmissionDetails(admission_id)
-                        break
 
+                        # Reopen the updated tab
+                        self.openAdmissionDetails(self.current_admission_id)
+                        break
         except Exception as e:
             print("Error reloading admission details:", e)
             traceback.print_exc()
+
 
 
 
@@ -2600,13 +2357,16 @@ class PatientDetailsScreen(QDialog):
         contacts_layout.addWidget(ec_group)
         
         self.contacts_tab.setLayout(contacts_layout)
-        
+
         admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
         
         self.loadBillingData(admissions)
-        
+
 
     def loadMedicalData(self, data):
+        self.notes_storage = []  # for keeping note data
+        self.notes_list = QListWidget()  # this stays your widget
+
         """Load data for Medical Personnel and Physician view"""
         # Medical view has: patient_id, first_name, middle_name, last_name, address, insurance, phones, emergency contacts, admissions
         
@@ -2702,10 +2462,11 @@ class PatientDetailsScreen(QDialog):
             all_notes.sort(key=lambda x: x[0])
             
             if all_notes:
-                notes_list = QListWidget()
                 for _, note_text in all_notes:
-                    notes_list.addItem(note_text)
-                notes_layout.addWidget(notes_list)
+                   self.notes_list.addItem(note_text)        # ✅ GUI update
+                   self.notes_storage.append(note_text)      # ✅ backend update
+
+                notes_layout.addWidget(self.notes_list)
             else:
                 notes_layout.addWidget(QLabel("No notes found"))
             
@@ -2729,9 +2490,10 @@ class PatientDetailsScreen(QDialog):
 
                 try:
                     InsertData.insertNote(admission_id, note_text)
-                    notes_list.addItem(f"New Note: {note_text}")
+                    self.notes_list.addItem(f"New Note: {note_text}")
                     QMessageBox.information(self, "Success", "Note added successfully!")
                     note_text_edit.clear()
+                    self.reloadAdmissionDetails()
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"Failed to save note: {str(e)}")
 
@@ -2917,13 +2679,23 @@ class PatientDetailsScreen(QDialog):
             visitors_layout.addWidget(historical_group)
             
             self.visitors_tab.setLayout(visitors_layout)
-            
             admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
         
             self.loadBillingData(admissions)
     
-    def openAdmissionDetails(self, item):
-        index = self.admissions_list_widget.row(item)
+    def openAdmissionDetails(self, item_or_id):
+        # If called with a QListWidgetItem
+        if isinstance(item_or_id, QListWidgetItem):
+            index = self.admissions_list_widget.row(item_or_id)
+        # If called directly with an admission ID
+        else:
+            index = next(
+                (i for i, a in enumerate(self.admissions_data) if a.get("admission_id") == item_or_id), -1
+            )
+
+        print("openAdmissionDetails called with:", item_or_id)
+        print("Current admissions_data:", [a.get("admission_id") for a in self.admissions_data])
+
         if index < 0 or index >= len(self.admissions_data):
             QMessageBox.warning(self, "Error", "Invalid admission selected.")
             return
@@ -2993,10 +2765,12 @@ class PatientDetailsScreen(QDialog):
         add_meds_btn = QPushButton("Add Medication")
         add_meds_btn.clicked.connect(lambda: self.addMedication(admission_id))
         layout.addWidget(add_meds_btn)
+        self.reloadAdmissionDetails()
 
         add_proc_btn = QPushButton("Add Procedure")
         add_proc_btn.clicked.connect(lambda: self.addProcedure(admission_id))
         layout.addWidget(add_proc_btn)
+        self.reloadAdmissionDetails()
 
 
 
@@ -3042,7 +2816,6 @@ class PatientDetailsScreen(QDialog):
                 amount_input.text(),
                 schedule_input.text()
             )
-            self.reloadAdmissionDetails()  # only call if medication was submitted
 
         buttons.accepted.connect(handleSubmit)
         buttons.rejected.connect(dialog.reject)
@@ -3053,12 +2826,27 @@ class PatientDetailsScreen(QDialog):
 
     def submitMedication(self, dialog, admission_id, name, amount, schedule):
         try:
-            UpdateDB.addPrescription(admission_id, name, amount, schedule, self.encryption_key)
+            InsertData.insertPrescription(admission_id, name, amount, schedule)
             QMessageBox.information(self, "Success", "Medication added.")
+
             dialog.accept()
-            self.loadPatientData()  # Refresh
+
+            # ✅ Reload patient data
+            self.reloadAdmissionDetails()
+
+            # ✅ Close old admission tab
+            tab_title = f"Admission #{admission_id}"
+            for i in range(self.tabs.count()):
+                if self.tabs.tabText(i) == tab_title:
+                    self.tabs.removeTab(i)
+                    break
+
+            # ✅ Reopen refreshed admission tab
+            self.openAdmissionDetails(admission_id)
+
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
+
 
 
     def addProcedure(self, admission_id):
@@ -3077,21 +2865,43 @@ class PatientDetailsScreen(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         layout.addWidget(buttons)
 
-        buttons.accepted.connect(lambda: self.submitProcedure(dialog, admission_id, name_input.text(), datetime_input.dateTime().toString(Qt.ISODate)))
+        def handleSubmit():
+            self.submitProcedure(
+                dialog,
+                admission_id,
+                name_input.text(),
+                datetime_input.dateTime().toString(Qt.ISODate)
+            )
+
+        buttons.accepted.connect(handleSubmit)
         buttons.rejected.connect(dialog.reject)
 
         dialog.exec_()
-        self.reloadAdmissionDetails()
 
 
     def submitProcedure(self, dialog, admission_id, name, scheduled_time):
         try:
-            UpdateDB.addProcedure(admission_id, name, scheduled_time, self.encryption_key)
+            InsertData.insertProcedure(admission_id, name, scheduled_time)
             QMessageBox.information(self, "Success", "Procedure added.")
+
             dialog.accept()
-            self.loadPatientData()  # Refresh
+
+            # ✅ Refresh data
+            self.reloadAdmissionDetails()
+
+            # ✅ Close old admission tab
+            tab_title = f"Admission #{admission_id}"
+            for i in range(self.tabs.count()):
+                if self.tabs.tabText(i) == tab_title:
+                    self.tabs.removeTab(i)
+                    break
+
+            # ✅ Reopen the updated admission tab
+            self.openAdmissionDetails(admission_id)
+
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
+
 
 
     def loadBillingData(self, admissions):
@@ -4279,35 +4089,9 @@ class PatientDetailsScreen(QDialog):
         self.loadPatientData()
 
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
-        
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
-            
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
-                try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
-                    pass
-            
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
-        else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+        search_screen = SearchScreen()
+        widget.addWidget(search_screen)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class LockScreen(QtWidgets.QDialog):
     def __init__(self, exitAction, widget, eventFilter, currentUser):
@@ -4344,25 +4128,9 @@ class LockScreen(QtWidgets.QDialog):
 def LogOut():
     eventFilter.enabled = False
     hospitalDB.userLogout()
-    
-    # Clear all widgets from the stack except the first one
-    while widget.count() > 1:
-        # Remove the last widget in the stack
-        last_widget = widget.widget(widget.count() - 1)
-        widget.removeWidget(last_widget)
-        
-        # Free up resources by scheduling widget for deletion
-        last_widget.deleteLater()
-    
-    # Create a new login screen
-    login = LoginScreen()
-    widget.addWidget(login)
-    widget.setCurrentIndex(1)
-    
-    # Remove the initial screen now that we have login in position 1
-    first_widget = widget.widget(0)
-    widget.removeWidget(first_widget)
-    first_widget.deleteLater()
+    home = MainScreen()
+    widget.addWidget(home)
+    widget.setCurrentIndex(widget.currentIndex() + 1)
 
 def lockScreen():
     print("here")
@@ -4385,8 +4153,9 @@ class ApplicationCleanup:
                 hospitalDB.userLogout()
         except Exception as e:
             print(f"Error during cleanup: {e}")
-            
+
 app = QApplication(sys.argv)
+cleanup_handler = ApplicationCleanup()
 app.setStyleSheet("""
     QPushButton {
         outline: none;
@@ -4447,3 +4216,4 @@ try:
     sys.exit(app.exec())
 except:
     print("Exiting")
+    
