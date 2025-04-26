@@ -174,7 +174,11 @@ def run():
                       item_description TEXT NOT NULL,
                       charge_amount DECIMAL(10, 2) NOT NULL);"""
                       )
-      # 15. Audit Log
+      # 15. Active User
+      cursor2.execute("""CREATE TABLE activeuser (
+                      user_id INT,
+                      username_hash TEXT);""")
+      # 16. Audit Log
       cursor2.execute("""CREATE TABLE auditlog (
                         log_id SERIAL PRIMARY KEY,
                         username VARCHAR(50) NOT NULL,
@@ -232,11 +236,17 @@ def run():
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patient_patient_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE approvedvisitors_visitors_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE staff_user_id_seq TO administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE location_location_id_seq TO administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE admission_admission_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billingdetail_billing_detail_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE billing_billing_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE auditlog_log_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role, volunteer_role;")
-      
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE insurance_insurance_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE prescription_prescription_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE scheduledprocedure_procedure_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE patientnote_note_id_seq TO medicalpersonnel_role, physician_role, administrator_role;")
+      cursor2.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON emergencycontact TO officestaff_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE emergencycontact_contact_id_seq TO medicalpersonnel_role, physician_role, officestaff_role, administrator_role;")
       # Create Views for Accessing Data
       # patientsearchview is the table used for the search screen, accessible to all user roles
       sql = """CREATE VIEW patientsearchview AS
@@ -320,10 +330,10 @@ def run():
                       FROM 
                         Billing b
                       JOIN Admission a ON b.admission_id = a.admission_id;""")
-      cursor2.execute("GRANT SELECT ON billinginformationview TO physician_role, medicalpersonnel_role;")
-      cursor2.execute("GRANT SELECT ON billing TO physician_role, medicalpersonnel_role;")
-      cursor2.execute("GRANT INSERT ON billing TO officestaff_role, physician_role, medicalpersonnel_role;")
-      cursor2.execute("GRANT SELECT ON billingdetail TO physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT SELECT ON billinginformationview TO officestaff_role, physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT SELECT ON billing TO officestaff_role, physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT INSERT, UPDATE ON billing TO officestaff_role, physician_role, medicalpersonnel_role;")
+      cursor2.execute("GRANT SELECT ON billingdetail TO officestaff_role, physician_role, medicalpersonnel_role;")
       #Activeadmissionview shows all active admissions
       cursor2.execute("""CREATE VIEW activeadmissionview AS
                       SELECT admission_id, location_id FROM admission WHERE discharge_datetime IS NULL;""")
@@ -355,7 +365,16 @@ def run():
               MAX(CASE WHEN ec.contact_order = 1 THEN pgp_sym_decrypt(ec.contact_name, %s) END) AS ec1_name,
               MAX(CASE WHEN ec.contact_order = 1 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec1_phone,
               MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_name, %s) END) AS ec2_name,
-              MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec2_phone
+              MAX(CASE WHEN ec.contact_order = 2 THEN pgp_sym_decrypt(ec.contact_phone, %s) END) AS ec2_phone,
+              (
+                SELECT jsonb_agg(
+                  jsonb_build_object(
+                    'admission_id', a.admission_id
+                  ) ORDER BY a.admittance_datetime DESC
+                )
+                FROM Admission a
+                WHERE a.patient_id = p.patient_id
+              ) AS admissions
             FROM Patient p
             LEFT JOIN Insurance i ON p.patient_id = i.patient_id
             LEFT JOIN PhoneNumber pn ON p.patient_id = pn.patient_id
@@ -370,6 +389,10 @@ def run():
       cursor2.execute("""GRANT SELECT ON officestaffview TO physician_role, medicalpersonnel_role;""")
       cursor2.execute("""GRANT SELECT, UPDATE (first_name, last_name, mailing_address) ON Patient TO officestaff_role, physician_role, medicalpersonnel_role;""")
       cursor2.execute("""GRANT INSERT, UPDATE ON Insurance TO officestaff_role, physician_role, medicalpersonnel_role;""")
+      cursor2.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON insurance TO officestaff_role;")
+      # Permissions for emergencycontact table
+      cursor2.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON emergencycontact TO officestaff_role;")
+      cursor2.execute("GRANT USAGE, SELECT ON SEQUENCE emergencycontact_contact_id_seq TO officestaff_role;")
       cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON PhoneNumber TO officestaff_role, physician_role, medicalpersonnel_role;""")
       cursor2.execute("""GRANT INSERT, UPDATE, DELETE ON EmergencyContact TO officestaff_role, physician_role, medicalpersonnel_role;""")
       # Functions For Updating Patient Data
@@ -621,7 +644,7 @@ def run():
       params = (keys[0],)*27
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
-      cursor2.execute("GRANT DELETE ON approvedvisitors TO medicalpersonnel_role, physician_role;")
+      cursor2.execute("GRANT SELECT, DELETE ON approvedvisitors TO medicalpersonnel_role, physician_role, officestaff_role;")
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")
       # staffwriteview allows insertion of staff members information
       sql = """CREATE VIEW staffwriteview AS
@@ -845,7 +868,7 @@ def run():
                       INSTEAD OF UPDATE ON visitorwriteview
                       FOR EACH ROW
                       EXECUTE FUNCTION visitor_write_trigger();""")
-      cursor2.execute("""GRANT SELECT, UPDATE ON visitorwriteview TO officestaff_role;""")
+      cursor2.execute("""GRANT SELECT, UPDATE ON visitorwriteview TO physician_role, medicalpersonnel_role, officestaff_role;""")
       #NurseWriteView for adding nurse notes to an admission
       sql = """CREATE VIEW NurseWriteView AS
             SELECT
@@ -1129,44 +1152,65 @@ def userLogin(username, password, fixedSalt):
       
       return False
     else:
-      sql = """SELECT set_config(
-            'app.current_user', 
-            %s,
-            false
-          );"""
-      params = (
-        username,
-      )
+
+      sql = """SELECT EXISTS (SELECT 1 FROM activeuser WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex'));"""
+      params = (username, fixedSalt)
       cursor.execute(sql, params)
-      sql = """SELECT set_config(
-            'app.current_user_id', 
-            (SELECT user_id::TEXT FROM staff 
-            WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
-            LIMIT 1),
-            false
-          );"""
-      params = (
-        username, fixedSalt
-      )
-      cursor.execute(sql, params)
-      sql = """SELECT set_config(
-            'app.current_user_type', 
-            (SELECT type_name FROM staff NATURAL JOIN usertype WHERE user_id::TEXT = (SELECT current_setting('app.current_user_id', true))
-            LIMIT 1),
-            false
-          );"""
-      cursor.execute(sql)
-      usertype = cursor.fetchone()[0]
-      role = usertype.lower().replace(" ", "") + "_role"
-      sql = """SET ROLE %s;"""
-      params = (role,)
-      cursor.execute(sql, params)
-      log_action("Logged In")
-      print("Successfully Signed In")
-    return True
+      if not cursor.fetchone()[0]:  # Fixed this line to access the boolean value
+          sql = """SELECT set_config(
+                'app.current_user', 
+                %s,
+                false
+              );"""
+          params = (
+            username,
+          )
+          cursor.execute(sql, params)
+          sql = """SELECT set_config(
+                'app.current_user_id', 
+                (SELECT user_id::TEXT FROM staff 
+                WHERE username_hash = encode(digest(%s || %s, 'sha256'), 'hex')
+                LIMIT 1),
+                false
+              );"""
+          params = (
+            username, fixedSalt
+          )
+          cursor.execute(sql, params)
+          
+          # Get user ID after setting the config
+          sql = """SELECT current_setting('app.current_user_id', true)::INT;"""
+          cursor.execute(sql)
+          current_user_id = cursor.fetchone()[0]
+          
+          # Insert both user_id and username_hash
+          sql = """INSERT INTO activeuser(user_id, username_hash)
+                  VALUES (%s, encode(digest(%s || %s, 'sha256'), 'hex'));"""
+          params = (current_user_id, username, fixedSalt)
+          cursor.execute(sql, params)
+          
+          sql = """SELECT set_config(
+                'app.current_user_type', 
+                (SELECT type_name FROM staff NATURAL JOIN usertype WHERE user_id::TEXT = (SELECT current_setting('app.current_user_id', true))
+                LIMIT 1),
+                false
+              );"""
+          cursor.execute(sql)
+          usertype = getCurrentUserType()  # Changed to call the function instead
+          role = usertype.lower().replace(" ", "") + "_role"
+          sql = """SET ROLE %s;"""
+          params = (role,)
+          cursor.execute(sql, params)
+          log_action("Logged In")
+          print("Successfully Signed In")
+          return True
+      else:
+          print("User Already Logged In On A Machine")
+          return False
 
 def userLogout():
   with get_cursor() as cursor:
+    userID = getCurrentUserID()
     username = getCurrentUsername()
     sql = """SELECT set_config(
             'app.current_user', 
@@ -1188,6 +1232,10 @@ def userLogout():
     cursor.execute(sql)
     sql = """SET ROLE administrator_role;"""
     cursor.execute(sql)
+    sql = """DELETE FROM activeuser
+              WHERE user_id = %s;"""
+    params = (userID,)
+    cursor.execute(sql, params)
     log_action(f"{username} Logged Out")
     print("User Logged Out")
 
