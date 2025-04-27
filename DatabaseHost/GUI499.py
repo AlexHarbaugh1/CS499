@@ -425,14 +425,15 @@ class ApplicationScreen(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title and subtitle
-        title_width = 600
-        self.label.setGeometry((screen_width - title_width) // 2, 120, title_width, 61)
+        title_width = 1700
+        self.label.setGeometry((screen_width - title_width) // 2, 20, title_width, 250)
+        self.label_2.setGeometry((screen_width - title_width) // 2, 150, title_width, 250)
         
         # Position logout button in top right
-        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        self.logout.setGeometry(screen_width - 250, 70, 200, 100)
         
         # Center the gridLayoutWidget
-        grid_width = 700
+        grid_width = 1000
         grid_height = 400
         self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 260, grid_width, grid_height)
 
@@ -587,15 +588,15 @@ class AdminScreen(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title and subtitle
-        title_width = 600
-        self.label.setGeometry((screen_width - title_width) // 2, 120, title_width, 61)
-        self.label_2.setGeometry((screen_width - title_width) // 2, 200, title_width, 41)
+        title_width = 1500
+        self.label.setGeometry((screen_width - title_width) // 2, 50, title_width, 100)
+        self.label_2.setGeometry((screen_width - title_width) // 2, 150, title_width, 100)
         
         # Position logout button in top right
-        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        self.logout.setGeometry(screen_width - 250, 70, 200, 100)
         
         # Center the gridLayoutWidget
-        grid_width = 700
+        grid_width = 1100
         grid_height = 400
         self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 260, grid_width, grid_height)
     
@@ -802,23 +803,23 @@ class AuditLogScreen(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title
-        title_width = 600
-        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        title_width = 1000
+        self.label.setGeometry((screen_width - title_width) // 2, 20, title_width, 300)
         
         # Position back button in top left
-        self.backTo.setGeometry(50, 70, 120, 40)
+        self.backTo.setGeometry(50, 70, 120, 100)
         
         # Position logout button in top right
-        self.logout.setGeometry(screen_width - 170, 70, 120, 40)
+        self.logout.setGeometry(screen_width - 170, 70, 160, 100)
         
         # Center and resize the filter section
         filter_width = min(1100, screen_width - 100)
-        self.gridLayoutWidget.setGeometry((screen_width - filter_width) // 2, 150, filter_width, 80)
+        self.gridLayoutWidget.setGeometry((screen_width - 2000) // 2, 300, 2000, 150)
         
         # Center and resize the table
         table_width = min(1100, screen_width - 100)
         table_height = min(480, screen_height - 320)
-        self.auditTable.setGeometry((screen_width - table_width) // 2, 250, table_width, table_height)
+        self.auditTable.setGeometry((screen_width - 2000) // 2, 500, 2000, table_height)
         
         # Position export button at bottom right
         self.exportButton.setGeometry(screen_width - 230, screen_height - 60, 180, 40)
@@ -1050,11 +1051,11 @@ class InsertStaff(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title
-        title_width = 401  # From original UI
-        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        title_width = 1000  # From original UI
+        self.label.setGeometry((screen_width - title_width) // 2, 25, title_width, 150)
         
         # Position back button in top left
-        self.backTo.setGeometry(50, 70, 120, 40)
+        self.backTo.setGeometry(50, 70, 170, 100)
         
         # Center the form layout
         form_width = 600  # Increased width for better alignment
@@ -1062,13 +1063,13 @@ class InsertStaff(QDialog):
         self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 180, form_width, form_height)
         
         # Center the add staff button
-        button_width = 200
-        button_height = 50
+        button_width = 250
+        button_height = 100
         self.addStaff.setGeometry((screen_width - button_width) // 2, 550, button_width, button_height)
         
         # Center and resize the error message to be wider
-        error_width = 600  # Increased from 400
-        self.errorMsg.setGeometry((screen_width - error_width) // 2, 610, error_width, 40)  # Increased height from 31 to 40
+        error_width = 1000  # Increased from 400
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, 750, error_width, 40)  # Increased height from 31 to 40
         
         # Configure the error message to wrap text
         self.errorMsg.setWordWrap(True)
@@ -1184,31 +1185,31 @@ class InsertPatient(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title
-        title_width = 401
-        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        title_width = 1000
+        self.label.setGeometry((screen_width - title_width) // 2, 0, title_width, 120)
         
         # Position back button in top left
-        self.back.setGeometry(50, 70, 120, 40)
+        self.back.setGeometry(50, 70, 170, 100)
         
         # Center the required fields note
-        note_width = 400
-        self.requiredNote.setGeometry((screen_width - note_width) // 2, 140, note_width, 20)
+        note_width = 1500
+        self.requiredNote.setGeometry((screen_width - note_width) // 2, 100, note_width, 100)
         
         # Center the grid layout with adequate size
         grid_width = min(900, screen_width - 100)  # Allow for margins
         grid_height = min(550, screen_height - 250)  # Allow for header and footer
-        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 170, grid_width, grid_height)
+        self.gridLayoutWidget.setGeometry((screen_width - 2000) // 2, 170, 2000, grid_height)
         
         # Center the add patient button
-        button_width = 200
-        button_height = 50
+        button_width = 500
+        button_height = 150
         button_y = 170 + grid_height + 10  # Position below the grid
         self.addPatient.setGeometry((screen_width - button_width) // 2, button_y, button_width, button_height)
         
         # Center the error message label
         error_width = 600
         error_y = button_y + button_height + 10
-        self.errorMsg.setGeometry((screen_width - error_width) // 2, error_y, error_width, 40)
+        self.errorMsg.setGeometry((screen_width - error_width) // 2, error_y, error_width, 75)
         self.errorMsg.setWordWrap(True)
 
     def populateDoctors(self):
@@ -1406,21 +1407,21 @@ class RegisterLocation(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title
-        title_width = 401  # From original UI
-        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        title_width = 1000
+        self.label.setGeometry((screen_width - title_width) // 2, 0, title_width, 500)
         
         # Position back button in top left
-        self.backTo.setGeometry(50, 70, 120, 40)
+        self.backTo.setGeometry(50, 70, 120, 100)
         
         # Center the form layout
         form_width = 600  # Increased width for better alignment
         form_height = 350  # Increased height for the form
-        self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 180, form_width, form_height)
+        self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 350, form_width, form_height)
         
         # Center the add location button
-        button_width = 200
-        button_height = 50
-        self.addLocation.setGeometry((screen_width - button_width) // 2, 550, button_width, button_height)
+        button_width = 500
+        button_height = 100
+        self.addLocation.setGeometry((screen_width - button_width) // 2, 750, button_width, button_height)
         
         # Center and resize the error message to be wider
         error_width = 600  # Increased from 400
@@ -1553,11 +1554,11 @@ class RegisterAdmission(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title
-        title_width = 401  # From original UI
-        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 61)
+        title_width = 1000  # From original UI
+        self.label.setGeometry((screen_width - title_width) // 2, 20, title_width, 150)
         
         # Position back button in top left
-        self.backTo.setGeometry(50, 70, 120, 40)
+        self.backTo.setGeometry(50, 70, 120, 75)
         
         # Center the form layout
         form_width = 600  # Increased for better alignment
@@ -1565,8 +1566,8 @@ class RegisterAdmission(QDialog):
         self.formLayoutWidget.setGeometry((screen_width - form_width) // 2, 180, form_width, form_height)
         
         # Center the add admission button
-        button_width = 200
-        button_height = 50
+        button_width = 500
+        button_height = 100
         self.addAdmission.setGeometry((screen_width - button_width) // 2, 550, button_width, button_height)
         
         # Center and resize the error message
@@ -1778,17 +1779,17 @@ class SearchStaff(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title
-        title_width = 401  # From original UI
-        self.label.setGeometry((screen_width - title_width) // 2, 200, title_width, 71)
+        title_width = 750
+        self.label.setGeometry((screen_width - title_width) // 2, 20, title_width, 150)
         
         # Position logout button in top right
-        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        self.logout.setGeometry(screen_width - 250, 70, 175, 50)
         
         # Position back button in top left
         self.backButton.setGeometry(50, 70, 120, 50)
         
         # Center the form grid
-        form_width = 600  # Increased width for better alignment
+        form_width = 1000  # Increased width for better alignment
         form_height = 151
         self.gridLayoutWidget.setGeometry((screen_width - form_width) // 2, 290, form_width, form_height)
         
@@ -2066,18 +2067,18 @@ class SearchScreen(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title
-        title_width = 401
-        self.label.setGeometry((screen_width - title_width) // 2, 170, title_width, 61)
+        title_width = 1000
+        self.label.setGeometry((screen_width - title_width) // 2, 20, title_width, 250)
         
         # Position logout button in top right
-        self.logout.setGeometry(screen_width - 150, 70, 120, 50)
+        self.logout.setGeometry(screen_width - 200, 70, 175, 50)
         
         # Position back button in top left
         self.backButton.setGeometry(50, 70, 120, 50)
         
         # Center the form grid
-        form_width = 600
-        form_height = 200
+        form_width = 1000
+        form_height = 300
         self.gridLayoutWidget.setGeometry((screen_width - form_width) // 2, 270, form_width, form_height)
         
         # Center the error message
@@ -2085,9 +2086,9 @@ class SearchScreen(QDialog):
         self.error.setGeometry((screen_width - error_width) // 2, 470, error_width, 31)
         
         # Center search button
-        search_width = 116
-        search_height = 40
-        self.search.setGeometry((screen_width - search_width) // 2, 510, search_width, search_height)
+        search_width = 175
+        search_height = 50
+        self.search.setGeometry((screen_width - search_width) // 2, 600, search_width, search_height)
         
         # Center the results table
         table_width = min(screen_width - 100, 700)  # Limit width with padding
@@ -2169,14 +2170,30 @@ class SearchScreen(QDialog):
 
     def openPatientDetails(self, row, column):
         patient_id = str(self.df.iat[row, 0])
-        
-        # Create the patient details screen
-        details = PatientDetailsScreen(patient_id)
-        
-        # Add the screen to the widget stack
+
         parent_stack = self.parent()
+
+        # ✅ Safely remove old details screen if it exists
+        if hasattr(self, 'current_patient_screen') and self.current_patient_screen is not None:
+            try:
+                if self.current_patient_screen in [parent_stack.widget(i) for i in range(parent_stack.count())]:
+                    parent_stack.removeWidget(self.current_patient_screen)
+
+                self.current_patient_screen.deleteLater()  # ✅ Only call if still alive
+            except RuntimeError:
+                # Widget was already deleted, safe to ignore
+                pass
+
+            self.current_patient_screen = None
+
+        # ✅ Now create and add the new patient details screen
+        details = PatientDetailsScreen(patient_id)
         parent_stack.addWidget(details)
         parent_stack.setCurrentWidget(details)
+
+        self.current_patient_screen = details
+
+
 
     def logoutFunction(self):
         eventFilter.enabled = False
