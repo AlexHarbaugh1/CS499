@@ -2423,6 +2423,19 @@ class PatientDetailsScreen(QDialog):
             
             # Billing Tab (remains the same)
             self.tabs.addTab(self.billing_tab, "Billing")
+            
+        elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
+            self.tabs.addTab(self.basic_info_tab, "Basic Info")
+            self.tabs.addTab(self.insurance_tab, "Insurance")
+            self.tabs.addTab(self.contacts_tab, "Contacts")
+            self.tabs.addTab(self.admissions_tab, "Admissions")
+            self.tabs.addTab(self.notes_tab, "Notes")
+            self.tabs.addTab(self.medications_tab, "Medications")
+            self.tabs.addTab(self.procedures_tab, "Procedures")
+            self.tabs.addTab(self.visitors_tab, "Approved Visitors")
+            self.tabs.addTab(self.billing_tab, "Billing")
+
+        self.num_static_tabs = self.tabs.count()
 
 
  # 👇 Add the new slot functions here
