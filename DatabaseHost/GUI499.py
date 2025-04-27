@@ -15,7 +15,7 @@ import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtWidgets import QDialog, QDateTimeEdit, QDialogButtonBox, QApplication, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QListWidgetItem
+from PyQt5.QtWidgets import QLayout, QDialog, QDateTimeEdit, QDialogButtonBox, QApplication, QGridLayout, QScrollArea, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QListWidgetItem
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime, QCoreApplication
 from PyQt5.QtGui import QBrush
 import csv
@@ -2423,7 +2423,7 @@ class PatientDetailsScreen(QDialog):
             
             # Billing Tab (remains the same)
             self.tabs.addTab(self.billing_tab, "Billing")
-            
+
         elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
@@ -2472,10 +2472,7 @@ class PatientDetailsScreen(QDialog):
         self.saveContactsBtn.setEnabled(False)
 
     def reloadAdmissionDetails(self):
-        """
-        Reload patient and admission details without recreating the entire UI
-        This fixes the freezing issue when adding medications, notes, or procedures
-        """
+        """Reload admission details for the current patient and update the UI"""
         try:
             # Get fresh patient data
             patient_data = SearchDB.searchPatientWithID(self.patient_id)
@@ -2487,7 +2484,10 @@ class PatientDetailsScreen(QDialog):
             self.patient_data = patient_data
             self.admissions_data = patient_data[15] if len(patient_data) > 15 else []
             
-            # Update just the admissions list widget without recreating entire UI
+            # Save the current tab index to restore it later
+            current_tab_index = self.tabs.currentIndex()
+            
+            # Update the admissions list widget if it exists
             if hasattr(self, 'admissions_list_widget') and self.admissions_data:
                 self.admissions_list_widget.clear()
                 for admission in self.admissions_data:
@@ -2502,30 +2502,204 @@ class PatientDetailsScreen(QDialog):
                     
                     self.admissions_list_widget.addItem(display_text)
             
-            # If we have a current admission tab open, update that tab only
-            if hasattr(self, 'current_admission_id') and self.current_admission_id:
-                # Find the admission data
-                admission_data = None
+            # Update Notes tab
+            notes_tab_index = -1
+            for i in range(self.tabs.count()):
+                if self.tabs.tabText(i) == "Notes":
+                    notes_tab_index = i
+                    break
+            
+            if notes_tab_index >= 0:
+                # Get the current tab widget
+                notes_tab = self.tabs.widget(notes_tab_index)
+                
+                # Create a new layout for the notes tab
+                notes_layout = QVBoxLayout()
+                
+                # Create and populate a new notes list
+                self.notes_list = QListWidget()
+                
+                # Collect all notes from all admissions
+                all_notes = []
                 for admission in self.admissions_data:
-                    if str(admission.get('admission_id')) == str(self.current_admission_id):
-                        admission_data = admission
+                    if 'details' in admission and 'notes' in admission['details']:
+                        for note in admission['details']['notes'] or []:
+                            note_text = note.get('text', '')
+                            note_type = note.get('type', '')
+                            note_author = note.get('author', '')
+                            note_datetime = note.get('datetime', '')
+                            
+                            all_notes.append((note_datetime, f"{note_type} note by {note_author}: {note_text}"))
+                
+                # Sort notes by datetime
+                all_notes.sort(key=lambda x: x[0])
+                
+                if all_notes:
+                    for _, note_text in all_notes:
+                        self.notes_list.addItem(note_text)
+                    notes_layout.addWidget(self.notes_list)
+                else:
+                    notes_layout.addWidget(QLabel("No notes found"))
+                
+                # Add note entry form if appropriate
+                if self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
+                    note_entry_group = QGroupBox("Add Note")
+                    note_entry_layout = QVBoxLayout()
+                    
+                    note_text_edit = QTextEdit()
+                    note_text_edit.setPlaceholderText("Enter your note here...")
+                    
+                    save_note_button = QPushButton("Save Note")
+                    
+                    def saveNote():
+                        note_text = note_text_edit.toPlainText().strip()
+                        
+                        if not note_text:
+                            QMessageBox.warning(self, "Empty Note", "Please enter note content.")
+                            return
+                        
+                        # Use the latest admission ID if available
+                        if self.admissions_data and len(self.admissions_data) > 0:
+                            latest_admission = self.admissions_data[0]  # Assuming sorted by date desc
+                            latest_admission_id = latest_admission.get('admission_id')
+                            
+                            if latest_admission_id:
+                                try:
+                                    InsertData.insertNote(latest_admission_id, note_text)
+                                    self.notes_list.addItem(f"New Note: {note_text}")
+                                    QMessageBox.information(self, "Success", "Note added successfully!")
+                                    note_text_edit.clear()
+                                    self.reloadAdmissionDetails()
+                                except Exception as e:
+                                    QMessageBox.critical(self, "Error", f"Failed to save note: {str(e)}")
+                    
+                    save_note_button.clicked.connect(saveNote)
+                    
+                    note_entry_layout.addWidget(note_text_edit)
+                    note_entry_layout.addWidget(save_note_button)
+                    note_entry_group.setLayout(note_entry_layout)
+                    
+                    notes_layout.addWidget(note_entry_group)
+                
+                # Remove old layout and set the new one
+                if notes_tab.layout() is not None:
+                    # Remove all widgets from old layout
+                    while notes_tab.layout().count():
+                        item = notes_tab.layout().takeAt(0)
+                        if item.widget():
+                            item.widget().deleteLater()
+                    
+                    # Delete old layout
+                    QWidget().setLayout(notes_tab.layout())
+                
+                notes_tab.setLayout(notes_layout)
+            
+            # Update Medications tab
+            medications_tab_index = -1
+            for i in range(self.tabs.count()):
+                if self.tabs.tabText(i) == "Medications":
+                    medications_tab_index = i
+                    break
+            
+            if medications_tab_index >= 0:
+                medications_tab = self.tabs.widget(medications_tab_index)
+                medications_layout = QVBoxLayout()
+                
+                all_meds = []
+                for admission in self.admissions_data:
+                    if 'details' in admission and 'prescriptions' in admission['details']:
+                        for med in admission['details']['prescriptions'] or []:
+                            medication = med.get('medication', '')
+                            amount = med.get('amount', '')
+                            schedule = med.get('schedule', '')
+                            
+                            all_meds.append(f"Medication: {medication}, Amount: {amount}, Schedule: {schedule}")
+                
+                if all_meds:
+                    meds_list = QListWidget()
+                    for med in all_meds:
+                        meds_list.addItem(med)
+                    medications_layout.addWidget(meds_list)
+                else:
+                    medications_layout.addWidget(QLabel("No medications found"))
+                
+                # Remove old layout and set the new one
+                if medications_tab.layout() is not None:
+                    # Remove all widgets from old layout
+                    while medications_tab.layout().count():
+                        item = medications_tab.layout().takeAt(0)
+                        if item.widget():
+                            item.widget().deleteLater()
+                    
+                    # Delete old layout
+                    QWidget().setLayout(medications_tab.layout())
+                
+                medications_tab.setLayout(medications_layout)
+            
+            # Update Procedures tab
+            procedures_tab_index = -1
+            for i in range(self.tabs.count()):
+                if self.tabs.tabText(i) == "Procedures":
+                    procedures_tab_index = i
+                    break
+            
+            if procedures_tab_index >= 0:
+                procedures_tab = self.tabs.widget(procedures_tab_index)
+                procedures_layout = QVBoxLayout()
+                
+                all_procedures = []
+                for admission in self.admissions_data:
+                    if 'details' in admission and 'procedures' in admission['details']:
+                        for proc in admission['details']['procedures'] or []:
+                            name = proc.get('name', '')
+                            scheduled = proc.get('scheduled', '')
+                            
+                            all_procedures.append(f"Procedure: {name}, Scheduled: {scheduled}")
+                
+                if all_procedures:
+                    proc_list = QListWidget()
+                    for proc in all_procedures:
+                        proc_list.addItem(proc)
+                    procedures_layout.addWidget(proc_list)
+                else:
+                    procedures_layout.addWidget(QLabel("No procedures found"))
+                
+                # Remove old layout and set the new one
+                if procedures_tab.layout() is not None:
+                    # Remove all widgets from old layout
+                    while procedures_tab.layout().count():
+                        item = procedures_tab.layout().takeAt(0)
+                        if item.widget():
+                            item.widget().deleteLater()
+                    
+                    # Delete old layout
+                    QWidget().setLayout(procedures_tab.layout())
+                
+                procedures_tab.setLayout(procedures_layout)
+            
+            # Update any open admission tabs
+            if hasattr(self, 'current_admission_id') and self.current_admission_id:
+                # Find the tab index
+                tab_title = f"Admission #{self.current_admission_id}"
+                tab_index = -1
+                for i in range(self.tabs.count()):
+                    if self.tabs.tabText(i) == tab_title:
+                        tab_index = i
                         break
                 
-                if admission_data:
-                    # Find and remove the current tab
-                    tab_title = f"Admission #{self.current_admission_id}"
-                    tab_index = -1
-                    for i in range(self.tabs.count()):
-                        if self.tabs.tabText(i) == tab_title:
-                            tab_index = i
-                            self.tabs.removeTab(i)
-                            break
+                if tab_index >= 0:
+                    # Remove the old tab
+                    self.tabs.removeTab(tab_index)
                     
-                    # Recreate the tab with fresh data
+                    # Create a new tab with fresh data
                     self.openAdmissionDetails(self.current_admission_id)
-                    
+            
+            # Restore the selected tab
+            if current_tab_index < self.tabs.count():
+                self.tabs.setCurrentIndex(current_tab_index)
+            
         except Exception as e:
-            print("Error reloading admission details:", e)
+            print(f"Error reloading admission details: {e}")
             traceback.print_exc()
 
 
@@ -3237,85 +3411,156 @@ class PatientDetailsScreen(QDialog):
 
         # Create new tab content
         tab = QWidget()
-        layout = QVBoxLayout()
+        
+        # Use a scroll area for the content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Create a widget to hold the content inside the scroll area
+        content_widget = QWidget()
+        content_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Use a layout that will expand to fill available space
+        layout = QVBoxLayout(content_widget)
+        layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
 
-        layout.addWidget(QLabel(f"<b>Admission Date:</b> {admission.get('admittance_date', '')}"))
-        layout.addWidget(QLabel(f"<b>Discharge Date:</b> {admission.get('admittance_discharge', 'Not yet discharged')}"))
-        layout.addWidget(QLabel(f"<b>Reason:</b> {admission.get('admission_reason', '')}"))
+        # Create labels with word wrap enabled for all text elements
+        admission_date_label = QLabel(f"<b>Admission Date:</b> {admission.get('admittance_date', '')}")
+        admission_date_label.setWordWrap(True)
+        admission_date_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        layout.addWidget(admission_date_label)
+        
+        discharge_date_label = QLabel(f"<b>Discharge Date:</b> {admission.get('admittance_discharge', 'Not yet discharged')}")
+        discharge_date_label.setWordWrap(True)
+        discharge_date_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        layout.addWidget(discharge_date_label)
+        
+        reason_label = QLabel(f"<b>Reason:</b> {admission.get('admission_reason', '')}")
+        reason_label.setWordWrap(True)
+        reason_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        layout.addWidget(reason_label)
 
         # Medications
         meds_group = QGroupBox("Medications")
+        meds_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         meds_layout = QVBoxLayout()
+        meds_layout.setContentsMargins(10, 10, 10, 10)
+        
         prescriptions = admission['details'].get('prescriptions', [])
         if prescriptions:
             for med in prescriptions:
-                meds_layout.addWidget(QLabel(f"{med['medication']} - {med['amount']} ({med['schedule']})"))
+                med_label = QLabel(f"{med['medication']} - {med['amount']} ({med['schedule']})")
+                med_label.setWordWrap(True)
+                med_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                meds_layout.addWidget(med_label)
         else:
-            meds_layout.addWidget(QLabel("No medications prescribed"))
+            no_meds_label = QLabel("No medications prescribed")
+            no_meds_label.setWordWrap(True)
+            no_meds_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            meds_layout.addWidget(no_meds_label)
+        
         meds_group.setLayout(meds_layout)
         layout.addWidget(meds_group)
 
         # Procedures
         proc_group = QGroupBox("Procedures")
+        proc_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         proc_layout = QVBoxLayout()
+        proc_layout.setContentsMargins(10, 10, 10, 10)
+        
         procedures = admission['details'].get('procedures', [])
         if procedures:
             for proc in procedures:
-                proc_layout.addWidget(QLabel(f"{proc['name']} (Scheduled: {proc['scheduled']})"))
+                proc_label = QLabel(f"{proc['name']} (Scheduled: {proc['scheduled']})")
+                proc_label.setWordWrap(True)
+                proc_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                proc_layout.addWidget(proc_label)
         else:
-            proc_layout.addWidget(QLabel("No procedures scheduled"))
+            no_proc_label = QLabel("No procedures scheduled")
+            no_proc_label.setWordWrap(True)
+            no_proc_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            proc_layout.addWidget(no_proc_label)
+        
         proc_group.setLayout(proc_layout)
         layout.addWidget(proc_group)
 
         # Notes
         notes_group = QGroupBox("Notes")
+        notes_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         notes_layout = QVBoxLayout()
+        notes_layout.setContentsMargins(10, 10, 10, 10)
+        
         notes = admission['details'].get('notes', [])
         if notes:
             for note in notes:
-                notes_layout.addWidget(QLabel(
-                    f"{note['datetime']} - {note['type']} by {note['author']}: {note['text']}"
-                ))
+                note_label = QLabel(f"{note['datetime']} - {note['type']} by {note['author']}: {note['text']}")
+                note_label.setWordWrap(True)
+                note_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                notes_layout.addWidget(note_label)
         else:
-            notes_layout.addWidget(QLabel("No notes added"))
+            no_notes_label = QLabel("No notes added")
+            no_notes_label.setWordWrap(True)
+            no_notes_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            notes_layout.addWidget(no_notes_label)
+        
         notes_group.setLayout(notes_layout)
         layout.addWidget(notes_group)
 
-        # Action buttons
-        buttons_layout = QHBoxLayout()
+        # Action buttons - Using a grid layout for better button fitting
+        buttons_layout = QGridLayout()
+        buttons_layout.setColumnStretch(0, 1)
+        buttons_layout.setColumnStretch(1, 1)
+        buttons_layout.setHorizontalSpacing(10)
+        buttons_layout.setVerticalSpacing(10)
         
         # Discharge button
         discharge_btn = QPushButton("Discharge Patient")
+        discharge_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         discharge_btn.clicked.connect(
             lambda: self.dischargePatient(admission_id)
         )
-        buttons_layout.addWidget(discharge_btn)
+        buttons_layout.addWidget(discharge_btn, 0, 0)
 
         # Add Medication Button
         add_meds_btn = QPushButton("Add Medication")
+        add_meds_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         add_meds_btn.clicked.connect(lambda: self.addMedication(admission_id))
-        buttons_layout.addWidget(add_meds_btn)
+        buttons_layout.addWidget(add_meds_btn, 0, 1)
 
         # Add Procedure Button
         add_proc_btn = QPushButton("Add Procedure")
+        add_proc_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         add_proc_btn.clicked.connect(lambda: self.addProcedure(admission_id))
-        buttons_layout.addWidget(add_proc_btn)
+        buttons_layout.addWidget(add_proc_btn, 1, 0)
         
         # Add Note Button
         add_note_btn = QPushButton("Add Note")
+        add_note_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         add_note_btn.clicked.connect(lambda: self.addNote(admission_id))
-        buttons_layout.addWidget(add_note_btn)
+        buttons_layout.addWidget(add_note_btn, 1, 1)
         
-        layout.addLayout(buttons_layout)
+        buttons_container = QWidget()
+        buttons_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        buttons_container.setLayout(buttons_layout)
+        layout.addWidget(buttons_container)
+        
+        # Set the content widget as the scroll area's widget
+        scroll_area.setWidget(content_widget)
+        
+        # Set up the main tab layout with the scroll area
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll_area)
 
-        # Finalize layout and tab
-        tab.setLayout(layout)
+        # Finalize tab
         new_index = self.tabs.addTab(tab, tab_title)
         self.tabs.setCurrentWidget(tab)
 
         # Add close button
         close_button = QPushButton("✕")
-        close_button.setFixedSize(18, 18)
+        close_button.setFixedSize(50, 50)
         close_button.setStyleSheet("""
             QPushButton {
                 border: none;
@@ -3332,6 +3577,7 @@ class PatientDetailsScreen(QDialog):
         self.tabs.tabBar().setTabButton(new_index, QTabBar.RightSide, close_button)
 
     def addMedication(self, admission_id):
+        """Add a medication to an admission"""
         dialog = QDialog(self)
         dialog.setWindowTitle("Add Medication")
         layout = QFormLayout(dialog)
@@ -3374,6 +3620,7 @@ class PatientDetailsScreen(QDialog):
         dialog.exec_()
 
     def addProcedure(self, admission_id):
+        """Add a procedure to an admission"""
         dialog = QDialog(self)
         dialog.setWindowTitle("Add Procedure")
         layout = QFormLayout(dialog)
@@ -3414,6 +3661,7 @@ class PatientDetailsScreen(QDialog):
         dialog.exec_()
 
     def addNote(self, admission_id):
+        """Add a note to an admission"""
         dialog = QDialog(self)
         dialog.setWindowTitle("Add Note")
         layout = QVBoxLayout(dialog)
@@ -3450,7 +3698,8 @@ class PatientDetailsScreen(QDialog):
         
         buttons.accepted.connect(handleOk)
         buttons.rejected.connect(dialog.reject)
-
+        
+        dialog.exec_()
 
     def loadBillingData(self, admissions):
         """Load all billing information for the patient using the predefined BillingInformationView"""
@@ -4622,12 +4871,15 @@ class PatientDetailsScreen(QDialog):
             print(f"Error: {e}")
 
     def dischargePatient(self, admission_id):
+        """Discharge a patient from an admission"""
         from datetime import datetime
         discharge_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
             UpdateDB.admissionUpdateDischarge(admission_id, discharge_time, encryption_key)
             QMessageBox.information(self, "Success", f"Admission {admission_id} discharged.")
-            self.reloadAdmissionTab(admission_id)  # Optional: refresh to reflect discharge
+            
+            # Reload the specific admission tab
+            self.reloadAdmissionDetails()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to discharge patient: {str(e)}")
 

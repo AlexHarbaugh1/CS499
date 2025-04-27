@@ -900,19 +900,17 @@ def run():
               RETURNS TRIGGER AS $$
               DECLARE
                 encryption_key TEXT := %s;
-                valid_admission BOOLEAN;
               BEGIN
-              SELECT EXISTS (
-                SELECT 1
-                FROM jsonb_array_elements(
-                  (SELECT admissions FROM PatientAdmissionOverview WHERE patient_id = NEW.patient_id)
-                ) AS admission
-                WHERE (admission ->> 'admission_id')::INT = NEW.admission_id
-              ) INTO valid_admission;
-
-              IF NOT valid_admission THEN
-                RAISE EXCEPTION 'Invalid admission_id %% for patient %%', NEW.admission_id, NEW.patient_id;
-              END IF;
+                -- Instead of checking against the JSON structure, directly check the admission table
+                -- This is much faster as it uses the primary key index
+                IF NOT EXISTS (
+                  SELECT 1
+                  FROM admission a
+                  WHERE a.admission_id = NEW.admission_id AND a.patient_id = NEW.patient_id
+                ) THEN
+                  RAISE EXCEPTION 'Invalid admission_id %% for patient %%', NEW.admission_id, NEW.patient_id;
+                END IF;
+                
                 INSERT INTO PatientNote (
                   admission_id,
                   note_type,
@@ -926,6 +924,7 @@ def run():
                   pgp_sym_encrypt(NOW()::text, encryption_key),
                   current_setting('app.current_user_id')::INT
                 );
+                
                 RETURN NEW;
               END;
               $$ LANGUAGE plpgsql SECURITY DEFINER;"""
@@ -955,64 +954,65 @@ def run():
       cursor2.execute("""GRANT SELECT, UPDATE ON PhysicianWriteView TO physician_role;""")
       # Function for Inserting physician notes, procedures, and prescriptions into database
       sql = """CREATE OR REPLACE FUNCTION physician_write_trigger()
-              RETURNS TRIGGER AS $$
-              DECLARE
-                encryption_key TEXT := %s;
-                valid_admission BOOLEAN;
-              BEGIN
-              SELECT EXISTS (
-                SELECT 1
-                FROM jsonb_array_elements(
-                  (SELECT admissions FROM PatientAdmissionOverview WHERE patient_id = NEW.patient_id)
-                ) AS admission
-                WHERE (admission ->> 'admission_id')::INT = NEW.admission_id
-              ) INTO valid_admission;
-
-              IF NOT valid_admission THEN
-                RAISE EXCEPTION 'Invalid admission_id %% for patient %%', NEW.admission_id, NEW.patient_id;
-              END IF;
-              IF new.note_text IS NOT NULL THEN
-                INSERT INTO PatientNote (
-                  admission_id,
-                  note_type,
-                  note_text,
-                  note_datetime,
-                  author_id
-                ) VALUES (
-                  NEW.admission_id,
-                  'Doctor',
-                  pgp_sym_encrypt(NEW.note_text, encryption_key),
-                  pgp_sym_encrypt(NOW()::text, encryption_key),
-                  current_setting('app.current_user_id')::INT
-                );
-              END IF;
-              IF new.medication_name IS NOT NULL THEN
-                INSERT INTO Prescription (
-                  admission_id,
-                  medication_name,
-                  amount,
-                  schedule
-                ) VALUES (
-                  NEW.admission_id,
-                  pgp_sym_encrypt(NEW.medication_name, encryption_key),
-                  pgp_sym_encrypt(NEW.medication_amount, encryption_key),
-                  pgp_sym_encrypt(NEW.medication_schedule, encryption_key)
-                );
-              END IF;
-              IF new.procedure_name IS NOT NULL THEN
-                INSERT INTO ScheduledProcedure (
-                  admission_id,
-                  procedure_name,
-                  scheduled_datetime
-                ) Values (
-                NEW.admission_id,
-                pgp_sym_encrypt(NEW.procedure_name, encryption_key),
-                  pgp_sym_encrypt(NEW.procedure_schedule, encryption_key)
-                );
-              END IF;
-                RETURN NEW;
-              END;
-              $$ LANGUAGE plpgsql SECURITY DEFINER;"""
+                RETURNS TRIGGER AS $$
+                DECLARE
+                  encryption_key TEXT := %s;
+                BEGIN
+                  -- Use direct table lookup instead of JSON processing
+                  IF NOT EXISTS (
+                    SELECT 1
+                    FROM admission a
+                    WHERE a.admission_id = NEW.admission_id AND a.patient_id = NEW.patient_id
+                  ) THEN
+                    RAISE EXCEPTION 'Invalid admission_id %% for patient %%', NEW.admission_id, NEW.patient_id;
+                  END IF;
+                  
+                  -- Only perform the inserts that are needed based on which fields are populated
+                  IF NEW.note_text IS NOT NULL THEN
+                    INSERT INTO PatientNote (
+                      admission_id,
+                      note_type,
+                      note_text,
+                      note_datetime,
+                      author_id
+                    ) VALUES (
+                      NEW.admission_id,
+                      'Doctor',
+                      pgp_sym_encrypt(NEW.note_text, encryption_key),
+                      pgp_sym_encrypt(NOW()::text, encryption_key),
+                      current_setting('app.current_user_id')::INT
+                    );
+                  END IF;
+                  
+                  IF NEW.medication_name IS NOT NULL THEN
+                    INSERT INTO Prescription (
+                      admission_id,
+                      medication_name,
+                      amount,
+                      schedule
+                    ) VALUES (
+                      NEW.admission_id,
+                      pgp_sym_encrypt(NEW.medication_name, encryption_key),
+                      pgp_sym_encrypt(NEW.medication_amount, encryption_key),
+                      pgp_sym_encrypt(NEW.medication_schedule, encryption_key)
+                    );
+                  END IF;
+                  
+                  IF NEW.procedure_name IS NOT NULL THEN
+                    INSERT INTO ScheduledProcedure (
+                      admission_id,
+                      procedure_name,
+                      scheduled_datetime
+                    ) VALUES (
+                      NEW.admission_id,
+                      pgp_sym_encrypt(NEW.procedure_name, encryption_key),
+                      pgp_sym_encrypt(NEW.procedure_schedule, encryption_key)
+                    );
+                  END IF;
+                  
+                  RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql SECURITY DEFINER;"""
       params = (keys[0],)
       cursor2.execute(sql, params)
       cursor2.execute("""CREATE TRIGGER physician_write_trigger
