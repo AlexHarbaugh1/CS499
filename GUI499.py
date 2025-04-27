@@ -15,7 +15,7 @@ import pandas as pd
 from InactivityTimer import InactivityTimer
 from PyQt5.uic import loadUi
 from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtWidgets import QDialog, QDateTimeEdit, QDialogButtonBox, QApplication, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QListWidgetItem
+from PyQt5.QtWidgets import QLayout, QDialog, QDateTimeEdit, QDialogButtonBox, QApplication, QGridLayout, QScrollArea, QWidget, QTableWidgetItem, QTableWidget,QComboBox, QTextEdit, QLineEdit, QFileDialog, QTabBar, QTabWidget, QVBoxLayout, QPushButton, QLabel, QFormLayout, QSizePolicy, QFrame, QHBoxLayout, QGroupBox, QMessageBox, QListWidget, QListWidgetItem
 from PyQt5.QtCore import QTimer, QEvent, QObject, QRect, Qt, QDateTime, QCoreApplication
 from PyQt5.QtGui import QBrush
 import csv
@@ -505,9 +505,25 @@ class ApplicationScreen(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
 class AdminScreen(QDialog):
     def __init__(self):
@@ -650,9 +666,25 @@ class AdminScreen(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
     def printAllAdmissionsSummary(self):
         try:
@@ -930,18 +962,58 @@ class AuditLogScreen(QDialog):
             QMessageBox.warning(self, "Export Error", f"An error occurred while exporting the data: {str(e)}")
     
     def goBack(self):
-        admin = AdminScreen()
-        widget = self.parent()
-        widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
     
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
-        widget = self.parent()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
 class InsertStaff(QDialog):
     def __init__(self):
@@ -1002,7 +1074,6 @@ class InsertStaff(QDialog):
         self.errorMsg.setWordWrap(True)
     
     def addStaffMember(self):
-    
         firstName = self.firstNameField.text()
         lastName = self.lastNameField.text()
         username = self.usernameField.text()
@@ -1025,30 +1096,49 @@ class InsertStaff(QDialog):
                 self.usernameField.clear()
                 self.passwordField.clear()
                 self.staffTypeCombo.setCurrentIndex(0)
-            except psycopg2.errors.UniqueViolation:
+            except Exception as e:
                 self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Username already exists. Please choose a different username.")
-            except psycopg2.errors.NotNullViolation:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Missing required information. Please fill all fields.")
-            except psycopg2.errors.ForeignKeyViolation:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Invalid staff type selected.")
-            except psycopg2.OperationalError:
-                self.errorMsg.setStyleSheet("color: red;")
-                self.errorMsg.setText("Connection to database failed. Please try again later.")
-            except ValueError as e:
-                self.errorMsg.setStyleSheet("color: red;")
-                if "Invalid staff type" in str(e):
-                    self.errorMsg.setText("Please select a valid staff type.")
+                # Check for specific error types
+                error_message = str(e)
+                if "duplicate key value violates unique constraint" in error_message:
+                    self.errorMsg.setText("Username already exists. Please choose a different username.")
+                elif "not-null constraint" in error_message:
+                    self.errorMsg.setText("Missing required information. Please fill all fields.")
+                elif "foreign key constraint" in error_message:
+                    self.errorMsg.setText("Invalid staff type selected.")
                 else:
-                    self.errorMsg.setText("Invalid input data. Please check your entries.")
+                    self.errorMsg.setText(f"Error: {error_message}")
 
     def goBack(self):
-        # Navigate back to the admin screen
-        admin = AdminScreen()
-        widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
     
 
     def showPrintDialog(self, text):
@@ -1260,18 +1350,35 @@ class InsertPatient(QDialog):
         self.doctorCombo.setCurrentIndex(0)
     
     def goBack(self):
-        # Get the current user type
-        usertype = hospitalDB.getCurrentUserType()
+        # Get the current index
+        current_index = widget.currentIndex()
         
-        # Navigate based on user type
-        if usertype == "Administrator":
-            admin = AdminScreen()
-            widget.addWidget(admin)
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
         else:
-            application = ApplicationScreen()
-            widget.addWidget(application)
-        
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class RegisterLocation(QDialog):
     def __init__(self):
@@ -1370,24 +1477,47 @@ class RegisterLocation(QDialog):
             self.roomField.clear()
             self.bedField.clear()
             
-        except psycopg2.errors.UniqueViolation:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("This location already exists. Please try a different combination.")
-        except psycopg2.errors.NotNullViolation:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("Missing required information. Please fill all fields.")
-        except psycopg2.OperationalError:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("Connection to database failed. Please try again later.")
         except Exception as e:
             self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText(f"Error: {str(e)}")
+            error_message = str(e)
+            # Check for specific error patterns in the exception message
+            if "duplicate key value violates unique constraint" in error_message or "unique_location" in error_message:
+                self.errorMsg.setText("This location already exists. Please try a different combination.")
+            elif "not-null constraint" in error_message:
+                self.errorMsg.setText("Missing required information. Please fill all fields.")
+            else:
+                self.errorMsg.setText(f"Error: {error_message}")
 
     def goBack(self):
-        # Navigate back to the admin screen
-        admin = AdminScreen()
-        widget.addWidget(admin)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class RegisterAdmission(QDialog):
     def __init__(self):
@@ -1583,18 +1713,35 @@ class RegisterAdmission(QDialog):
             self.errorMsg.setText(f"Error: {str(e)}")
 
     def goBack(self):
-        # Get the current user type
-        usertype = hospitalDB.getCurrentUserType()
+        # Get the current index
+        current_index = widget.currentIndex()
         
-        # Navigate based on user type
-        if usertype == "Administrator":
-            admin = AdminScreen()
-            widget.addWidget(admin)
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
         else:
-            application = ApplicationScreen()
-            widget.addWidget(application)
-        
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class SearchStaff(QDialog):
     def __init__(self):
@@ -1670,9 +1817,25 @@ class SearchStaff(QDialog):
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
     def searchFunction(self):
         lastName = self.lastField.text()
@@ -1719,19 +1882,35 @@ class SearchStaff(QDialog):
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
     def goBack(self):
-        # Get the current user type
-        usertype = hospitalDB.getCurrentUserType()
+        # Get the current index
+        current_index = widget.currentIndex()
         
-        # For InsertStaff, we might always want to go back to the admin screen
-        # since only administrators can access this screen, but let's check anyway
-        if usertype == "Administrator":
-            admin = AdminScreen()
-            widget.addWidget(admin)
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
         else:
-            application = ApplicationScreen()
-            widget.addWidget(application)
-        
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class StaffDetailsScreen(QDialog):
     def __init__(self, staff_id):
@@ -1816,9 +1995,35 @@ class StaffDetailsScreen(QDialog):
             print(f"Error: {e}")
 
     def goBack(self):
-        search_staff = SearchStaff()
-        widget.addWidget(search_staff)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class SearchScreen(QDialog):
     def __init__(self):
@@ -1915,61 +2120,132 @@ class SearchScreen(QDialog):
         if len(lastName) == 0 and len(firstName) == 0 and len(middleName) == 0:
             self.error.setText("Input at least one field.")
         else:
-            df = None
-
+            # Clear any previous error message
+            self.error.setText("")
+            
             # Check whether checkbox for last name or first name is checked
             if firstBox:
                 partials.add('fname')
             if lastBox:
                 partials.add('lname')
 
-            df = pd.DataFrame(SearchDB.searchPatientWithName(fixed_salt, 
-                                                        fname=firstName.title() if firstName else None,
-                                                        mname=middleName.title() if middleName else None,
-                                                        lname=lastName.title() if lastName else None,
-                                                        partial_fields=partials,
-                                                        active_admissions_only=activeAdmissionsOnly))
+            # Get patient data
+            patients = SearchDB.searchPatientWithName(fixed_salt, 
+                                                    fname=firstName.title() if firstName else None,
+                                                    mname=middleName.title() if middleName else None,
+                                                    lname=lastName.title() if lastName else None,
+                                                    partial_fields=partials,
+                                                    active_admissions_only=activeAdmissionsOnly)
+            
+            df = pd.DataFrame(patients)
 
             if df.empty:
                 self.error.setText("No results found.")
+                # Hide the table if no results
+                self.resultsTable.hide()
             else:
-                self.error.setText("")
+                # Clear the existing table data
+                self.resultsTable.clearContents()
+                self.resultsTable.setRowCount(0)
+                
+                # Show and populate the table
                 self.resultsTable.show()
                 self.resultsTable.setRowCount(len(df))
                 self.resultsTable.setColumnCount(len(df.columns))
                 self.resultsTable.setHorizontalHeaderLabels(["ID", "First Name", "Middle Name", "Last Name"])
+                
                 for i in range(len(df)):
                     for j in range(len(df.columns)):
-                        item = QTableWidgetItem(str(df.iat[i, j]))
+                        # Clean values
+                        value = df.iat[i, j]
+                        if value is None or value == 'None':
+                            value = ""
+                        item = QTableWidgetItem(str(value))
                         self.resultsTable.setItem(i, j, item)
                 self.resultsTable.cellDoubleClicked.connect(self.openPatientDetails)
+                
+                # Store the data frame for reference
                 self.df = df
 
     def openPatientDetails(self, row, column):
         patient_id = str(self.df.iat[row, 0])
+
+        parent_stack = self.parent()
+
+        # ✅ Safely remove old details screen if it exists
+        if hasattr(self, 'current_patient_screen') and self.current_patient_screen is not None:
+            try:
+                if self.current_patient_screen in [parent_stack.widget(i) for i in range(parent_stack.count())]:
+                    parent_stack.removeWidget(self.current_patient_screen)
+
+                self.current_patient_screen.deleteLater()  # ✅ Only call if still alive
+            except RuntimeError:
+                # Widget was already deleted, safe to ignore
+                pass
+
+            self.current_patient_screen = None
+
+        # ✅ Now create and add the new patient details screen
         details = PatientDetailsScreen(patient_id)
-        widget.addWidget(details)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        parent_stack.addWidget(details)
+        parent_stack.setCurrentWidget(details)
+
+        self.current_patient_screen = details
+
+
 
     def logoutFunction(self):
         eventFilter.enabled = False
         hospitalDB.userLogout()
+        
+        # Clear all widgets from the stack except the first one
+        while widget.count() > 1:
+            # Remove the last widget in the stack
+            last_widget = widget.widget(widget.count() - 1)
+            widget.removeWidget(last_widget)
+            
+            # Free up resources by scheduling widget for deletion
+            last_widget.deleteLater()
+        
+        # Create a new login screen
         login = LoginScreen()
         widget.addWidget(login)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        widget.setCurrentIndex(1)
+        
+        # Remove the initial screen now that we have login in position 1
+        first_widget = widget.widget(0)
+        widget.removeWidget(first_widget)
+        first_widget.deleteLater()
 
     def goBack(self):
-        # Get the current user type
-        usertype = hospitalDB.getCurrentUserType()
-        
-        # Navigate based on user type
-        if usertype == "Administrator":
-            admin = AdminScreen()
-            widget.addWidget(admin)
-        else:
-            application = ApplicationScreen()
-            widget.addWidget(application)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        """Fixed back button handler to properly remove the current screen"""
+        try:
+            # Get the parent widget stack
+            parent_stack = self.parent()
+            
+            # Get the current index in the stack
+            current_index = parent_stack.currentIndex()
+            
+            # Remove this widget from stack
+            parent_stack.removeWidget(self)
+            
+            # Schedule this screen for deletion
+            self.deleteLater()
+            
+            # Reset event filter if needed
+            if hasattr(self, 'tabs'):
+                try:
+                    # Disconnect any tab signals
+                    self.tabs.currentChanged.disconnect()
+                except:
+                    pass
+            
+            # Ensure the application event loop processes the removal
+            QApplication.processEvents()
+            
+        except Exception as e:
+            print(f"Error navigating back: {e}")
+            traceback.print_exc()
 
 class PatientDetailsScreen(QDialog):
     def __init__(self, patient_id):
@@ -2031,7 +2307,7 @@ class PatientDetailsScreen(QDialog):
         self.loadPatientData()
     
     def setupTabs(self):
-        self.num_static_tabs = 0  # Initialize count
+        self.num_static_tabs = 0  # Initialize
 
         if self.usertype == "Volunteer":
             self.tabs.addTab(self.basic_info_tab, "Patient Info")
@@ -2039,84 +2315,170 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.visitors_tab, "Approved Visitors")
             
         elif self.usertype == "Office Staff":
+            # Basic Info Tab - Only has basic demographics now
             self.basic_info_tab = QWidget()
-            layout = QFormLayout()
+            basic_layout = QFormLayout()
+            
+            # Patient Demographics
             self.firstNameEdit = QLineEdit()
             self.middleNameEdit = QLineEdit()
             self.lastNameEdit = QLineEdit()
             self.addressEdit = QTextEdit()
-            # Insurance tab inputs
-            self.insurance_provider_input = QLineEdit()
-            self.policy_number_input = QLineEdit()
-            self.group_number_input = QLineEdit()
-
-
-            # Contacts tab inputs
-            self.emergency_contact_name_input = QLineEdit()
-            self.emergency_contact_phone_input = QLineEdit()
-            for widget in [self.insurance_provider_input, self.policy_number_input,
-               self.emergency_contact_name_input, self.emergency_contact_phone_input, self.group_number_input]:
-                widget.setDisabled(True)
-
-
+            
+            # Make fields read-only initially
             self.firstNameEdit.setReadOnly(True)
             self.middleNameEdit.setReadOnly(True)
             self.lastNameEdit.setReadOnly(True)
             self.addressEdit.setReadOnly(True)
-
-            layout.addRow("First Name:", self.firstNameEdit)
-            layout.addRow("Middle Name:", self.middleNameEdit)
-            layout.addRow("Last Name:", self.lastNameEdit)
-            layout.addRow("Mailing Address:", self.addressEdit)
-
-                        # Insurance Fields
-            self.insuranceProviderEdit = QLineEdit()
-            self.insuranceProviderEdit.setReadOnly(True)
-            self.policyNumberEdit = QLineEdit()
-            self.policyNumberEdit.setReadOnly(True)
-            self.groupNumberEdit = QLineEdit()
-            self.groupNumberEdit.setReadOnly(True)
-            layout.addRow("Insurance Provider:", self.insuranceProviderEdit)
-            layout.addRow("Policy Number:", self.policyNumberEdit)
-            layout.addRow("Group Number:", self.groupNumberEdit)
-
-
-            # Emergency Contact Fields
-            self.emergencyNameEdit = QLineEdit()
-            self.emergencyNameEdit.setReadOnly(True)
-            self.emergencyPhoneEdit = QLineEdit()
-            self.emergencyPhoneEdit.setReadOnly(True)
-            layout.addRow("Emergency Contact Name:", self.emergencyNameEdit)
-            layout.addRow("Emergency Contact Phone:", self.emergencyPhoneEdit)
-
-
-
+            
+            basic_layout.addRow("First Name:", self.firstNameEdit)
+            basic_layout.addRow("Middle Name:", self.middleNameEdit)
+            basic_layout.addRow("Last Name:", self.lastNameEdit)
+            basic_layout.addRow("Mailing Address:", self.addressEdit)
+            
+            # Edit/Save buttons for basic info
             self.editBasicInfoBtn = QPushButton("Edit")
             self.saveBasicInfoBtn = QPushButton("Save")
             self.saveBasicInfoBtn.setEnabled(False)
             self.editBasicInfoBtn.clicked.connect(self.enableBasicInfoEdit)
             self.saveBasicInfoBtn.clicked.connect(self.saveBasicInfo)
-
-            layout.addRow(self.editBasicInfoBtn, self.saveBasicInfoBtn)
-            self.basic_info_tab.setLayout(layout)
-
-            self.tabs.addTab(self.basic_info_tab, "Basic Info")
-            self.tabs.addTab(self.insurance_tab, "Insurance")
-            self.tabs.addTab(self.contacts_tab, "Contacts")
-            self.tabs.addTab(self.billing_tab, "Billing")
             
+            basic_button_layout = QHBoxLayout()
+            basic_button_layout.addWidget(self.editBasicInfoBtn)
+            basic_button_layout.addWidget(self.saveBasicInfoBtn)
+            basic_layout.addRow("", basic_button_layout)
+            
+            self.basic_info_tab.setLayout(basic_layout)
+            self.tabs.addTab(self.basic_info_tab, "Basic Info")
+            
+            
+            # Insurance Tab - With edit functionality
+            self.insurance_tab = QWidget()
+            insurance_layout = QFormLayout()
+            
+            # Insurance fields
+            self.insuranceProviderEdit = QLineEdit()
+            self.policyNumberEdit = QLineEdit()
+            self.groupNumberEdit = QLineEdit()
+            
+            # Make fields read-only initially
+            self.insuranceProviderEdit.setReadOnly(True)
+            self.policyNumberEdit.setReadOnly(True)
+            self.groupNumberEdit.setReadOnly(True)
+            
+            insurance_layout.addRow("Insurance Provider:", self.insuranceProviderEdit)
+            insurance_layout.addRow("Policy Number:", self.policyNumberEdit)
+            insurance_layout.addRow("Group Number:", self.groupNumberEdit)
+            
+            # Edit/Save buttons for insurance
+            self.editInsuranceBtn = QPushButton("Edit")
+            self.saveInsuranceBtn = QPushButton("Save")
+            self.saveInsuranceBtn.setEnabled(False)
+            self.editInsuranceBtn.clicked.connect(self.enableInsuranceEdit)
+            self.saveInsuranceBtn.clicked.connect(self.saveInsurance)
+            
+            ins_button_layout = QHBoxLayout()
+            ins_button_layout.addWidget(self.editInsuranceBtn)
+            ins_button_layout.addWidget(self.saveInsuranceBtn)
+            insurance_layout.addRow("", ins_button_layout)
+            
+            self.insurance_tab.setLayout(insurance_layout)
+            self.tabs.addTab(self.insurance_tab, "Insurance")
+            
+            # Contacts Tab - With edit functionality
+            self.contacts_tab = QWidget()
+            contacts_layout = QVBoxLayout()
+            
+            # Phone Numbers Section
+            phone_group = QGroupBox("Phone Numbers")
+            phone_layout = QFormLayout()
+            
+            self.homePhoneEdit = QLineEdit()
+            self.workPhoneEdit = QLineEdit() 
+            self.mobilePhoneEdit = QLineEdit()
+            
+            # Make fields read-only initially
+            self.homePhoneEdit.setReadOnly(True)
+            self.workPhoneEdit.setReadOnly(True)
+            self.mobilePhoneEdit.setReadOnly(True)
+            
+            phone_layout.addRow("Home Phone:", self.homePhoneEdit)
+            phone_layout.addRow("Work Phone:", self.workPhoneEdit)
+            phone_layout.addRow("Mobile Phone:", self.mobilePhoneEdit)
+            
+            # Edit/Save buttons for phones
+            self.editPhoneBtn = QPushButton("Edit")
+            self.savePhoneBtn = QPushButton("Save")
+            self.savePhoneBtn.setEnabled(False)
+            self.editPhoneBtn.clicked.connect(self.enablePhoneEdit)
+            self.savePhoneBtn.clicked.connect(self.savePhone)
+            
+            phone_button_layout = QHBoxLayout()
+            phone_button_layout.addWidget(self.editPhoneBtn)
+            phone_button_layout.addWidget(self.savePhoneBtn)
+            phone_layout.addRow("", phone_button_layout)
+            
+            phone_group.setLayout(phone_layout)
+            contacts_layout.addWidget(phone_group)
+            
+            # Emergency Contacts Section
+            ec_group = QGroupBox("Emergency Contacts")
+            ec_layout = QFormLayout()
+            
+            self.ec1NameEdit = QLineEdit()
+            self.ec1PhoneEdit = QLineEdit()
+            self.ec2NameEdit = QLineEdit()
+            self.ec2PhoneEdit = QLineEdit()
+            
+            # Make fields read-only initially
+            self.ec1NameEdit.setReadOnly(True)
+            self.ec1PhoneEdit.setReadOnly(True)
+            self.ec2NameEdit.setReadOnly(True)
+            self.ec2PhoneEdit.setReadOnly(True)
+            
+            ec_layout.addRow("Contact 1 Name:", self.ec1NameEdit)
+            ec_layout.addRow("Contact 1 Phone:", self.ec1PhoneEdit)
+            ec_layout.addRow("Contact 2 Name:", self.ec2NameEdit)
+            ec_layout.addRow("Contact 2 Phone:", self.ec2PhoneEdit)
+            
+            # Edit/Save buttons for emergency contacts
+            self.editECBtn = QPushButton("Edit")
+            self.saveECBtn = QPushButton("Save")
+            self.saveECBtn.setEnabled(False)
+            self.editECBtn.clicked.connect(self.enableECEdit)
+            self.saveECBtn.clicked.connect(self.saveEC)
+            
+            ec_button_layout = QHBoxLayout()
+            ec_button_layout.addWidget(self.editECBtn)
+            ec_button_layout.addWidget(self.saveECBtn)
+            ec_layout.addRow("", ec_button_layout)
+            
+            ec_group.setLayout(ec_layout)
+            contacts_layout.addWidget(ec_group)
+            
+            self.contacts_tab.setLayout(contacts_layout)
+            self.tabs.addTab(self.contacts_tab, "Contacts")
+
+            # Location Tab - Read-only tab showing current patient location
+            self.location_tab = QWidget()
+            self.tabs.addTab(self.location_tab, "Location")
+            
+            # Billing Tab (remains the same)
+            self.tabs.addTab(self.billing_tab, "Billing")
+
         elif self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
+            self.tabs.addTab(self.location_tab, "Location")
             self.tabs.addTab(self.admissions_tab, "Admissions")
             self.tabs.addTab(self.notes_tab, "Notes")
             self.tabs.addTab(self.medications_tab, "Medications")
             self.tabs.addTab(self.procedures_tab, "Procedures")
             self.tabs.addTab(self.visitors_tab, "Approved Visitors")
-              # Add billing tab for Medical Personnel and Physicians
+            self.tabs.addTab(self.billing_tab, "Billing")
 
-        self.num_static_tabs = self.tabs.count()  # Store default tab count
+        self.num_static_tabs = self.tabs.count()
 
 
  # 👇 Add the new slot functions here
@@ -2153,29 +2515,234 @@ class PatientDetailsScreen(QDialog):
         self.saveContactsBtn.setEnabled(False)
 
     def reloadAdmissionDetails(self):
+        """Reload admission details for the current patient and update the UI"""
         try:
+            # Get fresh patient data
             patient_data = SearchDB.searchPatientWithID(self.patient_id)
+            if not patient_data:
+                print("No patient data found during reload")
+                return
+                
+            # Store the data
             self.patient_data = patient_data
-            self.admissions_data = patient_data[15]  # make sure this is the correct index!
+            self.admissions_data = patient_data[15] if len(patient_data) > 15 else []
             
-            self.loadMedicalData()  # ✅ <- This line ensures GUI + admissions_list_widget are refreshed
-
-            if hasattr(self, 'current_admission_id'):
-                for idx, admission in enumerate(self.admissions_data):
-                    if admission.get("admission_id") == self.current_admission_id:
-                        tab_title = f"Admission #{self.current_admission_id}"
-
-                        # Remove existing tab
-                        for i in range(self.tabs.count()):
-                            if self.tabs.tabText(i) == tab_title:
-                                self.tabs.removeTab(i)
-                                break
-
-                        # Reopen the updated tab
-                        self.openAdmissionDetails(self.current_admission_id)
+            # Save the current tab index to restore it later
+            current_tab_index = self.tabs.currentIndex()
+            
+            # Update the admissions list widget if it exists
+            if hasattr(self, 'admissions_list_widget') and self.admissions_data:
+                self.admissions_list_widget.clear()
+                for admission in self.admissions_data:
+                    admission_id = admission.get('admission_id', '')
+                    admit_date = admission.get('admittance_date', '')
+                    reason = admission.get('admission_reason', '')
+                    discharge = admission.get('admittance_discharge', '')
+                    
+                    display_text = f"Admission #{admission_id}: {admit_date} - Reason: {reason}"
+                    if discharge and discharge.lower() != 'none':
+                        display_text += f" (Discharged: {discharge})"
+                    
+                    self.admissions_list_widget.addItem(display_text)
+            
+            # Update Notes tab
+            notes_tab_index = -1
+            for i in range(self.tabs.count()):
+                if self.tabs.tabText(i) == "Notes":
+                    notes_tab_index = i
+                    break
+            
+            if notes_tab_index >= 0:
+                # Get the current tab widget
+                notes_tab = self.tabs.widget(notes_tab_index)
+                
+                # Create a new layout for the notes tab
+                notes_layout = QVBoxLayout()
+                
+                # Create and populate a new notes list
+                self.notes_list = QListWidget()
+                
+                # Collect all notes from all admissions
+                all_notes = []
+                for admission in self.admissions_data:
+                    if 'details' in admission and 'notes' in admission['details']:
+                        for note in admission['details']['notes'] or []:
+                            note_text = note.get('text', '')
+                            note_type = note.get('type', '')
+                            note_author = note.get('author', '')
+                            note_datetime = note.get('datetime', '')
+                            
+                            all_notes.append((note_datetime, f"{note_type} note by {note_author}: {note_text}"))
+                
+                # Sort notes by datetime
+                all_notes.sort(key=lambda x: x[0])
+                
+                if all_notes:
+                    for _, note_text in all_notes:
+                        self.notes_list.addItem(note_text)
+                    notes_layout.addWidget(self.notes_list)
+                else:
+                    notes_layout.addWidget(QLabel("No notes found"))
+                
+                # Add note entry form if appropriate
+                if self.usertype in ["Medical Personnel", "Physician", "Administrator"]:
+                    note_entry_group = QGroupBox("Add Note")
+                    note_entry_layout = QVBoxLayout()
+                    
+                    note_text_edit = QTextEdit()
+                    note_text_edit.setPlaceholderText("Enter your note here...")
+                    
+                    save_note_button = QPushButton("Save Note")
+                    
+                    def saveNote():
+                        note_text = note_text_edit.toPlainText().strip()
+                        
+                        if not note_text:
+                            QMessageBox.warning(self, "Empty Note", "Please enter note content.")
+                            return
+                        
+                        # Use the latest admission ID if available
+                        if self.admissions_data and len(self.admissions_data) > 0:
+                            latest_admission = self.admissions_data[0]  # Assuming sorted by date desc
+                            latest_admission_id = latest_admission.get('admission_id')
+                            
+                            if latest_admission_id:
+                                try:
+                                    InsertData.insertNote(latest_admission_id, note_text)
+                                    self.notes_list.addItem(f"New Note: {note_text}")
+                                    QMessageBox.information(self, "Success", "Note added successfully!")
+                                    note_text_edit.clear()
+                                    self.reloadAdmissionDetails()
+                                except Exception as e:
+                                    QMessageBox.critical(self, "Error", f"Failed to save note: {str(e)}")
+                    
+                    save_note_button.clicked.connect(saveNote)
+                    
+                    note_entry_layout.addWidget(note_text_edit)
+                    note_entry_layout.addWidget(save_note_button)
+                    note_entry_group.setLayout(note_entry_layout)
+                    
+                    notes_layout.addWidget(note_entry_group)
+                
+                # Remove old layout and set the new one
+                if notes_tab.layout() is not None:
+                    # Remove all widgets from old layout
+                    while notes_tab.layout().count():
+                        item = notes_tab.layout().takeAt(0)
+                        if item.widget():
+                            item.widget().deleteLater()
+                    
+                    # Delete old layout
+                    QWidget().setLayout(notes_tab.layout())
+                
+                notes_tab.setLayout(notes_layout)
+            
+            # Update Medications tab
+            medications_tab_index = -1
+            for i in range(self.tabs.count()):
+                if self.tabs.tabText(i) == "Medications":
+                    medications_tab_index = i
+                    break
+            
+            if medications_tab_index >= 0:
+                medications_tab = self.tabs.widget(medications_tab_index)
+                medications_layout = QVBoxLayout()
+                
+                all_meds = []
+                for admission in self.admissions_data:
+                    if 'details' in admission and 'prescriptions' in admission['details']:
+                        for med in admission['details']['prescriptions'] or []:
+                            medication = med.get('medication', '')
+                            amount = med.get('amount', '')
+                            schedule = med.get('schedule', '')
+                            
+                            all_meds.append(f"Medication: {medication}, Amount: {amount}, Schedule: {schedule}")
+                
+                if all_meds:
+                    meds_list = QListWidget()
+                    for med in all_meds:
+                        meds_list.addItem(med)
+                    medications_layout.addWidget(meds_list)
+                else:
+                    medications_layout.addWidget(QLabel("No medications found"))
+                
+                # Remove old layout and set the new one
+                if medications_tab.layout() is not None:
+                    # Remove all widgets from old layout
+                    while medications_tab.layout().count():
+                        item = medications_tab.layout().takeAt(0)
+                        if item.widget():
+                            item.widget().deleteLater()
+                    
+                    # Delete old layout
+                    QWidget().setLayout(medications_tab.layout())
+                
+                medications_tab.setLayout(medications_layout)
+            
+            # Update Procedures tab
+            procedures_tab_index = -1
+            for i in range(self.tabs.count()):
+                if self.tabs.tabText(i) == "Procedures":
+                    procedures_tab_index = i
+                    break
+            
+            if procedures_tab_index >= 0:
+                procedures_tab = self.tabs.widget(procedures_tab_index)
+                procedures_layout = QVBoxLayout()
+                
+                all_procedures = []
+                for admission in self.admissions_data:
+                    if 'details' in admission and 'procedures' in admission['details']:
+                        for proc in admission['details']['procedures'] or []:
+                            name = proc.get('name', '')
+                            scheduled = proc.get('scheduled', '')
+                            
+                            all_procedures.append(f"Procedure: {name}, Scheduled: {scheduled}")
+                
+                if all_procedures:
+                    proc_list = QListWidget()
+                    for proc in all_procedures:
+                        proc_list.addItem(proc)
+                    procedures_layout.addWidget(proc_list)
+                else:
+                    procedures_layout.addWidget(QLabel("No procedures found"))
+                
+                # Remove old layout and set the new one
+                if procedures_tab.layout() is not None:
+                    # Remove all widgets from old layout
+                    while procedures_tab.layout().count():
+                        item = procedures_tab.layout().takeAt(0)
+                        if item.widget():
+                            item.widget().deleteLater()
+                    
+                    # Delete old layout
+                    QWidget().setLayout(procedures_tab.layout())
+                
+                procedures_tab.setLayout(procedures_layout)
+            
+            # Update any open admission tabs
+            if hasattr(self, 'current_admission_id') and self.current_admission_id:
+                # Find the tab index
+                tab_title = f"Admission #{self.current_admission_id}"
+                tab_index = -1
+                for i in range(self.tabs.count()):
+                    if self.tabs.tabText(i) == tab_title:
+                        tab_index = i
                         break
+                
+                if tab_index >= 0:
+                    # Remove the old tab
+                    self.tabs.removeTab(tab_index)
+                    
+                    # Create a new tab with fresh data
+                    self.openAdmissionDetails(self.current_admission_id)
+            
+            # Restore the selected tab
+            if current_tab_index < self.tabs.count():
+                self.tabs.setCurrentIndex(current_tab_index)
+            
         except Exception as e:
-            print("Error reloading admission details:", e)
+            print(f"Error reloading admission details: {e}")
             traceback.print_exc()
 
 
@@ -2191,6 +2758,20 @@ class PatientDetailsScreen(QDialog):
                 QMessageBox.warning(self, "No Data", "No patient data found.")
                 return
 
+            # Format the patient name properly for the header (replacing None with empty string)
+            first_name = patient_data[1] or ""
+            middle_name = patient_data[2] or ""
+            last_name = patient_data[3] or ""
+            
+            # Create a properly formatted name
+            if middle_name and middle_name != 'None':
+                name = f"{first_name} {middle_name} {last_name}"
+            else:
+                name = f"{first_name} {last_name}"
+                
+            # Set this properly formatted name in the header
+            self.patient_info_label.setText(f"Patient: {name}")
+
             # Process data based on user type
             if self.usertype == "Volunteer":
                 self.loadVolunteerData(patient_data)
@@ -2200,22 +2781,18 @@ class PatientDetailsScreen(QDialog):
                 self.loadMedicalData(patient_data)
 
         except Exception as e:
-            traceback.print_exc()  # Add this line for full stack trace in terminal
+            traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Error loading patient data: {str(e)}")
             print(f"Error: {e}")
+
 
     def enableBasicInfoEdit(self):
         self.firstNameEdit.setReadOnly(False)
         self.middleNameEdit.setReadOnly(False)
         self.lastNameEdit.setReadOnly(False)
         self.addressEdit.setReadOnly(False)
-        self.insuranceProviderEdit.setReadOnly(False)
-        self.policyNumberEdit.setReadOnly(False)
-        self.emergencyNameEdit.setReadOnly(False)
-        self.emergencyPhoneEdit.setReadOnly(False)
         self.editBasicInfoBtn.setEnabled(False)
         self.saveBasicInfoBtn.setEnabled(True)
-        self.groupNumberEdit.setReadOnly(False)
 
 
     def saveBasicInfo(self):
@@ -2224,74 +2801,249 @@ class PatientDetailsScreen(QDialog):
         last = self.lastNameEdit.text().strip()
         address = self.addressEdit.toPlainText().strip()
         
-        group_number = self.groupNumberEdit.text().strip()
-        insurance_provider = self.insuranceProviderEdit.text().strip()
-        policy_number = self.policyNumberEdit.text().strip()
-        emergency_name = self.emergencyNameEdit.text().strip()
-        emergency_phone = self.emergencyPhoneEdit.text().strip()
-
         try:
+            changed = False
+            
             if first != self.original_data['first_name']:
                 UpdateDB.patientUpdateFirstName(self.patient_id, first, fixed_salt)
+                changed = True
+                
             if middle != self.original_data['middle_name']:
                 UpdateDB.patientUpdateMiddleName(self.patient_id, middle, fixed_salt)
+                changed = True
+                
             if last != self.original_data['last_name']:
                 UpdateDB.patientUpdateLastName(self.patient_id, last, fixed_salt)
+                changed = True
+                
             if address != self.original_data['address']:
                 UpdateDB.patientUpdateAddress(self.patient_id, address)
-
-            # Insurance updates
-            if insurance_provider != self.original_data.get('insurance_provider', ''):
-                UpdateDB.patientUpdateInsuranceCarrierName(self.patient_id, insurance_provider, encryption_key)
-            if policy_number != self.original_data.get('policy_number', ''):
-                UpdateDB.patientUpdateInsuranceAccountNumber(self.patient_id, policy_number, encryption_key)
-            if group_number != self.original_data.get('group_number', ''):
-                UpdateDB.patientUpdateInsuranceGroupNumber(self.patient_id, group_number, encryption_key)
-
-            # Emergency contact updates
-            if emergency_name != self.original_data.get('emergency_name', ''):
-                UpdateDB.patientUpdateContactName(self.patient_id, emergency_name, encryption_key)
-            if emergency_phone != self.original_data.get('emergency_phone', ''):
-                UpdateDB.patientUpdateContactPhone(self.patient_id, emergency_phone, encryption_key)
-
-            QMessageBox.information(self, "Success", "Patient info updated.")
+                changed = True
+            
+            if changed:
+                QMessageBox.information(self, "Success", "Basic information updated successfully.")
+                
+                # Update the original data with new values
+                self.original_data['first_name'] = first
+                self.original_data['middle_name'] = middle
+                self.original_data['last_name'] = last
+                self.original_data['address'] = address
+                
+                # Update the header with new name
+                name = f"{first} {middle} {last}" if middle else f"{first} {last}"
+                self.patient_info_label.setText(f"Patient: {name}")
+            
+            # Reset UI state
             self.firstNameEdit.setReadOnly(True)
             self.middleNameEdit.setReadOnly(True)
             self.lastNameEdit.setReadOnly(True)
             self.addressEdit.setReadOnly(True)
+            self.editBasicInfoBtn.setEnabled(True)
+            self.saveBasicInfoBtn.setEnabled(False)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to update basic information: {str(e)}")
+    
+    # Methods for Insurance tab
+    def enableInsuranceEdit(self):
+        self.insuranceProviderEdit.setReadOnly(False)
+        self.policyNumberEdit.setReadOnly(False)
+        self.groupNumberEdit.setReadOnly(False)
+        self.editInsuranceBtn.setEnabled(False)
+        self.saveInsuranceBtn.setEnabled(True)
+        
+    def saveInsurance(self):
+        provider = self.insuranceProviderEdit.text().strip()
+        policy = self.policyNumberEdit.text().strip()
+        group = self.groupNumberEdit.text().strip()
+        
+        try:
+            # Check if any insurance data has changed
+            if (provider != self.original_data.get('insurance_provider', '') or
+                policy != self.original_data.get('policy_number', '') or
+                group != self.original_data.get('group_number', '')):
+                
+                UpdateDB.patientUpdateInsurance(self.patient_id, provider, policy, group)
+                
+                # Update original data
+                self.original_data['insurance_provider'] = provider
+                self.original_data['policy_number'] = policy
+                self.original_data['group_number'] = group
+                
+                QMessageBox.information(self, "Success", "Insurance information updated successfully.")
+            
+            # Reset UI state
             self.insuranceProviderEdit.setReadOnly(True)
             self.policyNumberEdit.setReadOnly(True)
-            self.emergencyNameEdit.setReadOnly(True)
-            self.emergencyPhoneEdit.setReadOnly(True)
             self.groupNumberEdit.setReadOnly(True)
-
-            self.saveBasicInfoBtn.setEnabled(False)
-            self.editBasicInfoBtn.setEnabled(True)
-
+            self.editInsuranceBtn.setEnabled(True)
+            self.saveInsuranceBtn.setEnabled(False)
+            
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to update info: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to update insurance information: {str(e)}")
+    
+    # Methods for Phone section in Contacts tab
+    def enablePhoneEdit(self):
+        self.homePhoneEdit.setReadOnly(False)
+        self.workPhoneEdit.setReadOnly(False)
+        self.mobilePhoneEdit.setReadOnly(False)
+        self.editPhoneBtn.setEnabled(False)
+        self.savePhoneBtn.setEnabled(True)
+        
+    def savePhone(self):
+        home = self.homePhoneEdit.text().strip()
+        work = self.workPhoneEdit.text().strip()
+        mobile = self.mobilePhoneEdit.text().strip()
+        
+        try:
+            changed = False
+            
+            # Update each phone type if changed
+            if home != self.original_data.get('home_phone', ''):
+                UpdateDB.patientUpdatePhone(self.patient_id, "Home", home)
+                self.original_data['home_phone'] = home
+                changed = True
+                
+            if work != self.original_data.get('work_phone', ''):
+                UpdateDB.patientUpdatePhone(self.patient_id, "Work", work)
+                self.original_data['work_phone'] = work
+                changed = True
+                
+            if mobile != self.original_data.get('mobile_phone', ''):
+                UpdateDB.patientUpdatePhone(self.patient_id, "Mobile", mobile)
+                self.original_data['mobile_phone'] = mobile
+                changed = True
+            
+            if changed:
+                QMessageBox.information(self, "Success", "Phone information updated successfully.")
+            
+            # Reset UI state
+            self.homePhoneEdit.setReadOnly(True)
+            self.workPhoneEdit.setReadOnly(True)
+            self.mobilePhoneEdit.setReadOnly(True)
+            self.editPhoneBtn.setEnabled(True)
+            self.savePhoneBtn.setEnabled(False)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to update phone information: {str(e)}")
+    
+    # Methods for Emergency Contacts section in Contacts tab
+    def enableECEdit(self):
+        self.ec1NameEdit.setReadOnly(False)
+        self.ec1PhoneEdit.setReadOnly(False)
+        self.ec2NameEdit.setReadOnly(False)
+        self.ec2PhoneEdit.setReadOnly(False)
+        self.editECBtn.setEnabled(False)
+        self.saveECBtn.setEnabled(True)
+        
+    def saveEC(self):
+        ec1_name = self.ec1NameEdit.text().strip()
+        ec1_phone = self.ec1PhoneEdit.text().strip()
+        ec2_name = self.ec2NameEdit.text().strip()
+        ec2_phone = self.ec2PhoneEdit.text().strip()
+        
+        try:
+            changed = False
+            
+            # Update emergency contact 1 if changed
+            if (ec1_name != self.original_data.get('ec1_name', '') or 
+                ec1_phone != self.original_data.get('ec1_phone', '')):
+                UpdateDB.patientUpdateContact(self.patient_id, ec1_name, ec1_phone, '1')
+                self.original_data['ec1_name'] = ec1_name
+                self.original_data['ec1_phone'] = ec1_phone
+                changed = True
+            
+            # Update emergency contact 2 if changed
+            if (ec2_name != self.original_data.get('ec2_name', '') or 
+                ec2_phone != self.original_data.get('ec2_phone', '')):
+                UpdateDB.patientUpdateContact(self.patient_id, ec2_name, ec2_phone, '2')
+                self.original_data['ec2_name'] = ec2_name
+                self.original_data['ec2_phone'] = ec2_phone
+                changed = True
+            
+            if changed:
+                QMessageBox.information(self, "Success", "Emergency contact information updated successfully.")
+            
+            # Reset UI state
+            self.ec1NameEdit.setReadOnly(True)
+            self.ec1PhoneEdit.setReadOnly(True)
+            self.ec2NameEdit.setReadOnly(True)
+            self.ec2PhoneEdit.setReadOnly(True)
+            self.editECBtn.setEnabled(True)
+            self.saveECBtn.setEnabled(False)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to update emergency contact information: {str(e)}")
+    def reloadPatientFullData(self):
+        """Completely reload the patient details screen with fresh data"""
+        try:
+            # Store the current tab index to restore it after refresh
+            current_tab_index = self.tabs.currentIndex()
+            
+            # Create a new PatientDetailsScreen to replace this one
+            new_screen = PatientDetailsScreen(self.patient_id)
+            
+            # Get the parent widget stack
+            parent_stack = self.parent()
+            
+            # Get the current index in the stack
+            current_stack_index = parent_stack.currentIndex()
+            
+            # Add the new screen at the same index
+            parent_stack.insertWidget(current_stack_index, new_screen)
+            
+            # Switch to the new screen
+            parent_stack.setCurrentWidget(new_screen)
+            
+            # Try to set the tab to match the previous view
+            if current_tab_index < new_screen.tabs.count():
+                new_screen.tabs.setCurrentIndex(current_tab_index)
+            
+            # Schedule this screen for deletion
+            self.deleteLater()
+            
+        except Exception as e:
+            print(f"Error reloading patient data: {e}")
+            traceback.print_exc()
+
+    def goBack(self):
+        """Fixed back button handler to properly remove the current screen"""
+        try:
+            # Get the parent widget stack
+            parent_stack = self.parent()
+            
+            # Remove this widget from stack
+            parent_stack.removeWidget(self)
+            
+            # Schedule widget for deletion
+            self.deleteLater()
+            
+            # Ensure the application event loop processes the removal
+            QApplication.processEvents()
+            
+        except Exception as e:
+            print(f"Error navigating back: {e}")
+            traceback.print_exc()
+
+
     def loadVolunteerData(self, data):
         """Load data for Volunteer view"""
         # Volunteer view has: patient_id, first_name, middle_name, last_name, 
         # facility, floor, room_number, bed_number, visitors
         
-        # Set header
-        name = f"{data[1]} {data[2]} {data[3]}"
-        self.patient_info_label.setText(f"Patient: {name}")
-        
         # Basic Info Tab
         basic_layout = QFormLayout()
-        basic_layout.addRow("First Name:", QLabel(data[1]))
-        basic_layout.addRow("Middle Name:", QLabel(data[2]))
-        basic_layout.addRow("Last Name:", QLabel(data[3]))
+        basic_layout.addRow("First Name:", QLabel(data[1] or ""))
+        basic_layout.addRow("Middle Name:", QLabel(data[2] if data[2] and data[2] != 'None' else ""))
+        basic_layout.addRow("Last Name:", QLabel(data[3] or ""))
         self.basic_info_tab.setLayout(basic_layout)
         
         # Location Tab
         location_layout = QFormLayout()
-        location_layout.addRow("Facility:", QLabel(data[4]))
-        location_layout.addRow("Floor:", QLabel(str(data[5])))
-        location_layout.addRow("Room Number:", QLabel(str(data[6])))
-        location_layout.addRow("Bed Number:", QLabel(str(data[7])))
+        location_layout.addRow("Facility:", QLabel(data[4] or ""))
+        location_layout.addRow("Floor:", QLabel(str(data[5]) if data[5] is not None else ""))
+        location_layout.addRow("Room Number:", QLabel(str(data[6]) if data[6] is not None else ""))
+        location_layout.addRow("Bed Number:", QLabel(str(data[7]) if data[7] is not None else ""))
 
         self.location_tab.setLayout(location_layout)
         
@@ -2308,79 +3060,68 @@ class PatientDetailsScreen(QDialog):
     
     def loadOfficeStaffData(self, data):
         """Load data for Office Staff view"""
-        # Office staff view has: patient_id, first_name, middle_name, last_name, 
-        # mailing_address, insurance, phones, emergency contacts
+        # Store original data for comparisons when saving
         self.original_data = {
-            'first_name': data[1],
-            'middle_name': data[2],
-            'last_name': data[3],
-            'address': data[4]
+            'first_name': data[1] or '',
+            'middle_name': data[2] if data[2] and data[2] != 'None' else '',
+            'last_name': data[3] or '',
+            'address': data[4] or '',
+            'insurance_provider': data[5] or '',
+            'policy_number': data[6] or '',
+            'group_number': data[7] or '',
+            'home_phone': data[8] or '',
+            'work_phone': data[9] or '',
+            'mobile_phone': data[10] or '',
+            'ec1_name': data[11] or '',
+            'ec1_phone': data[12] or '',
+            'ec2_name': data[13] or '',
+            'ec2_phone': data[14] or ''
         }
-        # Set header
-        name = f"{data[1]} {data[2]} {data[3]}"
-        self.patient_info_label.setText(f"Patient: {name}")
         
-        # Populate the Basic Info form fields
-        self.firstNameEdit.setText(data[1])
-        self.middleNameEdit.setText(data[2])
-        self.lastNameEdit.setText(data[3])
-        self.addressEdit.setText(data[4])
+        # Populate Basic Info tab
+        self.firstNameEdit.setText(data[1] or '')
+        self.middleNameEdit.setText(data[2] if data[2] and data[2] != 'None' else '')
+        self.lastNameEdit.setText(data[3] or '')
+        self.addressEdit.setText(data[4] or '')
         
-        # Insurance Tab
-        insurance_layout = QFormLayout()
-        insurance_layout.addRow("Insurance Carrier:", QLabel(data[5]))
-        insurance_layout.addRow("Account Number:", QLabel(data[6]))
-        insurance_layout.addRow("Group Number:", QLabel(data[7]))
-        self.insurance_tab.setLayout(insurance_layout)
+        # Populate Location tab - using the new helper method
+        self.loadLocationData()
         
-        # Contacts Tab
-        contacts_layout = QVBoxLayout()
+        # Populate Insurance tab
+        self.insuranceProviderEdit.setText(data[5] or '')
+        self.policyNumberEdit.setText(data[6] or '')
+        self.groupNumberEdit.setText(data[7] or '')
         
-        # Phone numbers
-        phone_group = QGroupBox("Phone Numbers")
-        phone_layout = QFormLayout()
-        phone_layout.addRow("Home Phone:", QLabel(data[8]))
-        phone_layout.addRow("Work Phone:", QLabel(data[9]))
-        phone_layout.addRow("Mobile Phone:", QLabel(data[10]))
-        phone_group.setLayout(phone_layout)
-        contacts_layout.addWidget(phone_group)
+        # Populate Contacts tab - Phone section
+        self.homePhoneEdit.setText(data[8] or '')
+        self.workPhoneEdit.setText(data[9] or '')
+        self.mobilePhoneEdit.setText(data[10] or '')
         
-        # Emergency contacts
-        ec_group = QGroupBox("Emergency Contacts")
-        ec_layout = QFormLayout()
-        ec_layout.addRow("Contact 1 Name:", QLabel(data[11]))
-        ec_layout.addRow("Contact 1 Phone:", QLabel(data[12]))
-        ec_layout.addRow("Contact 2 Name:", QLabel(data[13]))
-        ec_layout.addRow("Contact 2 Phone:", QLabel(data[14]))
-
-        ec_group.setLayout(ec_layout)
-        contacts_layout.addWidget(ec_group)
+        # Populate Contacts tab - Emergency contacts section
+        self.ec1NameEdit.setText(data[11] or '')
+        self.ec1PhoneEdit.setText(data[12] or '')
+        self.ec2NameEdit.setText(data[13] or '')
+        self.ec2PhoneEdit.setText(data[14] or '')
         
-        self.contacts_tab.setLayout(contacts_layout)
-
+        # Load billing data
         admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
-        
         self.loadBillingData(admissions)
 
-
     def loadMedicalData(self, data):
+        """Load data for Medical Personnel and Physician view"""
         self.notes_storage = []  # for keeping note data
         self.notes_list = QListWidget()  # this stays your widget
 
-        """Load data for Medical Personnel and Physician view"""
-        # Medical view has: patient_id, first_name, middle_name, last_name, address, insurance, phones, emergency contacts, admissions
-        
-        # Set header
-        name = f"{data[1]} {data[2]} {data[3]}"
-        self.patient_info_label.setText(f"Patient: {name}")
-        
         # Basic Info Tab
         basic_layout = QFormLayout()
-        basic_layout.addRow("First Name:", QLabel(data[1]))
-        basic_layout.addRow("Middle Name:", QLabel(data[2]))
-        basic_layout.addRow("Last Name:", QLabel(data[3]))
-        basic_layout.addRow("Mailing Address:", QLabel(data[4]))
+        basic_layout.addRow("First Name:", QLabel(data[1] or ""))
+        basic_layout.addRow("Middle Name:", QLabel(data[2] if data[2] and data[2] != 'None' else ""))
+        basic_layout.addRow("Last Name:", QLabel(data[3] or ""))
+        basic_layout.addRow("Mailing Address:", QLabel(data[4] or ""))
         self.basic_info_tab.setLayout(basic_layout)
+        
+        # Load Location Tab
+        self.loadLocationData()
         
         # Insurance Tab
         insurance_layout = QFormLayout()
@@ -2463,8 +3204,8 @@ class PatientDetailsScreen(QDialog):
             
             if all_notes:
                 for _, note_text in all_notes:
-                   self.notes_list.addItem(note_text)        # ✅ GUI update
-                   self.notes_storage.append(note_text)      # ✅ backend update
+                    self.notes_list.addItem(note_text)
+                    self.notes_storage.append(note_text)
 
                 notes_layout.addWidget(self.notes_list)
             else:
@@ -2474,7 +3215,6 @@ class PatientDetailsScreen(QDialog):
             
             note_entry_group = QGroupBox("Add Note")
             note_entry_layout = QVBoxLayout()
-
 
             note_text_edit = QTextEdit()
             note_text_edit.setPlaceholderText("Enter your note here...")
@@ -2489,6 +3229,18 @@ class PatientDetailsScreen(QDialog):
                     return
 
                 try:
+                    # Get current admission
+                    active_admission = None
+                    for admission in admissions:
+                        if not admission.get('admittance_discharge') or admission.get('admittance_discharge').lower() == 'none':
+                            active_admission = admission
+                            break
+                    
+                    if not active_admission:
+                        QMessageBox.warning(self, "No Active Admission", "Cannot add note - patient has no active admission.")
+                        return
+                    
+                    admission_id = active_admission.get('admission_id')
                     InsertData.insertNote(admission_id, note_text)
                     self.notes_list.addItem(f"New Note: {note_text}")
                     QMessageBox.information(self, "Success", "Note added successfully!")
@@ -2504,6 +3256,7 @@ class PatientDetailsScreen(QDialog):
             note_entry_group.setLayout(note_entry_layout)
 
             notes_layout.addWidget(note_entry_group)
+
 
             # Medications Tab
             medications_layout = QVBoxLayout()
@@ -2682,26 +3435,73 @@ class PatientDetailsScreen(QDialog):
             admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
         
             self.loadBillingData(admissions)
-    
+
+    def loadLocationData(self):
+        """Load location information for the patient's active admission using the ActiveLocationView"""
+        location_layout = QVBoxLayout()
+        
+        # Get active location data from the view
+        location_data = SearchDB.getActiveLocation(self.patient_id)
+        
+        if location_data:
+            # Create form layout for location info
+            location_group = QGroupBox("Current Location")
+            location_form = QFormLayout()
+            
+            # Convert location data to strings and handle None values
+            facility = str(location_data[2]) if location_data[2] is not None else "N/A"
+            floor = str(location_data[3]) if location_data[3] is not None else "N/A"
+            room = str(location_data[4]) if location_data[4] is not None else "N/A"
+            bed = str(location_data[5]) if location_data[5] is not None else "N/A"
+            
+            # Add only the essential location information
+            location_form.addRow("Facility:", QLabel(facility))
+            location_form.addRow("Floor:", QLabel(floor))
+            location_form.addRow("Room:", QLabel(room))
+            location_form.addRow("Bed:", QLabel(bed))
+            
+            location_group.setLayout(location_form)
+            location_layout.addWidget(location_group)
+            
+        else:
+            # No active admission
+            no_admission_label = QLabel("Patient Does Not Have An Active Admission")
+            no_admission_label.setAlignment(Qt.AlignCenter)
+            no_admission_label.setStyleSheet("font-size: 14pt; color: #666; margin: 20px;")
+            location_layout.addWidget(no_admission_label)
+        
+        # Set the layout to the location tab
+        if self.location_tab.layout():
+            # Clear existing layout if it exists
+            QWidget().setLayout(self.location_tab.layout())
+        self.location_tab.setLayout(location_layout)
+
     def openAdmissionDetails(self, item_or_id):
         # If called with a QListWidgetItem
         if isinstance(item_or_id, QListWidgetItem):
             index = self.admissions_list_widget.row(item_or_id)
+            if index >= 0 and index < len(self.admissions_data):
+                admission = self.admissions_data[index]
+                admission_id = admission.get('admission_id', 'N/A')
+            else:
+                QMessageBox.warning(self, "Error", "Invalid admission selected.")
+                return
         # If called directly with an admission ID
         else:
-            index = next(
-                (i for i, a in enumerate(self.admissions_data) if a.get("admission_id") == item_or_id), -1
-            )
+            admission_id = item_or_id
+            admission = None
+            for adm in self.admissions_data:
+                if str(adm.get("admission_id")) == str(admission_id):
+                    admission = adm
+                    break
+            
+            if not admission:
+                QMessageBox.warning(self, "Error", "Invalid admission ID.")
+                return
 
-        print("openAdmissionDetails called with:", item_or_id)
-        print("Current admissions_data:", [a.get("admission_id") for a in self.admissions_data])
-
-        if index < 0 or index >= len(self.admissions_data):
-            QMessageBox.warning(self, "Error", "Invalid admission selected.")
-            return
-
-        admission = self.admissions_data[index]
-        admission_id = admission.get('admission_id', 'N/A')
+        # Store the current admission ID for later reference
+        self.current_admission_id = admission_id
+        
         tab_title = f"Admission #{admission_id}"
 
         # Check if this tab already exists
@@ -2712,70 +3512,156 @@ class PatientDetailsScreen(QDialog):
 
         # Create new tab content
         tab = QWidget()
-        layout = QVBoxLayout()
+        
+        # Use a scroll area for the content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Create a widget to hold the content inside the scroll area
+        content_widget = QWidget()
+        content_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # Use a layout that will expand to fill available space
+        layout = QVBoxLayout(content_widget)
+        layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
 
-        layout.addWidget(QLabel(f"<b>Admission Date:</b> {admission.get('admittance_date', '')}"))
-        layout.addWidget(QLabel(f"<b>Discharge Date:</b> {admission.get('admittance_discharge', 'Not yet discharged')}"))
-        layout.addWidget(QLabel(f"<b>Reason:</b> {admission.get('admission_reason', '')}"))
+        # Create labels with word wrap enabled for all text elements
+        admission_date_label = QLabel(f"<b>Admission Date:</b> {admission.get('admittance_date', '')}")
+        admission_date_label.setWordWrap(True)
+        admission_date_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        layout.addWidget(admission_date_label)
+        
+        discharge_date_label = QLabel(f"<b>Discharge Date:</b> {admission.get('admittance_discharge', 'Not yet discharged')}")
+        discharge_date_label.setWordWrap(True)
+        discharge_date_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        layout.addWidget(discharge_date_label)
+        
+        reason_label = QLabel(f"<b>Reason:</b> {admission.get('admission_reason', '')}")
+        reason_label.setWordWrap(True)
+        reason_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        layout.addWidget(reason_label)
 
         # Medications
         meds_group = QGroupBox("Medications")
+        meds_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         meds_layout = QVBoxLayout()
+        meds_layout.setContentsMargins(10, 10, 10, 10)
+        
         prescriptions = admission['details'].get('prescriptions', [])
         if prescriptions:
             for med in prescriptions:
-                meds_layout.addWidget(QLabel(f"{med['medication']} - {med['amount']} ({med['schedule']})"))
+                med_label = QLabel(f"{med['medication']} - {med['amount']} ({med['schedule']})")
+                med_label.setWordWrap(True)
+                med_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                meds_layout.addWidget(med_label)
+        else:
+            no_meds_label = QLabel("No medications prescribed")
+            no_meds_label.setWordWrap(True)
+            no_meds_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            meds_layout.addWidget(no_meds_label)
+        
         meds_group.setLayout(meds_layout)
         layout.addWidget(meds_group)
 
         # Procedures
         proc_group = QGroupBox("Procedures")
+        proc_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         proc_layout = QVBoxLayout()
+        proc_layout.setContentsMargins(10, 10, 10, 10)
+        
         procedures = admission['details'].get('procedures', [])
         if procedures:
             for proc in procedures:
-                proc_layout.addWidget(QLabel(f"{proc['name']} (Scheduled: {proc['scheduled']})"))
+                proc_label = QLabel(f"{proc['name']} (Scheduled: {proc['scheduled']})")
+                proc_label.setWordWrap(True)
+                proc_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                proc_layout.addWidget(proc_label)
+        else:
+            no_proc_label = QLabel("No procedures scheduled")
+            no_proc_label.setWordWrap(True)
+            no_proc_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            proc_layout.addWidget(no_proc_label)
+        
         proc_group.setLayout(proc_layout)
         layout.addWidget(proc_group)
 
         # Notes
         notes_group = QGroupBox("Notes")
+        notes_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         notes_layout = QVBoxLayout()
+        notes_layout.setContentsMargins(10, 10, 10, 10)
+        
         notes = admission['details'].get('notes', [])
         if notes:
             for note in notes:
-                notes_layout.addWidget(QLabel(
-                    f"{note['datetime']} - {note['type']} by {note['author']}: {note['text']}"
-                ))
+                note_label = QLabel(f"{note['datetime']} - {note['type']} by {note['author']}: {note['text']}")
+                note_label.setWordWrap(True)
+                note_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                notes_layout.addWidget(note_label)
+        else:
+            no_notes_label = QLabel("No notes added")
+            no_notes_label.setWordWrap(True)
+            no_notes_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            notes_layout.addWidget(no_notes_label)
+        
         notes_group.setLayout(notes_layout)
         layout.addWidget(notes_group)
 
-        # Finalize layout and tab
-        tab.setLayout(layout)
-        new_index = self.tabs.addTab(tab, tab_title)
-        self.tabs.setCurrentWidget(tab)
-
+        # Action buttons - Using a grid layout for better button fitting
+        buttons_layout = QGridLayout()
+        buttons_layout.setColumnStretch(0, 1)
+        buttons_layout.setColumnStretch(1, 1)
+        buttons_layout.setHorizontalSpacing(10)
+        buttons_layout.setVerticalSpacing(10)
+        
+        # Discharge button
         discharge_btn = QPushButton("Discharge Patient")
+        discharge_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         discharge_btn.clicked.connect(
-            lambda _, adm_id=admission_id: self.dischargePatient(adm_id)
+            lambda: self.dischargePatient(admission_id)
         )
-        layout.addWidget(discharge_btn)
+        buttons_layout.addWidget(discharge_btn, 0, 0)
 
         # Add Medication Button
         add_meds_btn = QPushButton("Add Medication")
+        add_meds_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         add_meds_btn.clicked.connect(lambda: self.addMedication(admission_id))
-        layout.addWidget(add_meds_btn)
-        self.reloadAdmissionDetails()
+        buttons_layout.addWidget(add_meds_btn, 0, 1)
 
+        # Add Procedure Button
         add_proc_btn = QPushButton("Add Procedure")
+        add_proc_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         add_proc_btn.clicked.connect(lambda: self.addProcedure(admission_id))
-        layout.addWidget(add_proc_btn)
-        self.reloadAdmissionDetails()
+        buttons_layout.addWidget(add_proc_btn, 1, 0)
+        
+        # Add Note Button
+        add_note_btn = QPushButton("Add Note")
+        add_note_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        add_note_btn.clicked.connect(lambda: self.addNote(admission_id))
+        buttons_layout.addWidget(add_note_btn, 1, 1)
+        
+        buttons_container = QWidget()
+        buttons_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        buttons_container.setLayout(buttons_layout)
+        layout.addWidget(buttons_container)
+        
+        # Set the content widget as the scroll area's widget
+        scroll_area.setWidget(content_widget)
+        
+        # Set up the main tab layout with the scroll area
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll_area)
 
+        # Finalize tab
+        new_index = self.tabs.addTab(tab, tab_title)
+        self.tabs.setCurrentWidget(tab)
 
-
+        # Add close button
         close_button = QPushButton("✕")
-        close_button.setFixedSize(18, 18)
+        close_button.setFixedSize(50, 50)
         close_button.setStyleSheet("""
             QPushButton {
                 border: none;
@@ -2792,6 +3678,7 @@ class PatientDetailsScreen(QDialog):
         self.tabs.tabBar().setTabButton(new_index, QTabBar.RightSide, close_button)
 
     def addMedication(self, admission_id):
+        """Add a medication to an admission"""
         dialog = QDialog(self)
         dialog.setWindowTitle("Add Medication")
         layout = QFormLayout(dialog)
@@ -2807,49 +3694,34 @@ class PatientDetailsScreen(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         layout.addWidget(buttons)
 
-        # Move submission/refresh inside accept lambda
-        def handleSubmit():
-            self.submitMedication(
-                dialog,
-                admission_id,
-                name_input.text(),
-                amount_input.text(),
-                schedule_input.text()
-            )
-
-        buttons.accepted.connect(handleSubmit)
+        # Handle submission
+        def handleOk():
+            try:
+                name = name_input.text().strip()
+                amount = amount_input.text().strip()
+                schedule = schedule_input.text().strip()
+                
+                if not name or not amount or not schedule:
+                    QMessageBox.warning(dialog, "Missing Information", "Please fill out all fields.")
+                    return
+                    
+                InsertData.insertPrescription(admission_id, name, amount, schedule)
+                QMessageBox.information(self, "Success", "Medication added successfully.")
+                dialog.accept()
+                
+                # Reload just the specific admission data
+                self.reloadAdmissionDetails()
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to add medication: {str(e)}")
+                
+        buttons.accepted.connect(handleOk)
         buttons.rejected.connect(dialog.reject)
 
         dialog.exec_()
 
-
-
-    def submitMedication(self, dialog, admission_id, name, amount, schedule):
-        try:
-            InsertData.insertPrescription(admission_id, name, amount, schedule)
-            QMessageBox.information(self, "Success", "Medication added.")
-
-            dialog.accept()
-
-            # ✅ Reload patient data
-            self.reloadAdmissionDetails()
-
-            # ✅ Close old admission tab
-            tab_title = f"Admission #{admission_id}"
-            for i in range(self.tabs.count()):
-                if self.tabs.tabText(i) == tab_title:
-                    self.tabs.removeTab(i)
-                    break
-
-            # ✅ Reopen refreshed admission tab
-            self.openAdmissionDetails(admission_id)
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
-
-
-
     def addProcedure(self, admission_id):
+        """Add a procedure to an admission"""
         dialog = QDialog(self)
         dialog.setWindowTitle("Add Procedure")
         layout = QFormLayout(dialog)
@@ -2865,44 +3737,70 @@ class PatientDetailsScreen(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         layout.addWidget(buttons)
 
-        def handleSubmit():
-            self.submitProcedure(
-                dialog,
-                admission_id,
-                name_input.text(),
-                datetime_input.dateTime().toString(Qt.ISODate)
-            )
+        def handleOk():
+            try:
+                name = name_input.text().strip()
+                scheduled_time = datetime_input.dateTime().toString(Qt.ISODate)
+                
+                if not name:
+                    QMessageBox.warning(dialog, "Missing Information", "Please enter a procedure name.")
+                    return
+                    
+                InsertData.insertProcedure(admission_id, name, scheduled_time)
+                QMessageBox.information(self, "Success", "Procedure added successfully.")
+                dialog.accept()
+                
+                # Reload just the specific admission data
+                self.reloadAdmissionDetails()
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to add procedure: {str(e)}")
 
-        buttons.accepted.connect(handleSubmit)
+        buttons.accepted.connect(handleOk)
         buttons.rejected.connect(dialog.reject)
 
         dialog.exec_()
 
-
-    def submitProcedure(self, dialog, admission_id, name, scheduled_time):
-        try:
-            InsertData.insertProcedure(admission_id, name, scheduled_time)
-            QMessageBox.information(self, "Success", "Procedure added.")
-
-            dialog.accept()
-
-            # ✅ Refresh data
-            self.reloadAdmissionDetails()
-
-            # ✅ Close old admission tab
-            tab_title = f"Admission #{admission_id}"
-            for i in range(self.tabs.count()):
-                if self.tabs.tabText(i) == tab_title:
-                    self.tabs.removeTab(i)
-                    break
-
-            # ✅ Reopen the updated admission tab
-            self.openAdmissionDetails(admission_id)
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
-
-
+    def addNote(self, admission_id):
+        """Add a note to an admission"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add Note")
+        layout = QVBoxLayout(dialog)
+        
+        # Note text area
+        note_label = QLabel("Note:")
+        note_text = QTextEdit()
+        note_text.setMinimumHeight(100)
+        
+        layout.addWidget(note_label)
+        layout.addWidget(note_text)
+        
+        # Buttons
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons)
+        
+        def handleOk():
+            try:
+                note_content = note_text.toPlainText().strip()
+                
+                if not note_content:
+                    QMessageBox.warning(dialog, "Missing Information", "Please enter note content.")
+                    return
+                    
+                InsertData.insertNote(admission_id, note_content)
+                QMessageBox.information(self, "Success", "Note added successfully.")
+                dialog.accept()
+                
+                # Reload just the specific admission data
+                self.reloadAdmissionDetails()
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to add note: {str(e)}")
+        
+        buttons.accepted.connect(handleOk)
+        buttons.rejected.connect(dialog.reject)
+        
+        dialog.exec_()
 
     def loadBillingData(self, admissions):
         """Load all billing information for the patient using the predefined BillingInformationView"""
@@ -3933,13 +4831,22 @@ class PatientDetailsScreen(QDialog):
                 QMessageBox.warning(self, "No Data", "No patient data to print.")
                 return
             
+            # Format name properly for all user types
+            first_name = patient_data[1] or ""
+            middle_name = patient_data[2] if patient_data[2] and patient_data[2] != 'None' else ""
+            last_name = patient_data[3] or ""
+            
+            if middle_name:
+                name = f"{first_name} {middle_name} {last_name}" 
+            else:
+                name = f"{first_name} {last_name}"
+            
             lines = []
             lines.append("PATIENT DETAILS REPORT")
             lines.append("=" * 50)
             
-            # Format based on user type
+            # Format based on user type - just changing the name part for each
             if self.usertype == "Volunteer":
-                name = f"{patient_data[1]} {patient_data[2]} {patient_data[3]}"
                 lines.append(f"Patient: {name}")
                 lines.append(f"Location: {patient_data[4]}, Floor {patient_data[5]}, Room {patient_data[6]}, Bed {patient_data[7]}")
                 lines.append("\nApproved Visitors:")
@@ -4074,12 +4981,15 @@ class PatientDetailsScreen(QDialog):
             print(f"Error: {e}")
 
     def dischargePatient(self, admission_id):
+        """Discharge a patient from an admission"""
         from datetime import datetime
         discharge_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
             UpdateDB.admissionUpdateDischarge(admission_id, discharge_time, encryption_key)
             QMessageBox.information(self, "Success", f"Admission {admission_id} discharged.")
-            self.reloadAdmissionTab(admission_id)  # Optional: refresh to reflect discharge
+            
+            # Reload the specific admission tab
+            self.reloadAdmissionDetails()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to discharge patient: {str(e)}")
 
@@ -4089,9 +4999,35 @@ class PatientDetailsScreen(QDialog):
         self.loadPatientData()
 
     def goBack(self):
-        search_screen = SearchScreen()
-        widget.addWidget(search_screen)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        # Get the current index
+        current_index = widget.currentIndex()
+        
+        # Only go back if we're not on the first screen
+        if current_index > 0:
+            # Get the current widget and explicitly disconnect any signals
+            # that might be preventing proper event handling
+            current_widget = widget.widget(current_index)
+            
+            # If this is a tabbed widget, you might need to disconnect tab signals
+            if hasattr(current_widget, 'tabs'):
+                try:
+                    # Disconnect any tab signals that might be causing issues
+                    current_widget.tabs.currentChanged.disconnect()
+                except TypeError:
+                    # Ignore if no connections exist
+                    pass
+            
+            # Remove the current widget from stack
+            widget.removeWidget(current_widget)
+            
+            # Ensure the widget is properly deleted
+            current_widget.deleteLater()
+            
+            # Show a debug message to confirm the action is happening
+            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
+        else:
+            # We're at the first screen
+            print("Already at first screen, cannot go back further")
 
 class LockScreen(QtWidgets.QDialog):
     def __init__(self, exitAction, widget, eventFilter, currentUser):
@@ -4128,9 +5064,25 @@ class LockScreen(QtWidgets.QDialog):
 def LogOut():
     eventFilter.enabled = False
     hospitalDB.userLogout()
-    home = MainScreen()
-    widget.addWidget(home)
-    widget.setCurrentIndex(widget.currentIndex() + 1)
+    
+    # Clear all widgets from the stack except the first one
+    while widget.count() > 1:
+        # Remove the last widget in the stack
+        last_widget = widget.widget(widget.count() - 1)
+        widget.removeWidget(last_widget)
+        
+        # Free up resources by scheduling widget for deletion
+        last_widget.deleteLater()
+    
+    # Create a new login screen
+    login = LoginScreen()
+    widget.addWidget(login)
+    widget.setCurrentIndex(1)
+    
+    # Remove the initial screen now that we have login in position 1
+    first_widget = widget.widget(0)
+    widget.removeWidget(first_widget)
+    first_widget.deleteLater()
 
 def lockScreen():
     print("here")
