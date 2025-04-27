@@ -2120,41 +2120,63 @@ class SearchScreen(QDialog):
         if len(lastName) == 0 and len(firstName) == 0 and len(middleName) == 0:
             self.error.setText("Input at least one field.")
         else:
-            df = None
-
+            # Clear any previous error message
+            self.error.setText("")
+            
             # Check whether checkbox for last name or first name is checked
             if firstBox:
                 partials.add('fname')
             if lastBox:
                 partials.add('lname')
 
-            df = pd.DataFrame(SearchDB.searchPatientWithName(fixed_salt, 
-                                                        fname=firstName.title() if firstName else None,
-                                                        mname=middleName.title() if middleName else None,
-                                                        lname=lastName.title() if lastName else None,
-                                                        partial_fields=partials,
-                                                        active_admissions_only=activeAdmissionsOnly))
+            # Get patient data
+            patients = SearchDB.searchPatientWithName(fixed_salt, 
+                                                    fname=firstName.title() if firstName else None,
+                                                    mname=middleName.title() if middleName else None,
+                                                    lname=lastName.title() if lastName else None,
+                                                    partial_fields=partials,
+                                                    active_admissions_only=activeAdmissionsOnly)
+            
+            df = pd.DataFrame(patients)
 
             if df.empty:
                 self.error.setText("No results found.")
+                # Hide the table if no results
+                self.resultsTable.hide()
             else:
-                self.error.setText("")
+                # Clear the existing table data
+                self.resultsTable.clearContents()
+                self.resultsTable.setRowCount(0)
+                
+                # Show and populate the table
                 self.resultsTable.show()
                 self.resultsTable.setRowCount(len(df))
                 self.resultsTable.setColumnCount(len(df.columns))
                 self.resultsTable.setHorizontalHeaderLabels(["ID", "First Name", "Middle Name", "Last Name"])
+                
                 for i in range(len(df)):
                     for j in range(len(df.columns)):
-                        item = QTableWidgetItem(str(df.iat[i, j]))
+                        # Clean values
+                        value = df.iat[i, j]
+                        if value is None or value == 'None':
+                            value = ""
+                        item = QTableWidgetItem(str(value))
                         self.resultsTable.setItem(i, j, item)
                 self.resultsTable.cellDoubleClicked.connect(self.openPatientDetails)
+                
+                # Store the data frame for reference
                 self.df = df
 
     def openPatientDetails(self, row, column):
         patient_id = str(self.df.iat[row, 0])
+        
+        # Create the patient details screen
         details = PatientDetailsScreen(patient_id)
-        widget.addWidget(details)
-        widget.setCurrentIndex(widget.currentIndex() + 1)
+        
+        # Add the screen to the widget stack
+        parent_stack = self.parent()
+        parent_stack.addWidget(details)
+        parent_stack.setCurrentWidget(details)
 
     def logoutFunction(self):
         eventFilter.enabled = False
@@ -2180,35 +2202,34 @@ class SearchScreen(QDialog):
         first_widget.deleteLater()
 
     def goBack(self):
-        # Get the current index
-        current_index = widget.currentIndex()
-        
-        # Only go back if we're not on the first screen
-        if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
-            current_widget = widget.widget(current_index)
+        """Fixed back button handler to properly remove the current screen"""
+        try:
+            # Get the parent widget stack
+            parent_stack = self.parent()
             
-            # If this is a tabbed widget, you might need to disconnect tab signals
-            if hasattr(current_widget, 'tabs'):
+            # Get the current index in the stack
+            current_index = parent_stack.currentIndex()
+            
+            # Remove this widget from stack
+            parent_stack.removeWidget(self)
+            
+            # Schedule this screen for deletion
+            self.deleteLater()
+            
+            # Reset event filter if needed
+            if hasattr(self, 'tabs'):
                 try:
-                    # Disconnect any tab signals that might be causing issues
-                    current_widget.tabs.currentChanged.disconnect()
-                except TypeError:
-                    # Ignore if no connections exist
+                    # Disconnect any tab signals
+                    self.tabs.currentChanged.disconnect()
+                except:
                     pass
             
-            # Remove the current widget from stack
-            widget.removeWidget(current_widget)
+            # Ensure the application event loop processes the removal
+            QApplication.processEvents()
             
-            # Ensure the widget is properly deleted
-            current_widget.deleteLater()
-            
-            # Show a debug message to confirm the action is happening
-            print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
-        else:
-            # We're at the first screen
-            print("Already at first screen, cannot go back further")
+        except Exception as e:
+            print(f"Error navigating back: {e}")
+            traceback.print_exc()
 
 class PatientDetailsScreen(QDialog):
     def __init__(self, patient_id):
@@ -2270,7 +2291,7 @@ class PatientDetailsScreen(QDialog):
         self.loadPatientData()
     
     def setupTabs(self):
-        self.num_static_tabs = 0  # Initialize count
+        self.num_static_tabs = 0  # Initialize
 
         if self.usertype == "Volunteer":
             self.tabs.addTab(self.basic_info_tab, "Patient Info")
@@ -2313,6 +2334,7 @@ class PatientDetailsScreen(QDialog):
             
             self.basic_info_tab.setLayout(basic_layout)
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
+            
             
             # Insurance Tab - With edit functionality
             self.insurance_tab = QWidget()
@@ -2420,6 +2442,10 @@ class PatientDetailsScreen(QDialog):
             
             self.contacts_tab.setLayout(contacts_layout)
             self.tabs.addTab(self.contacts_tab, "Contacts")
+
+            # Location Tab - Read-only tab showing current patient location
+            self.location_tab = QWidget()
+            self.tabs.addTab(self.location_tab, "Location")
             
             # Billing Tab (remains the same)
             self.tabs.addTab(self.billing_tab, "Billing")
@@ -2428,6 +2454,7 @@ class PatientDetailsScreen(QDialog):
             self.tabs.addTab(self.basic_info_tab, "Basic Info")
             self.tabs.addTab(self.insurance_tab, "Insurance")
             self.tabs.addTab(self.contacts_tab, "Contacts")
+            self.tabs.addTab(self.location_tab, "Location")
             self.tabs.addTab(self.admissions_tab, "Admissions")
             self.tabs.addTab(self.notes_tab, "Notes")
             self.tabs.addTab(self.medications_tab, "Medications")
@@ -2715,6 +2742,20 @@ class PatientDetailsScreen(QDialog):
                 QMessageBox.warning(self, "No Data", "No patient data found.")
                 return
 
+            # Format the patient name properly for the header (replacing None with empty string)
+            first_name = patient_data[1] or ""
+            middle_name = patient_data[2] or ""
+            last_name = patient_data[3] or ""
+            
+            # Create a properly formatted name
+            if middle_name and middle_name != 'None':
+                name = f"{first_name} {middle_name} {last_name}"
+            else:
+                name = f"{first_name} {last_name}"
+                
+            # Set this properly formatted name in the header
+            self.patient_info_label.setText(f"Patient: {name}")
+
             # Process data based on user type
             if self.usertype == "Volunteer":
                 self.loadVolunteerData(patient_data)
@@ -2724,9 +2765,10 @@ class PatientDetailsScreen(QDialog):
                 self.loadMedicalData(patient_data)
 
         except Exception as e:
-            traceback.print_exc()  # Add this line for full stack trace in terminal
+            traceback.print_exc()
             QMessageBox.critical(self, "Error", f"Error loading patient data: {str(e)}")
             print(f"Error: {e}")
+
 
     def enableBasicInfoEdit(self):
         self.firstNameEdit.setReadOnly(False)
@@ -2973,23 +3015,19 @@ class PatientDetailsScreen(QDialog):
         # Volunteer view has: patient_id, first_name, middle_name, last_name, 
         # facility, floor, room_number, bed_number, visitors
         
-        # Set header
-        name = f"{data[1]} {data[2]} {data[3]}"
-        self.patient_info_label.setText(f"Patient: {name}")
-        
         # Basic Info Tab
         basic_layout = QFormLayout()
-        basic_layout.addRow("First Name:", QLabel(data[1]))
-        basic_layout.addRow("Middle Name:", QLabel(data[2]))
-        basic_layout.addRow("Last Name:", QLabel(data[3]))
+        basic_layout.addRow("First Name:", QLabel(data[1] or ""))
+        basic_layout.addRow("Middle Name:", QLabel(data[2] if data[2] and data[2] != 'None' else ""))
+        basic_layout.addRow("Last Name:", QLabel(data[3] or ""))
         self.basic_info_tab.setLayout(basic_layout)
         
         # Location Tab
         location_layout = QFormLayout()
-        location_layout.addRow("Facility:", QLabel(data[4]))
-        location_layout.addRow("Floor:", QLabel(str(data[5])))
-        location_layout.addRow("Room Number:", QLabel(str(data[6])))
-        location_layout.addRow("Bed Number:", QLabel(str(data[7])))
+        location_layout.addRow("Facility:", QLabel(data[4] or ""))
+        location_layout.addRow("Floor:", QLabel(str(data[5]) if data[5] is not None else ""))
+        location_layout.addRow("Room Number:", QLabel(str(data[6]) if data[6] is not None else ""))
+        location_layout.addRow("Bed Number:", QLabel(str(data[7]) if data[7] is not None else ""))
 
         self.location_tab.setLayout(location_layout)
         
@@ -3009,7 +3047,7 @@ class PatientDetailsScreen(QDialog):
         # Store original data for comparisons when saving
         self.original_data = {
             'first_name': data[1] or '',
-            'middle_name': data[2] or '',
+            'middle_name': data[2] if data[2] and data[2] != 'None' else '',
             'last_name': data[3] or '',
             'address': data[4] or '',
             'insurance_provider': data[5] or '',
@@ -3024,15 +3062,14 @@ class PatientDetailsScreen(QDialog):
             'ec2_phone': data[14] or ''
         }
         
-        # Set header
-        name = f"{data[1]} {data[2]} {data[3]}"
-        self.patient_info_label.setText(f"Patient: {name}")
-        
         # Populate Basic Info tab
         self.firstNameEdit.setText(data[1] or '')
-        self.middleNameEdit.setText(data[2] or '')
+        self.middleNameEdit.setText(data[2] if data[2] and data[2] != 'None' else '')
         self.lastNameEdit.setText(data[3] or '')
         self.addressEdit.setText(data[4] or '')
+        
+        # Populate Location tab - using the new helper method
+        self.loadLocationData()
         
         # Populate Insurance tab
         self.insuranceProviderEdit.setText(data[5] or '')
@@ -3054,25 +3091,21 @@ class PatientDetailsScreen(QDialog):
         admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
         self.loadBillingData(admissions)
 
-
     def loadMedicalData(self, data):
+        """Load data for Medical Personnel and Physician view"""
         self.notes_storage = []  # for keeping note data
         self.notes_list = QListWidget()  # this stays your widget
 
-        """Load data for Medical Personnel and Physician view"""
-        # Medical view has: patient_id, first_name, middle_name, last_name, address, insurance, phones, emergency contacts, admissions
-        
-        # Set header
-        name = f"{data[1]} {data[2]} {data[3]}"
-        self.patient_info_label.setText(f"Patient: {name}")
-        
         # Basic Info Tab
         basic_layout = QFormLayout()
-        basic_layout.addRow("First Name:", QLabel(data[1]))
-        basic_layout.addRow("Middle Name:", QLabel(data[2]))
-        basic_layout.addRow("Last Name:", QLabel(data[3]))
-        basic_layout.addRow("Mailing Address:", QLabel(data[4]))
+        basic_layout.addRow("First Name:", QLabel(data[1] or ""))
+        basic_layout.addRow("Middle Name:", QLabel(data[2] if data[2] and data[2] != 'None' else ""))
+        basic_layout.addRow("Last Name:", QLabel(data[3] or ""))
+        basic_layout.addRow("Mailing Address:", QLabel(data[4] or ""))
         self.basic_info_tab.setLayout(basic_layout)
+        
+        # Load Location Tab
+        self.loadLocationData()
         
         # Insurance Tab
         insurance_layout = QFormLayout()
@@ -3155,8 +3188,8 @@ class PatientDetailsScreen(QDialog):
             
             if all_notes:
                 for _, note_text in all_notes:
-                   self.notes_list.addItem(note_text)        # ✅ GUI update
-                   self.notes_storage.append(note_text)      # ✅ backend update
+                    self.notes_list.addItem(note_text)
+                    self.notes_storage.append(note_text)
 
                 notes_layout.addWidget(self.notes_list)
             else:
@@ -3166,7 +3199,6 @@ class PatientDetailsScreen(QDialog):
             
             note_entry_group = QGroupBox("Add Note")
             note_entry_layout = QVBoxLayout()
-
 
             note_text_edit = QTextEdit()
             note_text_edit.setPlaceholderText("Enter your note here...")
@@ -3181,6 +3213,18 @@ class PatientDetailsScreen(QDialog):
                     return
 
                 try:
+                    # Get current admission
+                    active_admission = None
+                    for admission in admissions:
+                        if not admission.get('admittance_discharge') or admission.get('admittance_discharge').lower() == 'none':
+                            active_admission = admission
+                            break
+                    
+                    if not active_admission:
+                        QMessageBox.warning(self, "No Active Admission", "Cannot add note - patient has no active admission.")
+                        return
+                    
+                    admission_id = active_admission.get('admission_id')
                     InsertData.insertNote(admission_id, note_text)
                     self.notes_list.addItem(f"New Note: {note_text}")
                     QMessageBox.information(self, "Success", "Note added successfully!")
@@ -3196,6 +3240,7 @@ class PatientDetailsScreen(QDialog):
             note_entry_group.setLayout(note_entry_layout)
 
             notes_layout.addWidget(note_entry_group)
+
 
             # Medications Tab
             medications_layout = QVBoxLayout()
@@ -3374,7 +3419,47 @@ class PatientDetailsScreen(QDialog):
             admissions = SearchDB.getAdmissionsWithPatientID(self.patient_id)
         
             self.loadBillingData(admissions)
-    
+
+    def loadLocationData(self):
+        """Load location information for the patient's active admission using the ActiveLocationView"""
+        location_layout = QVBoxLayout()
+        
+        # Get active location data from the view
+        location_data = SearchDB.getActiveLocation(self.patient_id)
+        
+        if location_data:
+            # Create form layout for location info
+            location_group = QGroupBox("Current Location")
+            location_form = QFormLayout()
+            
+            # Convert location data to strings and handle None values
+            facility = str(location_data[2]) if location_data[2] is not None else "N/A"
+            floor = str(location_data[3]) if location_data[3] is not None else "N/A"
+            room = str(location_data[4]) if location_data[4] is not None else "N/A"
+            bed = str(location_data[5]) if location_data[5] is not None else "N/A"
+            
+            # Add only the essential location information
+            location_form.addRow("Facility:", QLabel(facility))
+            location_form.addRow("Floor:", QLabel(floor))
+            location_form.addRow("Room:", QLabel(room))
+            location_form.addRow("Bed:", QLabel(bed))
+            
+            location_group.setLayout(location_form)
+            location_layout.addWidget(location_group)
+            
+        else:
+            # No active admission
+            no_admission_label = QLabel("Patient Does Not Have An Active Admission")
+            no_admission_label.setAlignment(Qt.AlignCenter)
+            no_admission_label.setStyleSheet("font-size: 14pt; color: #666; margin: 20px;")
+            location_layout.addWidget(no_admission_label)
+        
+        # Set the layout to the location tab
+        if self.location_tab.layout():
+            # Clear existing layout if it exists
+            QWidget().setLayout(self.location_tab.layout())
+        self.location_tab.setLayout(location_layout)
+
     def openAdmissionDetails(self, item_or_id):
         # If called with a QListWidgetItem
         if isinstance(item_or_id, QListWidgetItem):
@@ -4730,13 +4815,22 @@ class PatientDetailsScreen(QDialog):
                 QMessageBox.warning(self, "No Data", "No patient data to print.")
                 return
             
+            # Format name properly for all user types
+            first_name = patient_data[1] or ""
+            middle_name = patient_data[2] if patient_data[2] and patient_data[2] != 'None' else ""
+            last_name = patient_data[3] or ""
+            
+            if middle_name:
+                name = f"{first_name} {middle_name} {last_name}" 
+            else:
+                name = f"{first_name} {last_name}"
+            
             lines = []
             lines.append("PATIENT DETAILS REPORT")
             lines.append("=" * 50)
             
-            # Format based on user type
+            # Format based on user type - just changing the name part for each
             if self.usertype == "Volunteer":
-                name = f"{patient_data[1]} {patient_data[2]} {patient_data[3]}"
                 lines.append(f"Patient: {name}")
                 lines.append(f"Location: {patient_data[4]}, Floor {patient_data[5]}, Room {patient_data[6]}, Bed {patient_data[7]}")
                 lines.append("\nApproved Visitors:")

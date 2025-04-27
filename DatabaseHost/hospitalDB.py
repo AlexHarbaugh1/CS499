@@ -348,6 +348,35 @@ def run():
                       ORDER BY l.location_id ASC;""")
       cursor2.execute("GRANT SELECT ON availablelocationview TO officestaff_role, medicalpersonnel_role, physician_role;")
       cursor2.execute("GRANT SELECT ON location TO officestaff_role, medicalpersonnel_role, physician_role;")
+      # ActiveLocationView to find locations and patients
+      cursor2.execute("""
+      CREATE VIEW ActiveLocationView AS
+      SELECT 
+          p.patient_id,
+          l.location_id,
+          l.facility,
+          l.floor,
+          l.room_number,
+          l.bed_number,
+          a.admission_id,
+          a.doctor_id,
+          pgp_sym_decrypt(a.admittance_datetime, %s) AS admission_date,
+          s.user_id,
+          pgp_sym_decrypt(s.first_name, %s) AS doctor_first_name,
+          pgp_sym_decrypt(s.last_name, %s) AS doctor_last_name
+      FROM 
+          Patient p
+      JOIN 
+          Admission a ON p.patient_id = a.patient_id
+      JOIN 
+          Location l ON a.location_id = l.location_id
+      JOIN
+          Staff s ON a.doctor_id = s.user_id
+      WHERE 
+          a.discharge_datetime IS NULL OR pgp_sym_decrypt(a.discharge_datetime, %s) = 'None';
+      """, (keys[0], keys[0], keys[0], keys[0]))
+
+      cursor2.execute("GRANT SELECT ON ActiveLocationView TO volunteer_role, officestaff_role, medicalpersonnel_role, physician_role;")
       # Office View Selects all none medical data and uses triggers to update the underlying database.
       sql = """CREATE VIEW officestaffview AS
             SELECT

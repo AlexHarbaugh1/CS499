@@ -35,7 +35,7 @@ def insertStaff(fname , lname, username, password, type, encryptionKey, fixedSal
             type
         )
         cursor.execute(sql, params)
-        cursor.close()
+        
 def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, c1Phone, c2Name, c2Phone, doctor,
                   insCarrier, insAcc, insGNum, encryptionKey, fixedSalt):
 
@@ -122,7 +122,7 @@ def insertPatient(lname, fname, mname, address, hPhone, mPhone, wPhone, c1Name, 
         )
 
         cursor.execute(sql, params)
-        cursor.close()
+        
 def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTime,
                     hospitalFacility, hospitalFloor, hospitalRoom, hospitalBed, doctorID, encryptionKey):
 
@@ -180,7 +180,7 @@ def insertAdmission(patientID, admissionDateTime, admissionReason, releaseDateTi
         cursor.execute(sql, params)
 
         ID = cursor.fetchone()[0]
-        cursor.close()
+        
 
     return ID
 def insertVisitors(admissionID, visitorNames, encryptionKey):
@@ -208,7 +208,7 @@ def insertVisitors(admissionID, visitorNames, encryptionKey):
             encryptedNames
         )
         cursor.execute(sql, params)
-        cursor.close()
+        
 def insertPrescriptions(admissionID, prescriptions, encryptionKey):
     with hospitalDB.get_cursor() as cursor:
         sql = """INSERT INTO Prescription (admission_id, medication_name, amount, schedule)
@@ -228,7 +228,7 @@ def insertPrescriptions(admissionID, prescriptions, encryptionKey):
             [prescription['schedule'] for prescription in prescriptions],
         )
         cursor.execute(sql, params)
-        cursor.close()
+        
 def insertNotes(admissionID, notes, encryptionKey, fixedSalt):
     with hospitalDB.get_cursor() as cursor:
         sql = """INSERT INTO PatientNote (admission_id, author_id, note_type, note_text, note_datetime)
@@ -250,7 +250,7 @@ def insertNotes(admissionID, notes, encryptionKey, fixedSalt):
             [note['time'].isoformat() for note in notes]
         )
         cursor.execute(sql, params)
-        cursor.close()
+        
 def insertProcedures(admissionID, procedures, encryptionKey):
 
     with hospitalDB.get_cursor() as cursor:
@@ -269,7 +269,7 @@ def insertProcedures(admissionID, procedures, encryptionKey):
             [procedure['date'] for procedure in procedures],
         )
         cursor.execute(sql, params)
-        cursor.close()
+        
 def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemizedBill):
     with hospitalDB.get_cursor() as cursor:
         sql = """WITH
@@ -304,7 +304,7 @@ def insertBill(admissionID, billingTotal, billingPaid, billingInsurance, itemize
             [item['cost'] for item in itemizedBill]
         )
         cursor.execute(sql, params)
-        cursor.close()
+        
 hospitalDB.run()
 fake = Faker()
 
@@ -368,6 +368,12 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
     for _ in range(n):
         admit_date = fake.date_between(start_date="-2y", end_date="today")
         id = random.choice(patient_ids)
+        with hospitalDB.get_cursor() as cursor:
+            cursor.execute(""" UPDATE admission
+                                SET discharge_datetime = pgp_sym_encrypt(CURRENT_TIMESTAMP::text, %s)
+                                WHERE patient_id = %s
+                                AND discharge_datetime IS NULL;""", (encryptionKey, id))
+        
         discharge_date = None
         facilities = ["Main Hospital", "North Clinic", "South Clinic"]
         admissionID = insertAdmission(id, str(admit_date), fake.sentence(nb_words=6), discharge_date, random.choice(facilities), random.randint(1, 10), fake.random_int(100, 999), fake.random_int(1, 50), random.choice(doctor_ids), keys[0])
@@ -425,7 +431,7 @@ def populate_admissions(encryptionKey, fixedSalt, n=200):
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     hospitalDB.userLogin('DataGen', 'qwertyuiop', keys[1])
-    populate_users(keys[0], keys[1], 10000)          # 50 users
-    populate_patients(keys[0], keys[1], 20000)      # 200 patients
-    populate_admissions(keys[0], keys[1], 50000)    # 250 admissions
+    #populate_users(keys[0], keys[1], 100)          # 50 users
+    #populate_patients(keys[0], keys[1], 200)      # 200 patients
+    populate_admissions(keys[0], keys[1], 250)    # 250 admissions
     print("Dummy data generation complete!")
