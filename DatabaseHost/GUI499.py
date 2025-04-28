@@ -25,10 +25,10 @@ import json
 import string
 import EncryptionKey
 import SearchDB
-"""def locate_ui_file(ui_filename):
-
+def locate_ui_file(ui_filename):
+    """
     Locate a UI file, works for both development and packaged environments
-
+    """
     # If running as frozen executable
     if getattr(sys, 'frozen', False):
         base_path = os.path.dirname(sys.executable)
@@ -63,15 +63,14 @@ import SearchDB
     print("Available files in current directory:", os.listdir('.'))
     
     # Return the original filename and let PyQt raise a proper error
-    return ui_filename"""
+    return ui_filename
 keys = EncryptionKey.getKeys()
 encryption_key = keys[0]
 fixed_salt = keys[1]
 class MainScreen(QDialog):
      def __init__(self):
          super(MainScreen, self).__init__()
-         #loadUi(locate_ui_file("MainScreen.ui"), self)
-         loadUi("MainScreen.ui", self)
+         loadUi(locate_ui_file("MainScreen.ui"), self)
          #self.enterApplication = QPushButton("Enter Application", self)
          
          # Get screen dimensions
@@ -141,8 +140,8 @@ class MainScreen(QDialog):
 class InitializeDatabaseScreen(QDialog):
     def __init__(self, widget):
         super(InitializeDatabaseScreen, self).__init__()
-        #loadUi(locate_ui_file("setup.ui"), self)
-        loadUi("setup.ui", self)
+        loadUi(locate_ui_file("setup.ui"), self)
+        #loadUi("setup.ui", self)
         # Store the widget reference
         self.widget = widget
         
@@ -237,8 +236,8 @@ class InitializeDatabaseScreen(QDialog):
 class LoginScreen(QDialog):
     def __init__(self):
         super(LoginScreen, self).__init__()
-        #loadUi(locate_ui_file("login1.ui"), self)
-        loadUi("login1.ui", self)
+        loadUi(locate_ui_file("login1.ui"), self)
+        
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()
@@ -398,8 +397,7 @@ class LoginScreen(QDialog):
 class ApplicationScreen(QDialog):
     def __init__(self):
         super(ApplicationScreen, self).__init__()
-        #loadUi(locate_ui_file("ApplicationScreen.ui"), self)
-        loadUi("ApplicationScreen.ui", self)
+        loadUi(locate_ui_file("ApplicationScreen.ui"), self)
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()
@@ -529,8 +527,7 @@ class ApplicationScreen(QDialog):
 class AdminScreen(QDialog):
     def __init__(self):
         super(AdminScreen, self).__init__()
-        #loadUi(locate_ui_file("admin.ui"), self)
-        loadUi("admin.ui", self)
+        loadUi(locate_ui_file("admin.ui"), self)
 
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -539,6 +536,13 @@ class AdminScreen(QDialog):
         
         # Set main widget to fill the entire screen
         self.widget.setGeometry(0, 0, screen_width, screen_height)
+        
+        # Properly configure grid layout
+        self.gridLayout.setColumnStretch(0, 1)
+        self.gridLayout.setColumnStretch(1, 1)
+        self.gridLayout.setHorizontalSpacing(50)
+        self.gridLayout.setVerticalSpacing(30)
+        self.gridLayout.setContentsMargins(20, 20, 20, 20)
         
         # Center the UI elements
         self.centerUI(screen_width, screen_height)
@@ -565,21 +569,52 @@ class AdminScreen(QDialog):
         self.label.setGeometry((screen_width - title_width) // 2, 50, title_width, 100)
         self.label_2.setGeometry((screen_width - title_width) // 2, 150, title_width, 100)
         
-        # Position logout button in top right
-        self.logout.setGeometry(screen_width - 250, 70, 200, 50)
+        # Position logout button in top right with much more height
+        self.logout.setGeometry(screen_width - 250, 70, 200, 75)  # Increased height from 60 to 75
         
         # Center the gridLayoutWidget with more space
-        grid_width = 1100
-        grid_height = 400  # Reduced height since buttons are shorter
+        grid_width = 1200
+        grid_height = 450
         self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 260, grid_width, grid_height)
-        
-        # Adjust the grid layout to have proper spacing
-        self.gridLayout.setHorizontalSpacing(40)
-        self.gridLayout.setVerticalSpacing(30)  # Slightly reduced spacing to match shorter buttons
     
     def styleButtons(self):
         """Apply consistent styling to all buttons with proper text display"""
+        # Main style for operation buttons
         button_style = """
+            QPushButton {
+                background-color: #e0e0e0;
+                border: 1px solid #aaa;
+                border-radius: 4px;
+                padding: 15px;
+                font-size: 14pt;
+                font-weight: bold;
+                text-align: center;
+                /* Style for text wrapping */
+                white-space: normal;
+                word-wrap: break-word;
+            }
+            QPushButton:hover {
+                background-color: #d6d6d6;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+        """
+        
+        # Apply style to all operation buttons
+        for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
+                    self.regLocation, self.regAdmission, self.auditLog, self.printAllAdmissions]:
+            button.setStyleSheet(button_style)
+            button.setMinimumSize(280, 70)
+            button.setMaximumSize(350, 80)
+            button.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+            
+            # Special handling for the longest button text
+            if button == self.printAllAdmissions:
+                button.setMinimumWidth(320)
+        
+        # Special style for logout button with even more padding
+        logout_style = """
             QPushButton {
                 background-color: #e0e0e0;
                 border: 1px solid #aaa;
@@ -595,18 +630,11 @@ class AdminScreen(QDialog):
                 background-color: #c0c0c0;
             }
         """
+        self.logout.setStyleSheet(logout_style)
+        self.logout.setMinimumHeight(75)  # Ensure minimum height matches geometry
         
-        # Apply style to all operation buttons
-        for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
-                    self.regLocation, self.regAdmission, self.auditLog, self.printAllAdmissions]:
-            button.setStyleSheet(button_style)
-            # Make buttons shorter - similar to application screen
-            button.setMinimumSize(220, 60)  # Reduced height from 100 to 60
-            button.setMaximumSize(280, 70)  # Reduced height from 120 to 70
-            button.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
-        
-        # Style for logout button
-        self.logout.setStyleSheet(button_style)
+        # Explicitly adjust text position within the button
+        self.logout.setContentsMargins(0, 0, 0, 20)  # Add bottom margin to the content
 
     def insertStaffFunction(self):
         insertStaff = InsertStaff()
@@ -748,8 +776,7 @@ class AdminScreen(QDialog):
 class AuditLogScreen(QDialog):
     def __init__(self):
         super(AuditLogScreen, self).__init__()
-        #loadUi(locate_ui_file("auditlog.ui"), self)
-        loadUi("auditlog.ui", self)
+        loadUi(locate_ui_file("auditlog.ui"), self)
         
         # Get screen dimensions
         screen_size = QtWidgets.QApplication.primaryScreen().availableGeometry()
@@ -999,8 +1026,8 @@ class AuditLogScreen(QDialog):
 class InsertStaff(QDialog):
     def __init__(self):
         super(InsertStaff, self).__init__()
-        #loadUi(locate_ui_file("insertstaff.ui"), self)
-        loadUi("insertstaff.ui", self)
+        loadUi(locate_ui_file("insertstaff.ui"), self)
+
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -1137,7 +1164,8 @@ class InsertStaff(QDialog):
 class InsertPatient(QDialog):
     def __init__(self):
         super(InsertPatient, self).__init__()
-        loadUi("insertpat.ui", self)
+        loadUi(locate_ui_file("insertpat.ui"), self)  # Load the new UI file
+        
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -1373,8 +1401,8 @@ class InsertPatient(QDialog):
 class RegisterLocation(QDialog):
     def __init__(self):
         super(RegisterLocation, self).__init__()
-        #loadUi(locate_ui_file("registerlocation.ui"), self)
-        loadUi("registerlocation.ui", self)
+        loadUi(locate_ui_file("registerlocation.ui"), self)
+
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -1512,8 +1540,8 @@ class RegisterLocation(QDialog):
 class RegisterAdmission(QDialog):
     def __init__(self):
         super(RegisterAdmission, self).__init__()
-        #loadUi(locate_ui_file("registeradmission.ui"), self)
-        loadUi("registeradmission.ui", self)
+        loadUi(locate_ui_file("registeradmission.ui"), self)
+
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
         screen_width = screen_size.width()  
@@ -1736,8 +1764,8 @@ class RegisterAdmission(QDialog):
 class SearchStaff(QDialog):
     def __init__(self):
         super(SearchStaff, self).__init__()
-        #loadUi(locate_ui_file("stafflookup.ui"), self)
-        loadUi("stafflookup.ui", self)
+        loadUi(locate_ui_file("stafflookup.ui"), self)
+        
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -2018,8 +2046,8 @@ class StaffDetailsScreen(QDialog):
 class SearchScreen(QDialog):
     def __init__(self):
         super(SearchScreen, self).__init__()
-        #loadUi(locate_ui_file("patientsearch.ui"), self)
-        loadUi("patientsearch.ui", self)
+        loadUi(locate_ui_file("patientsearch.ui"), self)
+        
         
         # Get screen dimensions
         screen_size = QApplication.primaryScreen().availableGeometry()
@@ -5040,8 +5068,7 @@ class PatientDetailsScreen(QDialog):
 class LockScreen(QtWidgets.QDialog):
     def __init__(self, exitAction, widget, eventFilter, currentUser):
         super(LockScreen, self).__init__()
-        #loadUi(locate_ui_file("lockScreen.ui"), self)
-        loadUi("lockScreen.ui", self)
+        loadUi(locate_ui_file("lockScreen.ui"), self)
         self.exitAction = exitAction
         self.widget = widget
         self.eventFilter = eventFilter

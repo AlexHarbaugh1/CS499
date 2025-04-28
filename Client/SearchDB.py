@@ -79,8 +79,22 @@ def searchPatientWithName(fixedSalt, fname=None, mname=None, lname=None, partial
         cursor.execute(sql, params)
         patients = cursor.fetchall()
         
+        cleaned_patients = []
+        for patient in patients:
+            # Clean None values in each patient tuple
+            cleaned_patient = list(patient)
+            for i in range(len(cleaned_patient)):
+                if cleaned_patient[i] is None or cleaned_patient[i] == 'None':
+                    cleaned_patient[i] = ''
+            cleaned_patients.append(tuple(cleaned_patient))
+        
+        return cleaned_patients
+    
+def getAllPatientsWithAdmissions():
+    with hospitalDB.get_cursor() as cursor:
+        cursor.execute("SELECT * FROM patientadmissionoverview;")
+        patients = cursor.fetchall()
     return patients
-
 # searchPatientWithID takes patientID to find the rest of the patient data
 # Returns tuple of First Name, Middle Name, Last Name, Mailing Address
 # tuple of Family Doctor's Username, First Name, Last Name
@@ -98,6 +112,21 @@ def searchPatientWithID(patientID):
         params = (patientID, )
         cursor.execute(sql[usertype], params)
         patientData = cursor.fetchone()
+        
+        # Clean None values before returning
+        if patientData:
+            # Convert tuple to list for modification
+            patientData = list(patientData)
+            
+            # Clean the name fields (positions 1, 2, 3 are first, middle, last name)
+            for i in range(1, 4):
+                if i < len(patientData):
+                    if patientData[i] is None or patientData[i] == 'None':
+                        patientData[i] = ''
+                        
+            # Convert back to tuple
+            patientData = tuple(patientData)
+            
     return patientData
 # searchStaffWithName uses same logic as searchPatientWithName to find and list Staff members
 # Returns list of tuples with user_id, first_name, last_name
@@ -146,7 +175,8 @@ def getDoctors(encryptionKey):
     with hospitalDB.get_cursor() as cursor:
         sql = """SELECT user_id, username, first_name, last_name
                 FROM staffsearchview
-                WHERE type_name = 'Physician';"""
+                WHERE type_name = 'Physician'
+                ORDER BY last_name ASC;"""
         params = (
             encryptionKey,
         )*3
@@ -175,13 +205,6 @@ def searchStaffWithID(userID, encryptionKey):
         staffData = cursor.fetchone()
 
     return staffData
-
-def getAllPatientsWithAdmissions():
-    with hospitalDB.get_cursor() as cursor:
-        cursor.execute("SELECT * FROM patientadmissionoverview;")
-        patients = cursor.fetchall()
-    return patients
-
 def getAdmissionsWithPatientID(patientID):
     try:
         with hospitalDB.get_cursor() as cursor:
@@ -347,7 +370,6 @@ def getLogs(from_date=None, to_date=None, limit=1000):
         
         cursor.execute(sql, params)
         logs = cursor.fetchall()
-        cursor.close()
         
         return logs
     
@@ -356,6 +378,25 @@ def getAvailableLocations():
         cursor.execute("SELECT * FROM availablelocationview;")
         rooms = cursor.fetchall()
     return rooms
+
+def getActiveLocation(patientID):
+    """Get the active location for a patient if they are currently admitted"""
+    with hospitalDB.get_cursor() as cursor:
+        sql = """SELECT * FROM ActiveLocationView WHERE patient_id = %s;"""
+        params = (patientID,)
+        cursor.execute(sql, params)
+        location = cursor.fetchone()
+        return location
+
+def cleanNoneValues(data):
+    """Replace None and 'None' string values with empty strings"""
+    if isinstance(data, list) or isinstance(data, tuple):
+        return ['' if x is None or x == 'None' else x for x in data]
+    elif isinstance(data, dict):
+        return {k: ('' if v is None or v == 'None' else v) for k, v in data.items()}
+    else:
+        return '' if data is None or data == 'None' else data
+
 if __name__ == "__main__":
     keys = EncryptionKey.getKeys()
     fixedSalt = keys[1]
