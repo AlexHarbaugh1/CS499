@@ -553,37 +553,10 @@ class AdminScreen(QDialog):
         self.auditLog.clicked.connect(self.viewAuditLog)
         self.logout.clicked.connect(self.logoutFunction)
         self.printAllAdmissions.clicked.connect(self.printAllAdmissionsSummary)
+        self.gridLayout.setSpacing(20)  # Consistent spacing
+        self.gridLayout.setContentsMargins(20, 20, 20, 20)  # Add margins
         # Apply button styling
         self.styleButtons()
-
-    # Update the styleButtons method to include the new audit log button
-    def styleButtons(self):
-        """Apply consistent styling to all buttons"""
-        button_style = """
-            QPushButton {
-                background-color: #e0e0e0;
-                border: 1px solid #aaa;
-                border-radius: 4px;
-                padding: 10px;
-                font-size: 14pt;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #d6d6d6;
-            }
-            QPushButton:pressed {
-                background-color: #c0c0c0;
-            }
-        """
-        
-        # Apply style to all operation buttons
-        for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
-                      self.regLocation, self.regAdmission, self.auditLog]:
-            button.setStyleSheet(button_style)
-            button.setMinimumHeight(60)
-            
-        # Style for logout button
-        self.logout.setStyleSheet(button_style)
 
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
@@ -593,15 +566,19 @@ class AdminScreen(QDialog):
         self.label_2.setGeometry((screen_width - title_width) // 2, 150, title_width, 100)
         
         # Position logout button in top right
-        self.logout.setGeometry(screen_width - 250, 70, 200, 100)
+        self.logout.setGeometry(screen_width - 250, 70, 200, 50)
         
-        # Center the gridLayoutWidget
+        # Center the gridLayoutWidget with more space
         grid_width = 1100
-        grid_height = 400
+        grid_height = 400  # Reduced height since buttons are shorter
         self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 260, grid_width, grid_height)
+        
+        # Adjust the grid layout to have proper spacing
+        self.gridLayout.setHorizontalSpacing(40)
+        self.gridLayout.setVerticalSpacing(30)  # Slightly reduced spacing to match shorter buttons
     
     def styleButtons(self):
-        """Apply consistent styling to all buttons"""
+        """Apply consistent styling to all buttons with proper text display"""
         button_style = """
             QPushButton {
                 background-color: #e0e0e0;
@@ -621,11 +598,14 @@ class AdminScreen(QDialog):
         
         # Apply style to all operation buttons
         for button in [self.insStaff, self.insPat, self.searchStaff, self.searchPatient, 
-                      self.regLocation, self.regAdmission, self.auditLog, self.printAllAdmissions]:
+                    self.regLocation, self.regAdmission, self.auditLog, self.printAllAdmissions]:
             button.setStyleSheet(button_style)
-            button.setMinimumHeight(60)
-            
-        # Style for logout button - same as other buttons now
+            # Make buttons shorter - similar to application screen
+            button.setMinimumSize(220, 60)  # Reduced height from 100 to 60
+            button.setMaximumSize(280, 70)  # Reduced height from 120 to 70
+            button.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        
+        # Style for logout button
         self.logout.setStyleSheet(button_style)
 
     def insertStaffFunction(self):
@@ -1157,7 +1137,6 @@ class InsertStaff(QDialog):
 class InsertPatient(QDialog):
     def __init__(self):
         super(InsertPatient, self).__init__()
-        #loadUi(locate_ui_file("insertpat.ui"), self)  # Load the new UI file
         loadUi("insertpat.ui", self)
         
         # Get screen dimensions
@@ -1168,8 +1147,11 @@ class InsertPatient(QDialog):
         # Set main widget to fill the entire screen
         self.widget.setGeometry(0, 0, screen_width, screen_height)
         
-        # Center the UI elements
-        self.centerUI(screen_width, screen_height)
+        # Reduce the font size of all labels and fields
+        self.applyFontSizes()
+        
+        # Adjust layout proportions and positioning
+        self.adjustLayout(screen_width, screen_height)
         
         # Populate the doctor dropdown
         self.populateDoctors()
@@ -1179,38 +1161,69 @@ class InsertPatient(QDialog):
         self.addPatient.clicked.connect(self.addPatientData)
         
         # Highlight required fields
-        self.firstNameField.setStyleSheet("border: 1px solid red;")
-        self.lastNameField.setStyleSheet("border: 1px solid red;")
+        self.firstNameField.setStyleSheet("border: 1px solid red; font-size: 12pt;")
+        self.lastNameField.setStyleSheet("border: 1px solid red; font-size: 12pt;")
 
-    def centerUI(self, screen_width, screen_height):
-        """Center all UI elements properly"""
-        # Center the title
-        title_width = 1000
-        self.label.setGeometry((screen_width - title_width) // 2, 0, title_width, 120)
+    def applyFontSizes(self):
+        """Apply smaller font sizes to all elements"""
+        # Reduce title font size
+        self.label.setStyleSheet("font: 26pt \"MS Shell Dlg 2\";")
         
-        # Position back button in top left
-        self.back.setGeometry(50, 70, 170, 100)
+        # Reduce required note font size
+        self.requiredNote.setStyleSheet("font: 8pt \"MS Shell Dlg 2\"; color: rgb(255, 0, 0);")
         
-        # Center the required fields note
-        note_width = 1500
-        self.requiredNote.setGeometry((screen_width - note_width) // 2, 100, note_width, 100)
+        # Reduce form field label font sizes
+        for label in self.findChildren(QLabel):
+            if label != self.label and label != self.requiredNote and label != self.errorMsg:
+                label.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
         
-        # Center the grid layout with adequate size
-        grid_width = min(900, screen_width - 100)  # Allow for margins
-        grid_height = min(550, screen_height - 250)  # Allow for header and footer
-        self.gridLayoutWidget.setGeometry((screen_width - 2000) // 2, 170, 2000, grid_height)
+        # Reduce form field font sizes
+        for field in self.findChildren(QLineEdit):
+            field.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+            field.setMaximumHeight(30)  # Reduce height of input fields
         
-        # Center the add patient button
-        button_width = 500
-        button_height = 150
-        button_y = 170 + grid_height + 10  # Position below the grid
-        self.addPatient.setGeometry((screen_width - button_width) // 2, button_y, button_width, button_height)
+        # Reduce combobox font size
+        self.doctorCombo.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.doctorCombo.setMaximumHeight(30)
         
-        # Center the error message label
-        error_width = 600
-        error_y = button_y + button_height + 10
-        self.errorMsg.setGeometry((screen_width - error_width) // 2, error_y, error_width, 75)
-        self.errorMsg.setWordWrap(True)
+        # Reduce button font size
+        self.addPatient.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        self.back.setStyleSheet("font: 12pt \"MS Shell Dlg 2\";")
+        
+        # Set error message font size
+        self.errorMsg.setStyleSheet("font: 12pt \"MS Shell Dlg 2\"; color: rgb(255, 0, 0);")
+
+    def adjustLayout(self, screen_width, screen_height):
+        """Adjust the layout to fit better on screen"""
+        # Center and resize the title
+        self.label.setGeometry((screen_width - 400) // 2, 20, 400, 50)
+        
+        # Position back button in top left corner
+        self.back.setGeometry(20, 20, 100, 30)
+        
+        # Position the required fields note
+        self.requiredNote.setGeometry((screen_width - 400) // 2, 70, 400, 20)
+        
+        # Adjust the grid layout size and position
+        grid_width = min(900, screen_width - 50)
+        grid_height = min(400, screen_height - 200)
+        self.gridLayoutWidget.setGeometry((screen_width - grid_width) // 2, 100, grid_width, grid_height)
+        
+        # Make the grid more compact
+        self.gridLayout.setVerticalSpacing(10)
+        self.gridLayout.setHorizontalSpacing(15)
+        
+        # Center the add patient button and make it smaller
+        button_width = 150
+        button_height = 40
+        self.addPatient.setGeometry((screen_width - button_width) // 2, 
+                                   100 + grid_height + 20, 
+                                   button_width, button_height)
+        
+        # Position error message below the button
+        self.errorMsg.setGeometry((screen_width - 600) // 2, 
+                                 100 + grid_height + 20 + button_height + 10, 
+                                 600, 30)
 
     def populateDoctors(self):
         """Populate the doctor dropdown with physicians from the database"""
@@ -1310,26 +1323,14 @@ class InsertPatient(QDialog):
                 UpdateDB.patientUpdateInsurance(patientID, insurance, accountNumber, groupNumber)
             
             # Display success message
-            self.errorMsg.setStyleSheet("color: green;")
+            self.errorMsg.setStyleSheet("color: green; font: 12pt \"MS Shell Dlg 2\";")
             self.errorMsg.setText(f"Patient {firstName} {lastName} added successfully!")
             
             # Clear the form fields
             self.clearFields()
             
-        except psycopg2.errors.UniqueViolation:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("A database constraint was violated. Please check your data.")
-        except psycopg2.errors.NotNullViolation:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("Missing required information. Please check all required fields.")
-        except psycopg2.errors.ForeignKeyViolation:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("Invalid doctor selection.")
-        except psycopg2.OperationalError:
-            self.errorMsg.setStyleSheet("color: red;")
-            self.errorMsg.setText("Connection to database failed. Please try again later.")
         except Exception as e:
-            self.errorMsg.setStyleSheet("color: red;")
+            self.errorMsg.setStyleSheet("color: red; font: 12pt \"MS Shell Dlg 2\";")
             self.errorMsg.setText(f"Error: {str(e)}")
     
     def clearFields(self):
@@ -1351,34 +1352,22 @@ class InsertPatient(QDialog):
         self.doctorCombo.setCurrentIndex(0)
     
     def goBack(self):
-        # Get the current index
         current_index = widget.currentIndex()
         
-        # Only go back if we're not on the first screen
         if current_index > 0:
-            # Get the current widget and explicitly disconnect any signals
-            # that might be preventing proper event handling
             current_widget = widget.widget(current_index)
             
-            # If this is a tabbed widget, you might need to disconnect tab signals
             if hasattr(current_widget, 'tabs'):
                 try:
-                    # Disconnect any tab signals that might be causing issues
                     current_widget.tabs.currentChanged.disconnect()
                 except TypeError:
-                    # Ignore if no connections exist
                     pass
             
-            # Remove the current widget from stack
             widget.removeWidget(current_widget)
-            
-            # Ensure the widget is properly deleted
             current_widget.deleteLater()
             
-            # Show a debug message to confirm the action is happening
             print(f"Navigating back from index {current_index} to {widget.currentIndex()}")
         else:
-            # We're at the first screen
             print("Already at first screen, cannot go back further")
 
 class RegisterLocation(QDialog):
@@ -1483,9 +1472,9 @@ class RegisterLocation(QDialog):
             error_message = str(e)
             # Check for specific error patterns in the exception message
             if "duplicate key value violates unique constraint" in error_message or "unique_location" in error_message:
-                self.errorMsg.setText("This location already exists. Please try a different combination.")
+                self.errorMsg.setText("This location already exists.")
             elif "not-null constraint" in error_message:
-                self.errorMsg.setText("Missing required information. Please fill all fields.")
+                self.errorMsg.setText("Missing required information.")
             else:
                 self.errorMsg.setText(f"Error: {error_message}")
 
@@ -2165,6 +2154,24 @@ class SearchScreen(QDialog):
                         self.resultsTable.setItem(i, j, item)
                 self.resultsTable.cellDoubleClicked.connect(self.openPatientDetails)
                 
+                                # Set nicer column widths
+                self.resultsTable.setColumnWidth(0, 60)    # ID
+                self.resultsTable.setColumnWidth(1, 150)   # First Name
+                self.resultsTable.setColumnWidth(2, 120)   # Middle Name
+                self.resultsTable.setColumnWidth(3, 150)   # Last Name
+
+                # OR — If you want the columns to automatically stretch to fill space nicely:
+                # from PyQt5 import QtWidgets  <-- Make sure you imported this at the top
+                # header = self.resultsTable.horizontalHeader()
+                # header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+
+                # Set a consistent font size (optional)
+                self.resultsTable.setStyleSheet("font-size: 20px;")
+
+                # Optional: Make the rows a little taller for easier reading
+                self.resultsTable.verticalHeader().setDefaultSectionSize(30)
+
+
                 # Store the data frame for reference
                 self.df = df
 
@@ -4179,7 +4186,7 @@ class PatientDetailsScreen(QDialog):
 
         # Add a close button
         close_button = QPushButton("✕")
-        close_button.setFixedSize(18, 18)
+        close_button.setFixedSize(50, 50)
         close_button.setStyleSheet("""
             QPushButton {
                 border: none;
@@ -4414,7 +4421,7 @@ class PatientDetailsScreen(QDialog):
 
         # Add a close button
         close_button = QPushButton("✕")
-        close_button.setFixedSize(18, 18)
+        close_button.setFixedSize(50, 50)
         close_button.setStyleSheet("""
             QPushButton {
                 border: none;
@@ -5142,6 +5149,7 @@ app.setStyleSheet("""
     }
     QTabBar::tab {
         padding: 6px;
+        min-width: 180px;  /* or bigger if needed */
         margin: 2px;
         border: 1px solid #aaa;
         border-radius: 4px;
@@ -5149,7 +5157,6 @@ app.setStyleSheet("""
     }
     QTabBar::tab:selected {
         background: #dcdcdc;
-        font-weight: bold;
     }
 """)
 if not check_database_exists():
