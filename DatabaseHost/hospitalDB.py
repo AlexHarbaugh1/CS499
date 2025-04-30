@@ -306,7 +306,7 @@ def run():
       params = (keys[0],)*4
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON volunteerview TO volunteer_role;")
-      cursor2.execute("GRANT SELECT (admission_id) ON approvedvisitors TO volunteer_role;")
+      cursor2.execute("GRANT SELECT (admission_id) ON approvedvisitors TO volunteer_role, physician_role, medicalpersonnel_role, officestaff_role;")
       # BillingInformationView for accessing billing information
       cursor2.execute("""CREATE VIEW BillingInformationView AS
                       SELECT 
@@ -673,7 +673,7 @@ def run():
       params = (keys[0],)*27
       cursor2.execute(sql, params)
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO medicalpersonnel_role;")
-      cursor2.execute("GRANT SELECT, DELETE ON approvedvisitors TO medicalpersonnel_role, physician_role, officestaff_role;")
+      cursor2.execute("GRANT SELECT, DELETE, INSERT ON approvedvisitors TO medicalpersonnel_role, physician_role, officestaff_role;")
       cursor2.execute("GRANT SELECT ON patientadmissionoverview TO physician_role;")
       # staffwriteview allows insertion of staff members information
       sql = """CREATE VIEW staffwriteview AS

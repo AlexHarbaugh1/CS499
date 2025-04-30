@@ -810,23 +810,23 @@ class AuditLogScreen(QDialog):
     def centerUI(self, screen_width, screen_height):
         """Center all UI elements properly"""
         # Center the title
-        title_width = 1000
-        self.label.setGeometry((screen_width - title_width) // 2, 20, title_width, 300)
+        title_width = 600
+        self.label.setGeometry((screen_width - title_width) // 2, 70, title_width, 80)
         
         # Position back button in top left
-        self.backTo.setGeometry(50, 70, 120, 100)
+        self.backTo.setGeometry(50, 70, 120, 40)
         
         # Position logout button in top right
-        self.logout.setGeometry(screen_width - 170, 70, 160, 100)
+        self.logout.setGeometry(screen_width - 170, 70, 120, 40)
         
         # Center and resize the filter section
         filter_width = min(1100, screen_width - 100)
-        self.gridLayoutWidget.setGeometry((screen_width - 2000) // 2, 300, 2000, 150)
+        self.gridLayoutWidget.setGeometry((screen_width - filter_width) // 2, 150, filter_width, 80)
         
         # Center and resize the table
         table_width = min(1100, screen_width - 100)
         table_height = min(480, screen_height - 320)
-        self.auditTable.setGeometry((screen_width - 2000) // 2, 500, 2000, table_height)
+        self.auditTable.setGeometry((screen_width - table_width) // 2, 250, table_width, table_height)
         
         # Position export button at bottom right
         self.exportButton.setGeometry(screen_width - 230, screen_height - 60, 180, 40)
@@ -3749,7 +3749,7 @@ class PatientDetailsScreen(QDialog):
                 self.reloadAdmissionDetails()
                 
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to add medication: {str(e)}")
+                QMessageBox.critical(self, "Error", f"Medical Personnel Cannot Add Medications")
                 
         buttons.accepted.connect(handleOk)
         buttons.rejected.connect(dialog.reject)
@@ -3790,7 +3790,7 @@ class PatientDetailsScreen(QDialog):
                 self.reloadAdmissionDetails()
                 
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to add procedure: {str(e)}")
+                QMessageBox.critical(self, "Error", f"Medical Personnel Cannot Add Procedures")
 
         buttons.accepted.connect(handleOk)
         buttons.rejected.connect(dialog.reject)
