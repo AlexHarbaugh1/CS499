@@ -406,7 +406,7 @@ class LoginScreen(QDialog):
          error_width = 400
          self.errorMsg.setGeometry((screen_width - error_width) // 2, 
                                   container_y + 90 + (field_height + spacing) * 2 + 20 + button_height + 20, 
-                                  error_width, 30)
+                                  error_width, 50)
      
     def styleElements(self):
          """Apply consistent styling to all elements"""
@@ -2199,8 +2199,8 @@ class SearchScreen(QDialog):
         self.gridLayoutWidget.setGeometry((screen_width - form_width) // 2, 270, form_width, form_height)
         
         # Center the error message
-        error_width = 300
-        self.error.setGeometry((screen_width - error_width) // 2, 470, error_width, 31)
+        error_width = 200
+        self.error.setGeometry((screen_width - error_width) // 2, 550, error_width, 31)
         
         # Center search button
         search_width = 175
@@ -2213,7 +2213,7 @@ class SearchScreen(QDialog):
         
         # Center the table horizontally
         table_x = (screen_width - table_width) // 2
-        self.resultsTable.setGeometry(table_x, 550, table_width, table_height)
+        self.resultsTable.setGeometry(table_x, 675, table_width, table_height)
         
         # Make columns resize to content
         self.resultsTable.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
